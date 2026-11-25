@@ -558,7 +558,7 @@ namespace Deepbound.UI
             var panel = new Rect(frame.xMax + 18f, frame.y, 240f, frame.height);
             UiSkin.Panel(panel, 0.95f);
             float y = panel.y + 14f;
-            GUI.Label(new Rect(panel.x + 14f, y, panel.width - 28f, 24f), "CASTLE RAVENHOLD", new GUIStyle(UiSkin.Heading) { fontSize = 20 });
+            GUI.Label(new Rect(panel.x + 14f, y, panel.width - 28f, 24f), "CASTLE RAVENHOLD", UiSkin.Derive(UiSkin.Heading, UiSkin.Heading.normal.textColor, fontSize: 20));
             y += 26f;
 
             var blurb = new GUIStyle(UiSkin.Body) { fontStyle = FontStyle.Italic, wordWrap = true };
@@ -630,9 +630,9 @@ namespace Deepbound.UI
             float y = panel.y + 14f;
             var theme = DungeonTheme.ForDepth(layout.Depth);
             string title = "FLOOR " + (layout.Depth + 1);
-            GUI.Label(new Rect(panel.x + 14f, y, panel.width - 28f, 24f), title, new GUIStyle(UiSkin.Heading) { fontSize = 20 });
+            GUI.Label(new Rect(panel.x + 14f, y, panel.width - 28f, 24f), title, UiSkin.Derive(UiSkin.Heading, UiSkin.Heading.normal.textColor, fontSize: 20));
             y += 26f;
-            GUI.Label(new Rect(panel.x + 14f, y, panel.width - 28f, 20f), theme.Name + ": " + DungeonTheme.FloorName(layout.Depth), new GUIStyle(UiSkin.Body) { fontStyle = FontStyle.Italic, wordWrap = true });
+            GUI.Label(new Rect(panel.x + 14f, y, panel.width - 28f, 20f), theme.Name + ": " + DungeonTheme.FloorName(layout.Depth), UiSkin.Derive(UiSkin.Body, UiSkin.Body.normal.textColor, fontStyle: FontStyle.Italic, wrap: true));
             y += 26f;
             int seen = 0;
             foreach (var r in layout.Rooms) if (explored.Contains(r.Id)) seen++;
@@ -730,26 +730,5 @@ namespace Deepbound.UI
             span = Mathf.Max(56f, Mathf.Max(maxX - minX, maxZ - minZ) + 14f);
         }
 
-        private static float MapSpan(DungeonLayout layout)
-        {
-            float minX = float.MaxValue, maxX = float.MinValue, minZ = float.MaxValue, maxZ = float.MinValue;
-            foreach (var r in layout.Rooms)
-            {
-                minX = Mathf.Min(minX, r.Center.x - r.Size.x / 2f); maxX = Mathf.Max(maxX, r.Center.x + r.Size.x / 2f);
-                minZ = Mathf.Min(minZ, r.Center.z - r.Size.y / 2f); maxZ = Mathf.Max(maxZ, r.Center.z + r.Size.y / 2f);
-            }
-            return Mathf.Max(maxX - minX, maxZ - minZ) + 16f;
-        }
-
-        private static Vector3 MapCentre(DungeonLayout layout)
-        {
-            float minX = float.MaxValue, maxX = float.MinValue, minZ = float.MaxValue, maxZ = float.MinValue;
-            foreach (var r in layout.Rooms)
-            {
-                minX = Mathf.Min(minX, r.Center.x - r.Size.x / 2f); maxX = Mathf.Max(maxX, r.Center.x + r.Size.x / 2f);
-                minZ = Mathf.Min(minZ, r.Center.z - r.Size.y / 2f); maxZ = Mathf.Max(maxZ, r.Center.z + r.Size.y / 2f);
-            }
-            return new Vector3((minX + maxX) / 2f, 0f, (minZ + maxZ) / 2f);
-        }
     }
 }

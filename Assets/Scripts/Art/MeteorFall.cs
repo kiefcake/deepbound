@@ -2,11 +2,6 @@ using UnityEngine;
 
 namespace Deepbound.Art
 {
-    /// <summary>
-    /// The meteor itself: a burning, cracked boulder that falls from high and to one side,
-    /// trailing fire and smoke, its light swelling over the target until it lands exactly
-    /// when the server resolves the hit. Purely visual; every peer spawns its own.
-    /// </summary>
     public class MeteorFall : MonoBehaviour
     {
         private static readonly Color Fire = new Color(1f, 0.5f, 0.15f);
@@ -21,7 +16,6 @@ namespace Deepbound.Art
         private bool brokeThrough;
         private float wait;
 
-        /// <param name="startAfter">Seconds before it appears (a second meteor following the first).</param>
         public static void Spawn(Vector3 target, float delay, int seed, float startAfter = 0f)
         {
             var rng = new System.Random(seed);
@@ -29,7 +23,7 @@ namespace Deepbound.Art
             var go = new GameObject("MeteorFall");
             var m = go.AddComponent<MeteorFall>();
             m.to = target;
-            // Underground, it comes through the ceiling: start just below it and break the stone.
+
             float height = 24f;
             if (Physics.Raycast(target + Vector3.up * 0.5f, Vector3.up, out var roof, 30f, ~0, QueryTriggerInteraction.Ignore))
             {
@@ -47,7 +41,7 @@ namespace Deepbound.Art
         private void Build()
         {
             rock = MeshKit.Pivot(transform, "Rock", Vector3.zero);
-            // A lumpy stone: a core ball and a few knuckles, with molten seams between.
+
             MeshKit.Part(rock, "Core", MeshKit.Ball(0.75f, 8, 6), Mat.Rubble, Vector3.zero);
             for (int i = 0; i < 4; i++)
             {
@@ -56,7 +50,6 @@ namespace Deepbound.Art
             }
             var molten = MeshKit.Part(rock, "Molten", MeshKit.Ball(0.82f, 8, 6), Mat.Glow, Vector3.zero, Vector3.zero, new Vector3(0.9f, 1.05f, 0.9f));
             ArtLibrary.SetGlow(molten.GetComponent<Renderer>(), Fire * 1.6f);
-
 
             glow = new GameObject("Glow").AddComponent<Light>();
             glow.transform.SetParent(transform, false);
@@ -85,7 +78,7 @@ namespace Deepbound.Art
                 Vfx.Smoke(hole + Vector3.down * 0.5f, 3, 0.6f, 1.5f);
                 Sfx.Play(Sound.BoneBreak, hole, 0.8f, 0.5f);
             }
-            // Accelerates as it comes down.
+
             transform.position = Vector3.Lerp(from, to, k * k);
             rock.Rotate(new Vector3(260f, 140f, 90f) * Time.deltaTime);
             glow.intensity = Mathf.Lerp(2f, 9f, k);
@@ -93,7 +86,6 @@ namespace Deepbound.Art
 
             if (Time.time >= nextPuff)
             {
-                // A comet's tail of fire: hot puffs shed behind, shrinking and dimming.
                 nextPuff = Time.time + 0.012f;
                 var back = (from - to).normalized;
                 var hot = Random.value < 0.4f ? new Color(1f, 0.85f, 0.4f) : Fire;

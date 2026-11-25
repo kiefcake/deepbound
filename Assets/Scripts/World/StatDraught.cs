@@ -6,13 +6,6 @@ using UnityEngine;
 
 namespace Deepbound.World
 {
-    /// <summary>
-    /// The Draught room's flask (2026-11-12, the user: "a room that spawns ... a potion that for the run permanently
-    /// increases a random stat ... drunk off the ground, so that there can be a decision in the party who should drink
-    /// it, or a solo player will just be rewarded"; asked, "+3": three of Brann's drills in one gulp). It stands on the
-    /// floor in a ring of candles, its colour and its name telling which stat it holds (rolled when the floor is made,
-    /// the same for everyone), so the party can argue over who needs it. One drink, then the flask is empty.
-    /// </summary>
     public class StatDraught : Interactable
     {
         public readonly NetworkVariable<byte> Stat = new NetworkVariable<byte>();
@@ -20,7 +13,6 @@ namespace Deepbound.World
 
         public override float Range => 2f;
 
-        /// <summary>Three drills' worth of each stat (Shop.Drills): the gulp a party should argue over.</summary>
         public static float Amount(StatType s) => s switch
         {
             StatType.HP => 75f, StatType.MP => 36f, StatType.ATT => 6f, StatType.DEF => 6f,
@@ -56,7 +48,6 @@ namespace Deepbound.World
             DrankRpc(who.NetworkObjectId);
         }
 
-        /// <summary>Server, before Spawn: which stat it holds.</summary>
         public void Prepare(StatType s) => Stat.Value = (byte)s;
 
         private Renderer flaskR;
@@ -66,7 +57,7 @@ namespace Deepbound.World
         {
             base.OnNetworkSpawn();
             var c = ColorOf(Kind);
-            // A ring of stubby candles round a round-bellied flask on the bare floor.
+
             for (int i = 0; i < 6; i++)
             {
                 float a = i * Mathf.PI / 3f;
@@ -75,7 +66,7 @@ namespace Deepbound.World
                 var f = MeshKit.Part(transform, "Wick" + i, MeshKit.Ball(0.025f, 5, 4), Mat.Glow, at + Vector3.up * (0.15f + (i % 3) * 0.05f));
                 ArtLibrary.SetGlow(f.GetComponent<Renderer>(), new Color(1f, 0.7f, 0.35f) * 1.4f);
             }
-            // The flask is the draught: its glass glows the stat's colour; drunk, it goes dark.
+
             var flask = MeshKit.Part(transform, "Flask", MeshKit.Lathe("draughtFlask", new[]
             {
                 new Vector2(0.05f, 0f), new Vector2(0.15f, 0.04f), new Vector2(0.18f, 0.16f), new Vector2(0.14f, 0.3f),

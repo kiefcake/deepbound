@@ -6,12 +6,6 @@ using UnityEngine;
 
 namespace Deepbound.World
 {
-    /// <summary>
-    /// The cat goes down the shaft at night, and comes back (2026-10-20, the lore's open thread 4). Now and
-    /// then it is found curled asleep in a side room far below camp. Pet it (F): it purrs, mends whoever
-    /// petted it by <see cref="Mend"/> and lifts their afflictions, then wakes, stretches and slips off into
-    /// the dark. Once per cat.
-    /// </summary>
     public class ShaftCat : Interactable
     {
         public const float Mend = 0.3f, SpawnChance = 0.08f;
@@ -39,7 +33,6 @@ namespace Deepbound.World
             Invoke(nameof(ServerGone), 3.2f);
         }
 
-        /// <summary>Server, for tests.</summary>
         public void ServerDebugUse(PlayerProgress who) => ServerUse(who);
 
         private void ServerGone()
@@ -68,13 +61,12 @@ namespace Deepbound.World
             if (cat == null) return;
             if (wokeAt < 0f)
             {
-                // Asleep: slow breathing, and a pale mote drifting up now and then.
                 body.localScale = new Vector3(1f, 1f + Mathf.Sin(Time.time * 1.8f) * 0.04f, 1f);
                 if (Time.time >= nextMote) { nextMote = Time.time + 1.4f; Vfx.Speck(transform.position + new Vector3(0.12f, 0.35f, 0.08f), new Color(0.9f, 0.85f, 0.7f)); }
                 return;
             }
             float t = Time.time - wokeAt;
-            // Wakes, lifts its head, then trots away and fades into the dark.
+
             head.localRotation = Quaternion.Slerp(head.localRotation, Quaternion.Euler(-15f, 0f, 0f), Time.deltaTime * 4f);
             if (t > 0.6f && t < 0.75f) Sfx.Play(Sound.Meow, transform.position + Vector3.up * 0.3f, 0.6f);
             if (t > 1.2f) cat.localPosition += cat.forward * Time.deltaTime * 2.2f;
@@ -108,10 +100,10 @@ namespace Deepbound.World
                 float a = Mathf.Deg2Rad * (200f + i * 22f);
                 Fur(MeshKit.Part(body, "Tail" + i, MeshKit.Ball(0.026f - i * 0.0012f, 6, 5), Mat.Cloth, new Vector3(Mathf.Cos(a) * 0.16f, -0.04f + i * 0.002f, Mathf.Sin(a) * 0.15f)));
             }
-            // Curled on a pale scrap of sacking (a black cat on black stone would vanish).
+
             var rag = MeshKit.Part(transform, "Sacking", MeshKit.Cylinder(0.42f, 0.4f, 0.03f, 12), Mat.Cloth, new Vector3(0.02f, 0.015f, 0f), new Vector3(0f, 20f, 0f), new Vector3(1.15f, 1f, 0.85f));
             ArtLibrary.Tint(rag.GetComponent<Renderer>(), new Color(0.72f, 0.64f, 0.5f));
-            // A little dust and a cobweb thread on it: it has come a long way down.
+
             var web = MeshKit.Part(body, "Cobweb", MeshKit.Box(new Vector3(0.12f, 0.003f, 0.003f)), Mat.Bone, new Vector3(0f, 0.09f, 0f), new Vector3(0f, 30f, 8f));
             ArtLibrary.Tint(web.GetComponent<Renderer>(), new Color(0.85f, 0.85f, 0.85f, 0.6f));
         }

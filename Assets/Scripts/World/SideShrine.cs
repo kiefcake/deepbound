@@ -10,39 +10,22 @@ using UnityEngine;
 
 namespace Deepbound.World
 {
-    /// <summary>
-    /// The special side rooms (2026-10-20, after The Binding of Isaac's item rooms, beggars and
-    /// challenge rooms). One networked kind per room:
-    /// <list type="bullet">
-    /// <item><b>Pedestal</b> (the Treasury): three relics on pedestals. Every player claims ONE.</item>
-    /// <item><b>Beggar</b>: feed him gold; each coin raises the odds he pays out (a relic, potions,
-    ///   a Sigil or a fat purse), then he is gone.</item>
-    /// <item><b>Bell</b> (the Proving Room): ring it and two waves of the dead pour in; clear them and
-    ///   everyone gets a piece of gear, gold and a Sigil.</item>
-    /// <item><b>Whetstone</b> (the Armoury): every player sharpens their weapon once: a free temper
-    ///   (or embers, at a path choice or the cap).</item>
-    /// <item><b>Mirror</b>: a dark bargain. A relic and gold now, but your reflection keeps a fifth of
-    ///   your health until you leave the floor.</item>
-    /// <item><b>Crucible</b> (2026-11-22): every player may melt their weakest relic once; a different relic comes out a
-    ///   tier higher.</item>
-    /// </list>
-    /// </summary>
     public class SideShrine : Interactable
     {
         public enum Kind : byte { Pedestal = 0, Beggar = 1, Bell = 2, Whetstone = 3, Mirror = 4, Crucible = 5 }
 
         public readonly NetworkVariable<Kind> Type = new NetworkVariable<Kind>();
-        /// <summary>The relic on a pedestal.</summary>
+
         public readonly NetworkVariable<int> Choice = new NetworkVariable<int>();
-        /// <summary>Pedestals of one treasury share a group; each player claims one per group.</summary>
+
         public readonly NetworkVariable<int> Group = new NetworkVariable<int>();
-        /// <summary>Players (by client id bit) who have used this (or this group, for pedestals).</summary>
+
         public readonly NetworkVariable<byte> Used = new NetworkVariable<byte>();
         public readonly NetworkVariable<bool> Spent = new NetworkVariable<bool>();
-        /// <summary>Beggar: coins given so far.</summary>
+
         public readonly NetworkVariable<byte> Coins = new NetworkVariable<byte>();
 
-        public static readonly List<SideShrine> All = new List<SideShrine>();
+        public static new readonly List<SideShrine> All = new List<SideShrine>();
         private Transform gem;
         private Light glow;
         private float spin;
@@ -149,7 +132,7 @@ namespace Deepbound.World
             if (who.Gold.Value < price) { RefuseRpc(who.OwnerClientId, "Not enough gold"); return; }
             who.ServerAddGold(-price);
             Coins.Value++;
-            // Each coin raises the odds: a quarter at first, then +12% a coin.
+
             float chance = 0.25f + 0.12f * (Coins.Value - 1);
             if (Random.value > chance) { FxRpc(3, who.name); return; }
             Spent.Value = true;
@@ -179,7 +162,7 @@ namespace Deepbound.World
                 while (Time.time < until && raised.Exists(b => b != null && !b.IsDead)) yield return new WaitForSeconds(0.4f);
             }
             if (d == null) yield break;
-            // The reward: a piece of gear for everyone, a Sigil and a purse on the floor.
+
             int depth = DungeonDirector.Layout != null ? DungeonDirector.Layout.Depth : 0;
             var rollable = Gear.RollableOf(Random.value < 0.5f ? GearSlot.Armor : GearSlot.Charm);
             foreach (var p in PlayerLife.All)
@@ -281,7 +264,6 @@ namespace Deepbound.World
 
         private Transform vis;
 
-        /// <summary>Any peer: (re)build the look for the current kind (values arrive just after spawn).</summary>
         private void Rebuild()
         {
             if (vis != null) Destroy(vis.gameObject);
@@ -310,7 +292,6 @@ namespace Deepbound.World
                 }
                 case Kind.Beggar:
                 {
-                    // A hunched, hooded figure on a rag, a bowl in front of him.
                     var rag = MeshKit.Part(vis, "BeggarRag", MeshKit.Box(new Vector3(1.4f, 0.03f, 1f)), Mat.Cloth, new Vector3(0f, 0.015f, 0f));
                     ArtLibrary.Tint(rag.GetComponent<Renderer>(), new Color(0.3f, 0.24f, 0.18f));
                     var body = MeshKit.Part(vis, "BeggarBody", MeshKit.Lathe("beggarBody", new[] { new Vector2(0.42f, 0f), new Vector2(0.38f, 0.35f), new Vector2(0.26f, 0.7f), new Vector2(0.12f, 0.85f), new Vector2(0f, 0.88f) }, 9), Mat.Cloth, Vector3.zero, new Vector3(12f, 0f, 0f));
@@ -329,7 +310,6 @@ namespace Deepbound.World
                 }
                 case Kind.Bell:
                 {
-                    // A bronze bell hung from a black timber frame.
                     foreach (float x in new[] { -0.9f, 0.9f }) MeshKit.Part(vis, "Post", MeshKit.Box(new Vector3(0.18f, 2.6f, 0.18f)), Mat.Wood, new Vector3(x, 1.3f, 0f));
                     MeshKit.Part(vis, "Beam", MeshKit.Box(new Vector3(2.1f, 0.2f, 0.22f)), Mat.Wood, new Vector3(0f, 2.55f, 0f));
                     gem = MeshKit.Pivot(vis, "Bell", new Vector3(0f, 2.45f, 0f));
@@ -340,7 +320,6 @@ namespace Deepbound.World
                 }
                 case Kind.Whetstone:
                 {
-                    // A treadle grindstone and a rack of old blades.
                     MeshKit.Part(vis, "Frame", MeshKit.Box(new Vector3(1.1f, 0.7f, 0.5f)), Mat.Wood, new Vector3(0f, 0.35f, 0f));
                     gem = MeshKit.Pivot(vis, "Stone", new Vector3(0f, 0.95f, 0f));
                     MeshKit.Part(gem, "Wheel", MeshKit.Cylinder(0.42f, 0.42f, 0.16f, 16), Mat.StoneWall, Vector3.zero, new Vector3(0f, 0f, 90f));
@@ -351,8 +330,6 @@ namespace Deepbound.World
                 }
                 case Kind.Crucible:
                 {
-                    // A squat iron crucible on three clawed legs over a bed of coals, a pool of molten gold glowing in its
-                    // mouth, a pair of long tongs leaning on it.
                     for (int i = 0; i < 3; i++)
                     {
                         float a = i * 120f * Mathf.Deg2Rad;
@@ -379,7 +356,6 @@ namespace Deepbound.World
                 }
                 case Kind.Mirror:
                 {
-                    // A tall black-framed mirror whose glass shows a violet nothing.
                     MeshKit.Part(vis, "Frame", MeshKit.Box(new Vector3(1.1f, 2.2f, 0.12f)), Mat.Dark, new Vector3(0f, 1.25f, 0f));
                     gem = MeshKit.Pivot(vis, "Glass", new Vector3(0f, 1.25f, 0.07f));
                     var glass = MeshKit.Part(gem, "Pane", MeshKit.Box(new Vector3(0.9f, 1.95f, 0.02f)), Mat.Glow, Vector3.zero);
@@ -392,7 +368,6 @@ namespace Deepbound.World
             foreach (var r in GetComponentsInChildren<Renderer>()) if (r.sharedMaterial != null && r.sharedMaterial.name.Contains("Glow")) r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
         }
 
-        /// <summary>Tests: use it as this player.</summary>
         public void ServerDebugUse(PlayerProgress who) => ServerUse(who);
     }
 

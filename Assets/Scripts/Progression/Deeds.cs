@@ -1,12 +1,8 @@
 using UnityEngine;
+using Deepbound.Core;
 
 namespace Deepbound.Progression
 {
-    /// <summary>
-    /// What this player has done, ever, on this machine: which guardians they have felled, whether
-    /// they have seen the Abyss, how many descents ended badly. The camp's people remember it and
-    /// say so (UI.CampChatter). PlayerPrefs, never touched by tests.
-    /// </summary>
     public static class Deeds
     {
         public enum Deed { Gravewarden = 0, TideLich = 1, HollowKing = 2, Cardinal = 3, Unsung = 4, SawAbyss = 5, FirstRun = 6, Warden = 7,
@@ -14,7 +10,6 @@ namespace Deepbound.Progression
             ThreeEdges = 14, FullyHoned = 15, RelicThree = 16, ExpeditionHome = 17,
             AldousVane = 18, Choirmaster = 19, LairCleared = 20, PitLord = 21 }
 
-        /// <summary>The Hall of Records' list (2026-10-20): every deed with the name it is carved under.</summary>
         public static readonly (Deed deed, string name)[] Listed =
         {
             (Deed.Warden, "Felled a Warden"), (Deed.Gravewarden, "The Gravewarden"), (Deed.TideLich, "The Tide Lich"),
@@ -28,7 +23,6 @@ namespace Deepbound.Progression
 
         public static int ListedDone { get { int n = 0; foreach (var (d, _) in Listed) if (Has(d)) n++; return n; } }
 
-        /// <summary>Record a deed and say so in the feed the first time (for the newer deeds).</summary>
         public static void Earn(Deed d, string name)
         {
             if (Add(d) && !TestMode) UI.GameHud.Feed("DEED - " + name + "  (Hall of Records)", new Color(0.9f, 0.8f, 0.55f));
@@ -44,7 +38,6 @@ namespace Deepbound.Progression
 
         public static bool Has(Deed d) => (Bits & (1 << (int)d)) != 0;
 
-        /// <summary>Record a deed. True if it is new.</summary>
         public static bool Add(Deed d)
         {
             if (Has(d)) return false;
@@ -63,13 +56,13 @@ namespace Deepbound.Progression
         private static int Load(string key)
         {
             if (TestMode) return 0;
-            try { return PlayerPrefs.GetInt(key, 0); } catch { return 0; }
+            try { return Prefs.GetInt(key, 0); } catch { return 0; }
         }
 
         private static void Save(string key, int value)
         {
             if (TestMode) return;
-            try { PlayerPrefs.SetInt(key, value); PlayerPrefs.Save(); } catch { }
+            Prefs.SetInt(key, value); Prefs.Save();
         }
     }
 }

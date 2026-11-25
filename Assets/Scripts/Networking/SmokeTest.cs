@@ -3369,7 +3369,7 @@ namespace Deepbound.Networking
                     boss.ServerEntrance();
                     yield return new WaitForSeconds(0.2f);
                     Log("boss entrance", "held " + boss.InEntrance + ", played " + (BossBrain.EntrancesPlayed - played), boss.InEntrance && BossBrain.EntrancesPlayed > played);
-                    yield return new WaitForSeconds(BossBrain.EntranceSeconds);
+                    yield return new WaitForSeconds(BossBrain.BossEntranceSeconds);
                 }
                 {
                     var ar = layout.BossRoom;
@@ -3662,9 +3662,9 @@ namespace Deepbound.Networking
                     Log("tent games and the cat", "slots " + slotOk + ", blackjack " + bjOk + ", cat " + (catT != null) + ", solid props " + solid, slotOk && bjOk && catT != null && solid > 10);
                     gm.Teleport(Lobby.Origin + Vector3.up * 0.1f, local.transform.rotation);
                 }
-                Log("camp stations", FindObjectsByType<Anvil>(FindObjectsSortMode.None).Length + " anvil, " + FindObjectsByType<DiceTable>(FindObjectsSortMode.None).Length + " dice (none now), " +
+                Log("camp stations", FindObjectsByType<Anvil>(FindObjectsSortMode.None).Length + " anvil, " +
                     FindObjectsByType<MysteryCoffer>(FindObjectsSortMode.None).Length + " coffer, " + FindObjectsByType<Gong>(FindObjectsSortMode.None).Length + " gong",
-                    FindObjectsByType<Anvil>(FindObjectsSortMode.None).Length == 1 && FindObjectsByType<DiceTable>(FindObjectsSortMode.None).Length == 0 && FindObjectsByType<Gong>(FindObjectsSortMode.None).Length == 1);
+                    FindObjectsByType<Anvil>(FindObjectsSortMode.None).Length == 1 && FindObjectsByType<Gong>(FindObjectsSortMode.None).Length == 1);
 
                 {
                     var progress = pc;
@@ -5465,7 +5465,7 @@ namespace Deepbound.Networking
                         }
                         if (fes != null && fes.IsSpawned) fes.NetworkObject.Despawn();
                         Log("festering blight", "stacks " + st1 + " -> " + st4 + ", one second at 1 stack " + oneTick.ToString("F0") + ", at 4 " + fourTick.ToString("F0"),
-                            st1 == 1 && st4 == Health.MaxBlightStacks && fourTick > oneTick * 1.8f);
+                            st1 == 1 && st4 == Health.MaxBlightStacks && fourTick > oneTick * (1f + Health.BlightStackStep * (Health.MaxBlightStacks - 1)) * 0.75f);
                     }
 
                     {

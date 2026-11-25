@@ -8,15 +8,6 @@ using UnityEngine;
 
 namespace Deepbound.World
 {
-    /// <summary>
-    /// The plug in a hollow wall (<see cref="WallHole"/>). Two kinds:
-    /// <list type="bullet">
-    /// <item><b>Secret</b>: cracked, darker masonry with a faint draught whistling through.
-    /// Hit it enough and it crumbles, revealing a cache.</item>
-    /// <item><b>Breach</b>: looks like any other wall. While the party fights in the room it
-    /// rumbles, then bursts — and the dead pour out behind you. It cannot be broken early.</item>
-    /// </list>
-    /// </summary>
     [RequireComponent(typeof(Health))]
     public class CrackedWall : NetworkBehaviour
     {
@@ -42,7 +33,6 @@ namespace Deepbound.World
             health.Died += _ => ServerCrumble();
         }
 
-        /// <summary>Server: the breach goes. Rumbles, then bursts; <paramref name="onBurst"/> spawns the ambush.</summary>
         public void ServerTriggerBreach(Action onBurst)
         {
             if (triggered || broken) return;
@@ -95,7 +85,7 @@ namespace Deepbound.World
         private void Update()
         {
             if (visual == null) return;
-            // Rumbling: the stones shudder and shed dust.
+
             if (Time.time < rumbleUntil)
             {
                 visual.localPosition = new Vector3(UnityEngine.Random.Range(-0.04f, 0.04f), UnityEngine.Random.Range(-0.02f, 0.02f), UnityEngine.Random.Range(-0.05f, 0.05f));
@@ -104,7 +94,6 @@ namespace Deepbound.World
             }
             else visual.localPosition = Vector3.zero;
 
-            // A secret wall breathes: a draught whistles through it when you are close.
             if (!Breach.Value && Time.time >= nextDraught)
             {
                 nextDraught = Time.time + UnityEngine.Random.Range(5f, 9f);
@@ -118,7 +107,7 @@ namespace Deepbound.World
         {
             visual = MeshKit.Pivot(transform, "Visual", Vector3.zero);
             float w = WallHole.Width, h = WallHole.Height;
-            // The plug sits in the wall's thickness, flush with the room face.
+
             var slab = MeshKit.Part(visual, "Slab", MeshKit.Box(new Vector3(w, h, 0.8f)), Mat.StoneWall, new Vector3(0f, h / 2f, 0.4f));
             var r = slab.GetComponent<Renderer>();
             if (Breach.Value)
@@ -127,7 +116,6 @@ namespace Deepbound.World
                 return;
             }
 
-            // Secret: a shade darker, with cracks, a few loose blocks, and moss at the foot.
             ArtLibrary.Tint(r, StoneTint.Value * 0.78f);
             var rng = new System.Random((int)(transform.position.x * 31 + transform.position.z * 17));
             float x = -0.6f, y = 0.4f;

@@ -2,14 +2,8 @@ using UnityEngine;
 
 namespace Deepbound.Art
 {
-    /// <summary>
-    /// Procedural ability effects built from <see cref="Puff"/>s and a few shared shapes:
-    /// expanding rings, ember sprays, smoke, ice spikes. Client-side only — call from FX RPCs.
-    /// </summary>
     public static class Vfx
     {
-        // Spent particles wait here instead of being destroyed: effects fire constantly, and
-        // creating and collecting hundreds of GameObjects a second is what makes frames hitch.
         private static readonly System.Collections.Generic.Stack<Puff> pool = new System.Collections.Generic.Stack<Puff>();
         private const int PoolCap = 400;
 
@@ -69,18 +63,13 @@ namespace Deepbound.Art
         private static Mesh RingMesh => ring ??= MeshKit.Lathe("vfxRing", new[] { new Vector2(0.92f, 0f), new Vector2(1f, 0.03f), new Vector2(0.92f, 0.06f) }, 32, false);
         private static Mesh Spike => spike ??= MeshKit.Lathe("vfxSpike", new[] { new Vector2(0f, 0f), new Vector2(0.18f, 0.05f), new Vector2(0f, 1f) }, 5);
 
-        /// <summary>A flat ring that races outward from a point and fades: shockwaves, novas, cries.</summary>
         public static void Ring(Vector3 at, float radius, Color color, float life = 0.45f)
         {
             Spawn(RingMesh, Mat.Glow, at + Vector3.up * 0.08f, Vector3.zero, life, radius * 0.15f, radius, color * 2f);
-            // A soft textured shock ring racing out under it (Kenney's circle sprite).
+
             FxSprite.Decal("circle_05", at, radius * 0.3f, radius * 2.1f, life * 1.2f, new Color(color.r, color.g, color.b, 0.45f));
         }
 
-        /// <summary>
-        /// A hit landing: a spray of sparks and bone chips thrown out of the struck side (toward
-        /// <paramref name="toward"/>, the attacker), and a puff of grit. Stronger hits throw more.
-        /// </summary>
         public static void HitImpact(Vector3 at, Vector3 toward, float strength, Color spark, string chipMaterial = Mat.Bone)
         {
             strength = Mathf.Clamp01(strength);
@@ -101,11 +90,10 @@ namespace Deepbound.Art
                 chip.transform.rotation = Random.rotation;
             }
             Spawn(Ball, Mat.Rubble, at + n * 0.15f, n * 0.6f + Vector3.up * 0.3f, 0.35f, 0.08f, 0.35f + strength * 0.2f, null, -0.2f, 2f);
-            // A star of light where it lands, gone in a blink.
+
             FxSprite.Billboard(FxSprite.AnyStar, at + n * 0.1f, Vector3.zero, 0.16f, 0.35f, 0.8f + strength * 0.6f, new Color(spark.r, spark.g, spark.b, 1f), Random.Range(-300f, 300f));
         }
 
-        /// <summary>Glowing sparks thrown up and out, falling back under gravity.</summary>
         public static void Embers(Vector3 at, int count, Color color, float speed = 6f, float size = 0.08f, float life = 0.9f)
         {
             for (int i = 0; i < count; i++)
@@ -115,11 +103,9 @@ namespace Deepbound.Art
             }
         }
 
-        /// <summary>A speck of dust turning in a light shaft: slow, faint, drifting.</summary>
         public static void Speck(Vector3 at, Color color) =>
             Spawn(Cube, Mat.Glow, at, Random.insideUnitSphere * 0.12f + Vector3.down * 0.05f, Random.Range(2f, 3.5f), 0.025f, 0f, color * 0.9f, 0f, 0.2f);
 
-        /// <summary>One soft mote drifting up from somewhere around a body (cosmetic auras).</summary>
         public static void Mote(Vector3 feet, Color color)
         {
             float a = Random.value * Mathf.PI * 2f;
@@ -127,7 +113,6 @@ namespace Deepbound.Art
             Spawn(Cube, Mat.Glow, p, Vector3.up * Random.Range(0.3f, 0.6f) + Random.insideUnitSphere * 0.12f, Random.Range(1.2f, 2f), 0.06f, 0f, color * 1.7f, -0.1f, 0.4f);
         }
 
-        /// <summary>A thread of incense: faint pale wisps that curl up, swell and thin away (not grit: see Smoke).</summary>
         public static void Incense(Vector3 at)
         {
             var drift = new Vector3(Random.Range(-0.08f, 0.08f), Random.Range(0.25f, 0.4f), Random.Range(-0.08f, 0.08f));
@@ -137,7 +122,6 @@ namespace Deepbound.Art
             ArtLibrary.Tint(p.GetComponent<Renderer>(), new Color(p.Fade.r, p.Fade.g, p.Fade.b, 0f));
         }
 
-        /// <summary>Dust and grit kicked up and drifting off — small grey motes, rising and dwindling.</summary>
         public static void Smoke(Vector3 at, int count, float spread = 1f, float life = 2.2f)
         {
             count *= 3;
@@ -146,7 +130,7 @@ namespace Deepbound.Art
                 var p = at + new Vector3(Random.Range(-spread, spread), Random.Range(0f, 0.6f), Random.Range(-spread, spread));
                 Spawn(Ball, Mat.Rubble, p, Vector3.up * Random.Range(0.5f, 1.4f) + Random.insideUnitSphere * 0.5f, life * Random.Range(0.4f, 0.8f), Random.Range(0.12f, 0.28f), 0f, null, -0.3f, 1.2f);
             }
-            // Billowing smoke sprites rolling up through the grit.
+
             int clouds = Mathf.Clamp(count / 3, 1, 4);
             for (int i = 0; i < clouds; i++)
             {
@@ -155,12 +139,10 @@ namespace Deepbound.Art
             }
         }
 
-        /// <summary>A blooming fireball that swells and burns out in a moment.</summary>
         public static void Fireball(Vector3 at, float size, Color color)
         {
-            // A white-hot core that pops and is gone...
             Spawn(Ball, Mat.Glow, at, Vector3.up * 1.2f, 0.25f, size * 0.25f, size * 0.7f, Color.Lerp(color, Color.white, 0.45f) * 2f);
-            // ...lumpy billows rolling up and out, cooling from orange to a deep red...
+
             var deep = new Color(color.r * 0.8f, color.g * 0.35f, color.b * 0.2f);
             for (int i = 0; i < 7; i++)
             {
@@ -169,13 +151,12 @@ namespace Deepbound.Art
                 Spawn(Ball, Mat.Glow, at + dir * size * 0.25f + Vector3.up * 0.2f, dir * size * 1.6f + Vector3.up * 2.2f,
                     Random.Range(0.45f, 0.7f), size * 0.25f, size * Random.Range(0.5f, 0.75f), c * 1.5f, 0f, 2.5f);
             }
-            // A licking fire sprite through the billows.
+
             FxSprite.Billboard(Random.value < 0.5f ? "fire_01" : "fire_02", at + Vector3.up * size * 0.2f, Vector3.up * 1.5f, 0.55f, size * 0.6f, size * 1.7f, new Color(color.r, color.g, color.b, 0.8f), Random.Range(-60f, 60f));
-            // ...and a dark cap of smoke climbing after it.
+
             Smoke(at + Vector3.up * size * 0.6f, 2, size * 0.5f, 1.8f);
         }
 
-        /// <summary>A crown of ice spikes bursting from the ground, then melting away.</summary>
         public static void IceSpikes(Vector3 at, float radius, int count = 14)
         {
             var ice = new Color(0.5f, 0.85f, 1f);
@@ -189,12 +170,6 @@ namespace Deepbound.Art
             }
         }
 
-        /// <summary>The floor under a point (for rings and spikes under a body), or the point itself.</summary>
-        /// <summary>
-        /// The walkable floor under <paramref name="p"/> (2026-10-20): prefers the level's own floor
-        /// (structure) to the tops of props and bodies, so ground circles never sit up on a crate or
-        /// a shoulder. Searches from just above down to 3 m below; returns p if nothing is found.
-        /// </summary>
         public static Vector3 Floor(Vector3 p)
         {
             var hits = Physics.RaycastAll(p + Vector3.up * 0.9f, Vector3.down, 4f, ~(1 << 2), QueryTriggerInteraction.Ignore);
@@ -214,9 +189,6 @@ namespace Deepbound.Art
         public static Vector3 Ground(Vector3 p) =>
             Physics.Raycast(p + Vector3.up * 0.2f, Vector3.down, out var hit, 4f, ~(1 << 2), QueryTriggerInteraction.Ignore) ? hit.point : p;
 
-        /// <summary>A short-lived point light that fades out (flashes, explosions).</summary>
-        /// <summary>An ability's flash of light: half the intensity, a shorter reach and a fainter flare than a world flash
-        /// (2026-11-22, the user: "tone the light levels down on ability effects").</summary>
         public static void AbilityFlash(Vector3 at, Color color, float intensity, float range, float life) =>
             Flash(at, color, intensity * 0.45f, range * 0.8f, life, 0.45f);
 
@@ -234,7 +206,7 @@ namespace Deepbound.Art
             l.intensity = intensity;
             l.shadows = LightShadows.None;
             go.AddComponent<FadeLight>().Life = life;
-            // The flash seen, not only lit: a soft flare at its heart.
+
             float flare = Mathf.Clamp(range * 0.26f, 0.6f, 3.5f) * (UI.Settings.ReduceFlashing ? 0.6f : 1f) * Mathf.Lerp(0.7f, 1f, flareScale);
             FxSprite.Billboard("flare_01", at, Vector3.zero, life * 0.7f, flare * 0.6f, flare, new Color(color.r, color.g, color.b, (UI.Settings.ReduceFlashing ? 0.4f : 0.95f) * flareScale), Random.Range(-40f, 40f));
         }

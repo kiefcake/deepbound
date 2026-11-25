@@ -7,12 +7,6 @@ using UnityEngine.AI;
 
 namespace Deepbound.Enemies
 {
-    /// <summary>
-    /// The Bone Hoarder: a gilded skeleton with a sack of stolen gold, met once in a while.
-    /// It never fights. It runs — and every hit knocks coins out of the sack. Corner it and
-    /// kill it for the lot; let it get away and, half a minute after you first spot it, it
-    /// sinks into the floor with everything it carries. A chase, not a fight.
-    /// </summary>
     public class HoarderBrain : EnemyBrain
     {
         public const float EscapeSeconds = 25f;
@@ -21,7 +15,6 @@ namespace Deepbound.Enemies
 
         private float escapeAt = -1f, nextSpill, lastSackHit = -1f;
 
-        /// <summary>Server: the sack was struck (called just before the damage lands).</summary>
         public void ServerSackHit() => lastSackHit = Time.time;
         private bool escaped;
 
@@ -37,14 +30,13 @@ namespace Deepbound.Enemies
             base.OnNetworkDespawn();
         }
 
-        /// <summary>Server, tests: force the Gilded Skull roll.</summary>
         public static bool DebugAlwaysSkull;
 
         protected override void OnDied(Health h)
         {
             bool first = !IsDead;
             base.OnDied(h);
-            // The Gilded Skull lives in its sack and nowhere else (2026-11-13): a kill shakes it loose some of the time.
+
             if (IsServer && first && !escaped && (DebugAlwaysSkull || Random.value < Relics.HoarderSkullChance))
                 World.DungeonDirector.Instance?.ServerDropLoot(transform.position + Vector3.up * 0.6f, LootKind.Relic, (int)Relic.GildedSkull, settle: false);
         }
@@ -53,7 +45,7 @@ namespace Deepbound.Enemies
         {
             if (hit != health || !health.IsAlive || Time.time < nextSpill) return;
             nextSpill = Time.time + 0.35f;
-            // A hit on the sack (its weak point) tears it: a bigger spill.
+
             bool sack = Time.time - lastSackHit < 0.1f;
             World.DungeonDirector.Instance?.ServerDropLoot(transform.position + Vector3.up * 0.6f - transform.forward * 0.4f, LootKind.Gold,
                 Mathf.RoundToInt(Random.Range(6, 12) * (sack ? 3 : 1) * (1f + 0.5f * depthForLoot)));
@@ -62,7 +54,6 @@ namespace Deepbound.Enemies
 
         protected override bool ChooseSpecialAttack(float distanceToTarget)
         {
-            // Spotted: the clock starts.
             if (escapeAt < 0f)
             {
                 escapeAt = Time.time + EscapeSeconds;
@@ -79,7 +70,6 @@ namespace Deepbound.Enemies
                 return true;
             }
 
-            // Run: away from whoever is nearest, sliding sideways off walls.
             agent.isStopped = false;
             var away = transform.position - target.transform.position;
             away.y = 0f;

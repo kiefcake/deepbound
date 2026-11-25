@@ -1,10 +1,10 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.Controls;
+using Deepbound.Core;
 
 namespace Deepbound.UI
 {
-    /// <summary>The rebindable actions. Append only: names are saved.</summary>
     public enum Bind
     {
         MoveForward, MoveBack, MoveLeft, MoveRight, Jump, Sprint, Dodge, Slide,
@@ -13,11 +13,6 @@ namespace Deepbound.UI
         Tool,
     }
 
-    /// <summary>
-    /// Key rebinding (2026-10-20): every gameplay key is read through here, so a player can move any of
-    /// them in Options > Controls. Bindings are saved on this machine (PlayerPrefs). Escape, chat, Alt
-    /// and the developer keys stay where they are.
-    /// </summary>
     public static class Binds
     {
         public static readonly (Bind bind, string label, Key key)[] Defaults =
@@ -43,10 +38,9 @@ namespace Deepbound.UI
                 current = new Key[Defaults.Length];
                 for (int i = 0; i < Defaults.Length; i++)
                 {
-                    // Tests run on the defaults and never read or write the player's bindings.
-                    int saved = Progression.Cosmetics.TestMode ? (int)Defaults[i].key : PlayerPrefs.GetInt("db.bind." + Defaults[i].bind, (int)Defaults[i].key);
-                    // The old talk / trade key (G, until 2026-11-01) joins F: a saved G is the old default, not a choice.
-                    if (Defaults[i].bind == Bind.Interact && saved == (int)Key.G && PlayerPrefs.GetInt("db.bind.fmerge", 0) == 0) saved = (int)Defaults[i].key;
+                    int saved = Progression.Cosmetics.TestMode ? (int)Defaults[i].key : Prefs.GetInt("db.bind." + Defaults[i].bind, (int)Defaults[i].key);
+
+                    if (Defaults[i].bind == Bind.Interact && saved == (int)Key.G && Prefs.GetInt("db.bind.fmerge", 0) == 0) saved = (int)Defaults[i].key;
                     current[i] = System.Enum.IsDefined(typeof(Key), saved) && saved != (int)Key.None ? (Key)saved : Defaults[i].key;
                 }
                 return current;
@@ -55,11 +49,6 @@ namespace Deepbound.UI
 
         public static Key KeyOf(Bind b) => Current[(int)b];
 
-        /// <summary>
-        /// Talk / trade / drag share the use key (play-test 2026-11-01: "change the G interact button to F"). Then one
-        /// press does one thing: what is under the crosshair first, then a downed ally (tap drags, hold revives), the
-        /// carriage, then the stall or anvil you stand at. Shift + F takes gear into the pack and picks up the cat.
-        /// </summary>
         public static bool Merged => KeyOf(Bind.Use) == KeyOf(Bind.Interact);
 
         private static KeyControl Control(Bind b)
@@ -79,9 +68,6 @@ namespace Deepbound.UI
         }
         public static bool Held(Bind b) { var c = Control(b); var p = Pad(b); return !Locked(b) && ((c != null && c.isPressed) || (p != null && p.isPressed) || BotPressedNow(b)); }
 
-        // ---- The autoplay bot's hands (2026-11-03). Input events are dropped in a window without focus whatever the input
-        // settings say: in a four-bot party only the focused bot could act, the rest stood there unnoticed for whole floors.
-        // So a bot does not go through the input system at all; it presses here, where every kit reads its controls. ----
         private static readonly System.Collections.Generic.Dictionary<Bind, int> botPressFrame = new System.Collections.Generic.Dictionary<Bind, int>();
         private static int botPrimaryFrame = -1, botSecondaryFrame = -1;
         public static bool BotPrimary { get; private set; }
@@ -89,12 +75,10 @@ namespace Deepbound.UI
 
         private static bool BotPressedNow(Bind b) => botPressFrame.Count > 0 && botPressFrame.TryGetValue(b, out int f) && f == Time.frameCount;
 
-        /// <summary>A tap, seen by next frame's Updates (bots run in coroutines, after this frame's).</summary>
         public static void BotPress(Bind b) => botPressFrame[b] = Time.frameCount + 1;
         public static void BotSetPrimary(bool on) { if (on && !BotPrimary) botPrimaryFrame = Time.frameCount + 1; BotPrimary = on; }
         public static void BotSetSecondary(bool on) { if (on && !BotSecondary) botSecondaryFrame = Time.frameCount + 1; BotSecondary = on; }
 
-        /// <summary>Set by the local player's afflictions: true while Q, E and the ultimate are SILENCED.</summary>
         public static System.Func<bool> AbilityLock;
         private static bool Locked(Bind b) => (b == Bind.AbilityQ || b == Bind.AbilityE || b == Bind.Ultimate) && AbilityLock != null && AbilityLock();
         private static float lockedPressAt = -10f;
@@ -103,18 +87,11 @@ namespace Deepbound.UI
             if (Time.unscaledTime - lockedPressAt < 0.4f) return;
             lockedPressAt = Time.unscaledTime;
             Art.Sfx.Play2D(Art.Sound.UiError, 0.5f);
-            // The dimmed, crossed slots and the error note say it; the words only the first time (show, don't tell).
+
             if (GameHud.FirstTime("silencedpress")) GameHud.Feed("SILENCED - your abilities return in a moment (Holy Water lifts it)", Enemies.CantorBrain.HushColor);
         }
         public static bool Up(Bind b) { var c = Control(b); var p = Pad(b); return (c != null && c.wasReleasedThisFrame) || (p != null && p.wasReleasedThisFrame); }
 
-        // ---- Gamepad (2026-10-20): play with a pad; menus use UI/PadCursor (stick = pointer, A = click) ----
-        //   left stick move, right stick look, A jump, B dodge (slide at a sprint), X use, Y talk/trade,
-        //   LB / RB abilities, RT attack, LT secondary (block, frostbolt, beam...), L3 sprint (toggle),
-        //   R3 kick, d-pad up ultimate, left health potion, right mana potion, down holy water,
-        //   View the map, Start pauses.
-
-        /// <summary>The pad button for an action, or null (unmapped, or no pad).</summary>
         public static ButtonControl Pad(Bind b)
         {
             var g = Gamepad.current;
@@ -137,10 +114,8 @@ namespace Deepbound.UI
             }
         }
 
-        /// <summary>True while the pad is what you last played with: hints name pad buttons.</summary>
         public static bool PadActive { get; private set; }
 
-        /// <summary>Each frame (the local motor): which device did the player last touch?</summary>
         public static void Tick()
         {
             var g = Gamepad.current;
@@ -173,10 +148,9 @@ namespace Deepbound.UI
             }
         }
 
-        /// <summary>The main attack: left mouse or the right trigger.</summary>
         public static bool PrimaryHeld => BotPrimary || (Mouse.current != null && Mouse.current.leftButton.isPressed) || (Gamepad.current != null && Gamepad.current.rightTrigger.isPressed);
         public static bool PrimaryDown => botPrimaryFrame == Time.frameCount || (Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame) || (Gamepad.current != null && Gamepad.current.rightTrigger.wasPressedThisFrame);
-        /// <summary>The secondary: right mouse or the left trigger.</summary>
+
         public static bool SecondaryHeld => BotSecondary || (Mouse.current != null && Mouse.current.rightButton.isPressed) || (Gamepad.current != null && Gamepad.current.leftTrigger.isPressed);
         public static bool SecondaryDown => botSecondaryFrame == Time.frameCount || (Mouse.current != null && Mouse.current.rightButton.wasPressedThisFrame) || (Gamepad.current != null && Gamepad.current.leftTrigger.wasPressedThisFrame);
         public static bool PadSprintDown => Gamepad.current != null && Gamepad.current.leftStickButton.wasPressedThisFrame;
@@ -189,17 +163,15 @@ namespace Deepbound.UI
             {
                 if (Gamepad.current == null) return Vector2.zero;
                 var v = Gamepad.current.rightStick.ReadValue();
-                // A gentle curve: fine aim near the centre, a fast turn at full tilt.
+
                 return v * v.magnitude;
             }
         }
 
-        /// <summary>Set a binding. A key already used elsewhere swaps over, so nothing is left unbound.</summary>
         public static void Set(Bind b, Key k)
         {
             var cur = Current;
-            // Use and Interact share a key by design: moving Use takes Interact along while they are together;
-            // moving Interact on its own splits them.
+
             bool pair = b == Bind.Use || b == Bind.Interact;
             Bind other = b == Bind.Use ? Bind.Interact : Bind.Use;
             bool together = b == Bind.Use && Merged;
@@ -208,25 +180,24 @@ namespace Deepbound.UI
             cur[(int)b] = k;
             Save(b, k);
             if (together) { cur[(int)other] = k; Save(other, k); }
-            if (!Progression.Cosmetics.TestMode) PlayerPrefs.Save();
+            if (!Progression.Cosmetics.TestMode) Prefs.Save();
         }
 
         private static void Save(Bind b, Key k)
         {
             if (Progression.Cosmetics.TestMode) return;
-            PlayerPrefs.SetInt("db.bind." + b, (int)k);
-            if (b == Bind.Interact) PlayerPrefs.SetInt("db.bind.fmerge", 1);
+            Prefs.SetInt("db.bind." + b, (int)k);
+            if (b == Bind.Interact) Prefs.SetInt("db.bind.fmerge", 1);
         }
 
         public static void ResetAll()
         {
             current = null;
             if (Progression.Cosmetics.TestMode) return;
-            for (int i = 0; i < Defaults.Length; i++) PlayerPrefs.DeleteKey("db.bind." + Defaults[i].bind);
-            PlayerPrefs.Save();
+            for (int i = 0; i < Defaults.Length; i++) Prefs.DeleteKey("db.bind." + Defaults[i].bind);
+            Prefs.Save();
         }
 
-        /// <summary>A short label for a key, as the HUD shows it ("Q", "SPACE", "CTRL", "1").</summary>
         public static string Label(Key k)
         {
             switch (k)
@@ -246,17 +217,14 @@ namespace Deepbound.UI
 
         public static string Label(Bind b) => Label(KeyOf(b));
 
-        /// <summary>The bind a default key letter stands for in a hint ("G", "F", "Q"...), or null.</summary>
         public static Bind? ForDefaultLabel(string label)
         {
             foreach (var (bind, _, key) in Defaults) if (string.Equals(Label(key), label, System.StringComparison.OrdinalIgnoreCase)) return bind;
             return null;
         }
 
-        /// <summary>True once anything differs from the defaults (hint text is only rewritten then).</summary>
         public static bool AnyChanged { get { for (int i = 0; i < Defaults.Length; i++) if (Current[i] != Defaults[i].key) return true; return false; } }
 
-        /// <summary>A default key label as it is bound now: Show("G") is "G" until Interact moves.</summary>
         public static string Show(string defaultLabel)
         {
             if (string.IsNullOrEmpty(defaultLabel)) return defaultLabel;
@@ -268,16 +236,11 @@ namespace Deepbound.UI
             return Label(b.Value);
         }
 
-        /// <summary>The live label for an action: the pad button while the pad is in use, else the key.</summary>
         public static string Live(Bind b) => PadActive && PadLabel(b) != null ? PadLabel(b) : Label(b);
 
         private static readonly System.Text.RegularExpressions.Regex HintKey =
             new System.Text.RegularExpressions.Regex(@"(?<=^|\n|\u00b7  |   |, |/ )(Q|E|R|F|G|V|M|Z|H|I|X|B|T|Tab|TAB|CTRL|Shift|SHIFT|Space|SPACE|[1-4])(?=  | / | [a-z]| \(|$)", System.Text.RegularExpressions.RegexOptions.Multiline);
 
-        /// <summary>
-        /// Rewrites the key names in a fixed hint ("Q  Blink", "F   Pick up") to the current
-        /// bindings. Leaves the text alone while nothing is rebound.
-        /// </summary>
         private static readonly System.Text.RegularExpressions.Regex BracketKey =
             new System.Text.RegularExpressions.Regex(@"\((Q|E|R|F|G|V|M|Z|H|I|X|B|T|Tab|TAB|Ctrl|CTRL|Shift|SHIFT|Space|SPACE|[1-4])\)");
 
@@ -285,7 +248,7 @@ namespace Deepbound.UI
         {
             if (string.IsNullOrEmpty(text) || (!AnyChanged && !PadActive)) return text;
             text = HintKey.Replace(text, m => Show(m.Value));
-            // Prose names keys in brackets: "KICK it (V)", "Holy Water (4)".
+
             text = BracketKey.Replace(text, m => "(" + Show(m.Groups[1].Value) + ")");
             return text.Replace("WASD", Label(Bind.MoveForward) + Label(Bind.MoveLeft) + Label(Bind.MoveBack) + Label(Bind.MoveRight));
         }

@@ -8,24 +8,15 @@ using UnityEngine;
 
 namespace Deepbound.World
 {
-    /// <summary>
-    /// Breakable dungeon dressing with something inside: clay urns (gold, sometimes a
-    /// potion) and powder barrels (they explode — hurting enemies and careless players
-    /// alike, and setting off other barrels nearby).
-    /// </summary>
     [RequireComponent(typeof(Health))]
     public class Breakable : NetworkBehaviour
     {
-        /// <summary>Append only (synced). 2026-11-08 interactables: OilJar (spills a slick), CrackedPillar (topples away
-        /// from whoever breaks it, crushing a lane), FireBowl (tips over: burning coals that light oil).</summary>
         public enum Kind : byte { Urn, PowderBarrel, RitualBrazier, SoulLantern, HealPylon, GreatUrn, OilJar, CrackedPillar, FireBowl, Crate, Cask, BoneHeap }
 
-        /// <summary>The small smashables (2026-11-12, the user: "more breakable objects into the dungeon, and in spawn"):
-        /// one blow, a pinch of the urn's loot below (none at camp, where they are only for the joy of it).</summary>
         public static bool Smashable(Kind k) => k == Kind.Urn || k == Kind.Crate || k == Kind.Cask || k == Kind.BoneHeap;
 
         public readonly NetworkVariable<Kind> Type = new NetworkVariable<Kind>();
-        /// <summary>A great urn takes a few blows (plus 12 a tier).</summary>
+
         public const float GreatUrnHealth = 36f;
         [SerializeField] private NetworkObject lootPrefab;
 
@@ -37,12 +28,10 @@ namespace Deepbound.World
 
         private void Awake() => health = GetComponent<Health>();
 
-        /// <summary>Live heal pylons (the HUD marks them).</summary>
         public static readonly System.Collections.Generic.List<Breakable> Pylons = new System.Collections.Generic.List<Breakable>();
         public bool IsPylon => Type.Value == Kind.HealPylon;
         public Health Health => health;
 
-        /// <summary>Synced: is it pouring health into the boss right now (the beam, the HUD warning)?</summary>
         public readonly NetworkVariable<bool> Feeding = new NetworkVariable<bool>();
 
         public override void OnNetworkDespawn() { Pylons.Remove(this); base.OnNetworkDespawn(); }
@@ -79,15 +68,10 @@ namespace Deepbound.World
                 : Type.Value == Kind.HealPylon ? (140f + 70f * tier) * (1f + 0.4f * (players - 1)) : 10f, refill: true);
             health.Died += _ => ServerBreak();
             health.DamagedServer += (lost, by) => lastHitBy = by;
-            // A pylon that is being struck stops pouring for a moment: attacking it pays off at once.
+
             if (Type.Value == Kind.HealPylon) health.DamagedServer += (lost, by) => stunnedUntil = Time.time + PylonHitPause;
         }
 
-        /// <summary>
-        /// A pylon pours this fraction of the boss's health back into it every second (2026-10-24, the user: "a boss
-        /// that heals from pillars" - three or four at 0.8% each healed faster than a party could hurt it), and
-        /// stops for <see cref="PylonHitPause"/> s whenever it is hit.
-        /// </summary>
         public const float PylonHeal = 0.0035f, PylonHitPause = 4f, PylonRange = 26f;
         private float stunnedUntil;
         private Transform beam;
@@ -97,7 +81,7 @@ namespace Deepbound.World
         {
             if (Type.Value != Kind.HealPylon || broken) return;
             var boss = Enemies.BossBrain.Active;
-            // Only the arena's own boss, and only in reach (2026-11-19: a far-off lair keeper was being healed by them).
+
             bool feeding = IsServer ? boss != null && !boss.IsDead && !boss.Dormant && !(boss is Enemies.LairBrain)
                 && (boss.transform.position - transform.position).sqrMagnitude <= PylonRange * PylonRange
                 && boss.Health.Fraction < 0.999f && Time.time >= stunnedUntil : Feeding.Value;
@@ -107,7 +91,7 @@ namespace Deepbound.World
                 nextPylonTick = Time.time + 0.5f;
                 boss.Health.ServerHeal(boss.Health.Max.Value * PylonHeal * 0.5f);
             }
-            // The beam: a thin green-gold line from the crystal to the boss's chest, pulsing.
+
             if (beam == null)
             {
                 beam = MeshKit.Part(transform, "PylonBeam", MeshKit.Box(new Vector3(0.06f, 0.06f, 1f)), Mat.Glow, Vector3.zero).transform;
@@ -127,7 +111,6 @@ namespace Deepbound.World
         private ulong lastHitBy = ulong.MaxValue;
         public const float PillarHealth = 90f, PillarLength = 5.2f, PillarWidth = 1.7f, PillarWarn = 0.6f;
 
-        /// <summary>Server: the way from whoever struck last to this (a pillar falls that way, a fire bowl tips that way).</summary>
         private Vector3 AwayFromHitter()
         {
             Vector3 dir = Vector3.zero;
@@ -144,7 +127,6 @@ namespace Deepbound.World
             broken = true;
             if (Type.Value == Kind.OilJar)
             {
-                // The slick lights at once if fire is already beside it.
                 bool fire = OilSlick.BurningAt(transform.position);
                 DungeonDirector.Instance?.ServerSpawnOil(transform.position, fire, lastHitBy);
                 OilJarFxRpc();
@@ -153,7 +135,6 @@ namespace Deepbound.World
             }
             if (Type.Value == Kind.FireBowl)
             {
-                // Tipped over: the coals spill a pace away from the blow, burning, lighting any oil they reach.
                 var dir = AwayFromHitter();
                 var at = transform.position + dir * 1.1f;
                 DungeonDirector.Instance?.ServerSpawnOil(at, true, lastHitBy, coals: true);
@@ -184,7 +165,6 @@ namespace Deepbound.World
             }
             if (Type.Value == Kind.SoulLantern)
             {
-                // The souls go free: the party is mended, the dead nearby reel.
                 var at = transform.position + Vector3.up;
                 foreach (var ally in CombatQuery.Circle(at, 6f, Team.Players).ToArray()) ally.ServerHeal(ally.Max.Value * 0.25f);
                 foreach (var foe in CombatQuery.Circle(at, 6f, Team.Enemies).ToArray())
@@ -195,7 +175,6 @@ namespace Deepbound.World
             }
             if (Type.Value == Kind.GreatUrn)
             {
-                // A great urn (2026-11-07, the user: "bigger breakable vases with more loot"): a grave-goods jar.
                 float tier = DungeonDirector.Tier(DungeonDirector.Layout != null ? DungeonDirector.Layout.Depth : 0);
                 LootDrop.ServerSpawnFromTable(lootPrefab, LootTable.GreatUrn, transform.position + Vector3.up * 0.4f, 1f + 0.4f * tier, Enemies.Difficulty.FixedLootShare(Enemies.Difficulty.Party));
                 BreakFxRpc();
@@ -229,7 +208,7 @@ namespace Deepbound.World
         private void Explode()
         {
             var at = transform.position + Vector3.up * 0.5f;
-            // Enemies (and other barrels, and urns) and players are all caught.
+
             foreach (var h in CombatQuery.Circle(at, BlastRadius, Team.Enemies).ToArray())
             {
                 if (h == health) continue;
@@ -282,12 +261,11 @@ namespace Deepbound.World
                 else if (h.Team == Team.Props && h.TryGetComponent<Breakable>(out var other) && other.Type.Value != Kind.CrackedPillar)
                     h.ServerDamage(999f, from, lastHitBy);
             }
-            // Oil in its path splashes alight if anything was burning; the crash itself sparks none.
+
             PillarRubbleRpc(dir);
             ServerRubble(dir);
         }
 
-        /// <summary>Every peer: the column lies where it fell (a low wall: cover from shots, a barrier the dead walk round).</summary>
         [Rpc(SendTo.ClientsAndHost)]
         private void PillarRubbleRpc(Vector3 dir)
         {
@@ -300,7 +278,6 @@ namespace Deepbound.World
             fallen.position = at;
             for (int i = 0; i < 4; i++)
             {
-                // Four drums of the column, a little askew, rolled out along the fall.
                 var drum = MeshKit.Part(fallen, "Drum" + i, MeshKit.Cylinder(0.46f, 0.46f, 1.05f, 10), Mat.StoneWall,
                     new Vector3(Random.Range(-0.12f, 0.12f), 0.44f, 0.6f + i * 1.15f), new Vector3(90f, 0f, Random.Range(-8f, 8f)));
                 drum.transform.localPosition += new Vector3(0f, 0f, -0.52f);
@@ -319,7 +296,6 @@ namespace Deepbound.World
             UI.GameHud.ShowCombo(at + dir * 2.5f + Vector3.up * 1.5f, "CRUSHED", new Color(0.85f, 0.8f, 0.7f));
         }
 
-        /// <summary>Server: the dead path round the fallen column.</summary>
         private void ServerRubble(Vector3 dir)
         {
             var obstacle = new GameObject("RubbleObstacle").AddComponent<UnityEngine.AI.NavMeshObstacle>();
@@ -419,7 +395,6 @@ namespace Deepbound.World
             BoneBurst.Spawn(at, 1.2f, false, Mat.Wood);
         }
 
-        /// <summary>A downloaded model in place of the code-built one (2026-11-20; null when missing, then the old build runs).</summary>
         private Transform Model(string slug, float height)
         {
             float yaw = (NetworkObjectId * 73) % 360;
@@ -433,8 +408,6 @@ namespace Deepbound.World
 
         private void BuildVisual()
         {
-            // Downloaded CC0 models first (2026-11-20, the user: "replace all poorly code generated assets with ones
-            // downloaded if available in the same look"); the code-built versions below stay as the fallback.
             uint pick = (uint)NetworkObjectId;
             switch (Type.Value)
             {
@@ -446,7 +419,6 @@ namespace Deepbound.World
                     break;
                 case Kind.Urn:
                 {
-                    // The glazed vases come clean and white: fired clay, aged, suits the dungeon better.
                     var urns = new[] { "ceramic_vase_01", "ceramic_vase_02", "ceramic_vase_04", "planter_pot_clay" };
                     var m = Model(urns[pick % 4], 0.95f + (pick % 3) * 0.12f);
                     if (m != null)
@@ -458,7 +430,6 @@ namespace Deepbound.World
                 }
                 case Kind.GreatUrn:
                 {
-                    // Chest high, darker glaze and a red wax seal: grave goods, not a kitchen pot.
                     var m = Model("antique_ceramic_vase_01", 1.7f);
                     if (m != null)
                     {
@@ -469,7 +440,6 @@ namespace Deepbound.World
                 }
                 case Kind.OilJar:
                 {
-                    // Black-glazed and weeping oil, with a dark stain round its foot and a painted flame: this one burns.
                     var m = Model("ceramic_vase_03", 0.9f);
                     if (m != null)
                     {
@@ -485,7 +455,6 @@ namespace Deepbound.World
                 }
                 case Kind.PowderBarrel:
                 {
-                    // A real barrel with a red warning band and a lit fuse on the lid.
                     var m = Model("wine_barrel_01", 1f);
                     if (m != null)
                     {
@@ -502,7 +471,6 @@ namespace Deepbound.World
             }
             if (Type.Value == Kind.Crate)
             {
-                // A plank crate: boards, a frame of darker battens, a cross brace on the faces.
                 float s = 0.62f + (NetworkObjectId % 3) * 0.06f;
                 var dark = new Color(0.32f, 0.22f, 0.13f);
                 MeshKit.Part(transform, "Box", MeshKit.Box(Vector3.one * s), Mat.Wood, Vector3.up * s / 2f);
@@ -519,8 +487,6 @@ namespace Deepbound.World
             }
             if (Type.Value == Kind.Cask)
             {
-                // A plain wine cask (no red band: that is the powder barrel): coopered staves, three riveted hoops, a planked lid
-                // (2026-11-13 asset pass), merged so the detail costs a renderer or two.
                 World.Props.StavedBarrel((mesh, mat, pos, yaw) => MeshKit.Part(transform, "Cask", mesh, mat, pos, new Vector3(0f, yaw, 0f)),
                     0.85f, 0.27f, 0.35f, new[] { 0.14f, 0.5f, 0.86f }, (int)NetworkObjectId);
                 MeshKit.MergeParts(transform);
@@ -528,10 +494,8 @@ namespace Deepbound.World
             }
             if (Type.Value == Kind.BoneHeap)
             {
-                // A heap of old bones with a skull on top: the leavings of something.
                 var rng = new System.Random((int)NetworkObjectId);
-                // 2026-11-20 visual pass: a real heap (it was nine thin sticks): thicker long bones with knobbed ends piled high,
-                // a broken ribcage, and a second skull half buried.
+
                 var tones = new[] { new Color(0.82f, 0.77f, 0.66f), new Color(0.7f, 0.64f, 0.53f), new Color(0.6f, 0.55f, 0.45f) };
                 for (int i = 0; i < 15; i++)
                 {
@@ -544,7 +508,7 @@ namespace Deepbound.World
                     ArtLibrary.Tint(MeshKit.Part(bone, "Knob", MeshKit.Ball(0.045f, 6, 4), Mat.Bone, Vector3.zero).GetComponent<Renderer>(), tone);
                     ArtLibrary.Tint(MeshKit.Part(bone, "Knob", MeshKit.Ball(0.04f, 6, 4), Mat.Bone, Vector3.up * len).GetComponent<Renderer>(), tone);
                 }
-                // A broken ribcage on its side.
+
                 for (int k = 0; k < 4; k++)
                     ArtLibrary.Tint(MeshKit.Part(transform, "Rib", MeshKit.Lathe("heapRib", new[] { new Vector2(0.14f, 0f), new Vector2(0.155f, 0.012f), new Vector2(0.14f, 0.024f) }, 8, true, 200f), Mat.Bone,
                         new Vector3(-0.22f + k * 0.05f, 0.12f, -0.12f), new Vector3(80f, 30f, 0f)).GetComponent<Renderer>(), tones[1]);
@@ -556,7 +520,6 @@ namespace Deepbound.World
             }
             if (Type.Value == Kind.SoulLantern)
             {
-                // An iron post with a cage at the top, a pale soul-light trapped inside.
                 var soul = new Color(0.7f, 0.9f, 1f);
                 MeshKit.Part(transform, "Post", MeshKit.Cylinder(0.04f, 0.05f, 1.7f, 6), Mat.Steel, Vector3.zero);
                 MeshKit.Part(transform, "Foot", MeshKit.Cylinder(0.22f, 0.25f, 0.08f, 8), Mat.Steel, Vector3.zero);
@@ -579,7 +542,6 @@ namespace Deepbound.World
             }
             if (Type.Value == Kind.RitualBrazier)
             {
-                // A black iron brazier on a bone tripod, burning violet: smash it.
                 var violet = new Color(0.7f, 0.3f, 1f);
                 for (int i = 0; i < 3; i++)
                     MeshKit.Part(transform, "Leg" + i, MeshKit.Box(new Vector3(0.08f, 1.1f, 0.08f)), Mat.Bone,
@@ -606,7 +568,6 @@ namespace Deepbound.World
             }
             if (Type.Value == Kind.HealPylon)
             {
-                // A black stone obelisk with a green-gold crystal on top, humming.
                 MeshKit.Part(transform, "Obelisk", MeshKit.Lathe("pylon", new[] { new Vector2(0.5f, 0f), new Vector2(0.42f, 0.3f), new Vector2(0.3f, 2f), new Vector2(0.12f, 2.25f), new Vector2(0f, 2.3f) }, 6), Mat.Dark, Vector3.zero);
                 var crystal = MeshKit.Part(transform, "PylonCrystal", MeshKit.Lathe("pylonCrystal", new[] { new Vector2(0f, -0.25f), new Vector2(0.18f, 0f), new Vector2(0f, 0.3f) }, 6), Mat.Glow, Vector3.up * 2.55f);
                 ArtLibrary.SetGlow(crystal.GetComponent<Renderer>(), new Color(0.5f, 1f, 0.55f) * 1.4f);
@@ -627,7 +588,6 @@ namespace Deepbound.World
             }
             if (Type.Value == Kind.GreatUrn)
             {
-                // A tall grave-goods jar, chest high: dark glaze, a gilt band and a painted skull, wax-sealed lid.
                 var jar = MeshKit.Pivot(transform, "Vase", Vector3.zero);
                 jar.localScale = Vector3.one * 2.6f;
                 var body = MeshKit.Part(jar, "Urn", MeshKit.Lathe("greatUrn", new[]
@@ -640,7 +600,7 @@ namespace Deepbound.World
                 ArtLibrary.Tint(gilt.GetComponent<Renderer>(), new Color(0.75f, 0.55f, 0.22f));
                 var foot = MeshKit.Part(jar, "Foot", MeshKit.Cylinder(0.205f, 0.205f, 0.03f, 14), Mat.Gold, new Vector3(0f, 0.04f, 0f));
                 ArtLibrary.Tint(foot.GetComponent<Renderer>(), new Color(0.6f, 0.44f, 0.18f));
-                // A bone-white skull painted on the shoulder, front and back.
+
                 foreach (float s in new[] { -1f, 1f })
                 {
                     var skull = MeshKit.Part(jar, "Skull", MeshKit.Ball(0.05f, 8, 6), Mat.Bone, new Vector3(0f, 0.46f, s * 0.215f), Vector3.zero, new Vector3(1f, 1f, 0.35f));
@@ -653,7 +613,6 @@ namespace Deepbound.World
             }
             if (Type.Value == Kind.OilJar)
             {
-                // A squat black-glazed jar with a stoppered neck, oil weeping down its side and a dark stain round its foot.
                 var jar = MeshKit.Pivot(transform, "Vase", Vector3.zero);
                 jar.localScale = Vector3.one * 1.5f;
                 var body = MeshKit.Part(jar, "Jar", MeshKit.Lathe("oilJar", new[]
@@ -668,14 +627,13 @@ namespace Deepbound.World
                 ArtLibrary.SetGlow(drip.GetComponent<Renderer>(), new Color(0.6f, 0.45f, 0.15f) * 0.25f);
                 var stain = MeshKit.Part(transform, "Stain", MeshKit.Cylinder(0.55f, 0.55f, 0.008f, 12), Mat.Dark, new Vector3(0.1f, 0.01f, 0.1f));
                 ArtLibrary.Tint(stain.GetComponent<Renderer>(), new Color(0.05f, 0.04f, 0.03f));
-                // A painted flame on the shoulder: this one burns.
+
                 var mark = MeshKit.Part(jar, "FlameMark", MeshKit.Box(new Vector3(0.08f, 0.1f, 0.01f)), Mat.Glow, new Vector3(0f, 0.3f, -0.275f));
                 ArtLibrary.SetGlow(mark.GetComponent<Renderer>(), new Color(1f, 0.45f, 0.1f) * 0.6f);
                 return;
             }
             if (Type.Value == Kind.FireBowl)
             {
-                // An iron fire bowl on three legs, coals glowing: knock it over and they spill.
                 for (int i = 0; i < 3; i++)
                     MeshKit.Part(transform, "Leg" + i, MeshKit.Box(new Vector3(0.06f, 0.95f, 0.06f)), Mat.Steel,
                         Quaternion.Euler(0f, i * 120f, 0f) * new Vector3(0f, 0.47f, 0.24f), new Vector3(-12f, i * 120f, 0f));
@@ -690,7 +648,6 @@ namespace Deepbound.World
             }
             if (Type.Value == Kind.CrackedPillar)
             {
-                // A stone column with a crack climbing it and fallen grit at its foot: it will not take many blows.
                 var col = MeshKit.Pivot(transform, "Column", Vector3.zero);
                 MeshKit.Part(col, "Base", MeshKit.Box(new Vector3(1.1f, 0.3f, 1.1f)), Mat.StoneWall, new Vector3(0f, 0.15f, 0f));
                 MeshKit.Part(col, "Shaft", MeshKit.Cylinder(0.46f, 0.42f, 3.9f, 10), Mat.StoneWall, new Vector3(0f, 0.3f, 0f));
@@ -708,8 +665,6 @@ namespace Deepbound.World
             }
             if (Type.Value == Kind.Urn)
             {
-                // Bigger since 2026-10-20 (the user: "make vases larger"): about knee-to-hip high, with a
-                // painted band, two handles and a lid, so they read as something to smash.
                 var vase = MeshKit.Pivot(transform, "Vase", Vector3.zero);
                 vase.localScale = Vector3.one * 1.65f;
                 var urn = MeshKit.Part(vase, "Urn", MeshKit.Lathe("urn", new[]

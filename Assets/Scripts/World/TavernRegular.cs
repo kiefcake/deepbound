@@ -7,13 +7,6 @@ using UnityEngine;
 
 namespace Deepbound.World
 {
-    /// <summary>
-    /// OLD HOLLIS, the regular at the Gutted Lantern's bar (2026-11-08, the activities plan: "a drinker at the bar"). He
-    /// leans on the counter with a tankard (<see cref="FolkIdle.WorkKind.Drink"/>) and, when someone stands near him in
-    /// the tavern, says something: idle nonsense, the weather, and a toast to each lost party on the
-    /// <see cref="MemorialBoard"/> (once a visit each). Local to every machine and on nobody's books: he sells nothing,
-    /// gives no quests, holds no grudges.
-    /// </summary>
     public class TavernRegular : MonoBehaviour
     {
         public const float Earshot = 5f;
@@ -41,7 +34,6 @@ namespace Deepbound.World
         private FolkIdle idle;
         private static GUIStyle nameStyle, bodyStyle;
 
-        /// <summary>Screenshots: say this now.</summary>
         public static void DebugSay(string text) { foreach (var r in FindObjectsByType<TavernRegular>(FindObjectsSortMode.None)) r.Say(text, 8f); }
 
         private void Start()
@@ -64,7 +56,7 @@ namespace Deepbound.World
         private void Update()
         {
             bool inCamp = DungeonDirector.InLobby;
-            if (inCamp && !wasInCamp) toasted.Clear(); // a new visit: he drinks to them all again
+            if (inCamp && !wasInCamp) toasted.Clear();
             wasInCamp = inCamp;
             var me = NetworkPlayer.Local;
             if (me == null || !inCamp || Time.time < nextAt || (current != null && Time.time < until)) return;
@@ -74,7 +66,6 @@ namespace Deepbound.World
 
         private string NextLine(NetworkPlayer me)
         {
-            // A toast to the lost, once each a visit, before anything else.
             foreach (var line in MemorialBoard.DebugLines ?? Records.Fallen ?? new string[0])
             {
                 if (string.IsNullOrEmpty(line) || !toasted.Add(line)) continue;
@@ -103,7 +94,7 @@ namespace Deepbound.World
             var screen = UiScale.World(cam, Head);
             if (screen.z <= 0f) return;
             float a = Mathf.Clamp01((until - Time.time) / 0.6f) * Mathf.Clamp01((12f - dist) / 3f);
-            // The same speech card the camp folk use.
+
             bodyStyle ??= new GUIStyle(UiSkin.Small) { fontSize = 13, wordWrap = true, alignment = TextAnchor.UpperCenter };
             nameStyle ??= new GUIStyle(UiSkin.Small) { fontStyle = FontStyle.Bold, alignment = TextAnchor.UpperCenter };
             bodyStyle.fontStyle = current.StartsWith("*") ? FontStyle.Italic : FontStyle.Normal;

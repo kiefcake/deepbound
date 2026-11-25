@@ -6,31 +6,18 @@ using UnityEngine.AI;
 
 namespace Deepbound.World
 {
-    /// <summary>
-    /// Ways in, and rooms that do not stay won (2026-11-12, the user):
-    /// <list type="bullet">
-    /// <item>"enemies not spawn out of the air ... climb out of the walls, or out of the floor ... or summoned through
-    /// portals": <see cref="SpawnEntering"/> gives anything raised mid-fight a way in (<see cref="EnemyBrain.Entrance"/>).</item>
-    /// <item>"more chaos ... a large group of very weak skeletons erupting from the walls, once a room is cleared it
-    /// should still pose a threat" (and, asked: "more common and dangerous the deeper"): a cleared combat room may be
-    /// ARMED (<see cref="EruptChance"/>, 20% on the first floor to 75%); some seconds later, the next time someone stands in
-    /// it, the walls shake, then a swarm of lesser skeletons (<see cref="EnemyBrain.Lesser"/>) claws out of them all
-    /// round the room (<see cref="EruptCount"/>), with full-strength ones among them deeper down. From the fifth floor a
-    /// room can erupt twice. Never after the guardian falls; never by chance in a test.</item>
-    /// </list>
-    /// </summary>
     public partial class DungeonDirector
     {
         public static float EruptChance(int depth) => Mathf.Min(0.75f, 0.2f + 0.08f * depth);
         public static int EruptCount(int depth, int players) => Mathf.RoundToInt((6f + 1.5f * depth) * (1f + 0.2f * (Mathf.Clamp(players, 1, 4) - 1)));
-        /// <summary>Full-strength skeletons among a swarm: none above the fourth floor, then one per two floors.</summary>
+
         public static int EruptHeavies(int depth) => depth < 3 ? 0 : (depth - 1) / 2;
         public const float EruptWarn = 1.6f;
 
         private readonly Dictionary<int, float> eruptArmed = new Dictionary<int, float>();
         private readonly Dictionary<int, int> eruptCount = new Dictionary<int, int>();
         private readonly List<(int room, float at)> eruptPending = new List<(int, float)>();
-        /// <summary>Server, tests: swarms raised this floor.</summary>
+
         public int Eruptions { get; private set; }
 
         private void ResetEruptions()
@@ -43,7 +30,6 @@ namespace Deepbound.World
             if (IsServer) ChokedJets.Value = 0;
         }
 
-        /// <summary>Server: a combat room was just won; it may not stay quiet.</summary>
         private void MaybeArmEruption(DungeonLayout.Room room)
         {
             NoteRoomCleared(room);
@@ -77,7 +63,6 @@ namespace Deepbound.World
             ServerWarnEruption(Layout.Rooms[found]);
         }
 
-        /// <summary>Server: the walls shake now and the swarm comes <see cref="EruptWarn"/> s later.</summary>
         public void ServerWarnEruption(DungeonLayout.Room room)
         {
             eruptPending.Add((room.Id, Time.time + EruptWarn));
@@ -114,10 +99,6 @@ namespace Deepbound.World
             return c + new Vector3(-hx, 0f, -hz + d);
         }
 
-        /// <summary>
-        /// SWARMS BY ACT (2026-11-13, the user: "Crypts erupt with skeletons, deeper acts with ghouls clawing up through the
-        /// floor, the holy acts with acolytes stepping out of rifts. Same mechanic, different flavour."): what comes, and how.
-        /// </summary>
         public enum SwarmKind : byte { Bones = 0, Ghouls = 1, Mixed = 2, Choir = 3, Abyss = 4 }
         public static SwarmKind SwarmOf(int depth) => (SwarmKind)Act(depth);
 
@@ -130,18 +111,16 @@ namespace Deepbound.World
             _ => "The walls shudder. Something is coming through them.",
         };
 
-        /// <summary>Server: the swarm comes into <paramref name="room"/> its act's way, and goes for you.</summary>
         public int ServerErupt(DungeonLayout.Room room)
         {
             if (Layout == null || skeletonPrefab == null || room == null) return 0;
             int players = Mathf.Max(1, NetworkManager.ConnectedClientsIds.Count);
             var kind = SwarmOf(Layout.Depth);
             int count = EruptCount(Layout.Depth, players), heavies = EruptHeavies(Layout.Depth);
-            if (kind == SwarmKind.Ghouls) count = Mathf.Max(4, Mathf.RoundToInt(count * 0.7f)); // ghouls hit harder
+            if (kind == SwarmKind.Ghouls) count = Mathf.Max(4, Mathf.RoundToInt(count * 0.7f));
             int made = 0;
             for (int i = 0; i < count; i++)
             {
-                // Which creature, and which way in.
                 var way = EnemyBrain.EntranceKind.Wall;
                 var prefab = skeletonPrefab;
                 switch (kind)
@@ -166,7 +145,6 @@ namespace Deepbound.World
                 }
                 else
                 {
-                    // Up through the floor, or out of a rift, anywhere in the inner part of the room.
                     var off = new Vector3(Random.Range(-0.38f, 0.38f) * room.Size.x, 0f, Random.Range(-0.38f, 0.38f) * room.Size.y);
                     at = room.Center + off;
                     from = at;
@@ -190,21 +168,13 @@ namespace Deepbound.World
                 made++;
             }
             Eruptions++;
-            // Deep down a room can do it again.
+
             eruptCount.TryGetValue(room.Id, out int n);
             eruptCount[room.Id] = n + 1;
             if (!TestMode && Layout.Depth >= 4 && n == 0 && Random.value < 0.5f) eruptArmed[room.Id] = Time.time + Random.Range(25f, 50f);
             return made;
         }
 
-        // ---------------------------------------------------------------- BREACH PATROLS
-
-        /// <summary>
-        /// BREACH PATROLS (2026-11-13, the user: "On deeper floors, a wall you've already passed cracks open and a small hunting
-        /// party follows your trail through cleared rooms. Backtracking for loot gets risky."). From <see cref="BreachDepth"/>,
-        /// every <see cref="BreachEvery"/> seconds or so a cleared combat room nobody is standing near breaks open
-        /// (<see cref="ServerBreach"/>) and its party HUNTS (<see cref="EnemyBrain.ServerMakeHunter"/>): no post, no leash.
-        /// </summary>
         public const int BreachDepth = 4;
         public const float BreachFirst = 110f, BreachEvery = 120f, BreachClear = 18f;
         public static int BreachCap(int depth) => depth < BreachDepth ? 0 : depth < 6 ? 2 : depth < 8 ? 3 : 4;
@@ -243,13 +213,12 @@ namespace Deepbound.World
             if (pick != null) ServerBreach(pick);
         }
 
-        /// <summary>Server: <paramref name="room"/>'s wall cracks open and a hunting party comes out after you (tests call this).</summary>
         public int ServerBreach(DungeonLayout.Room room)
         {
             if (Layout == null || room == null || skeletonPrefab == null) return 0;
             int players = Mathf.Max(1, NetworkManager.ConnectedClientsIds.Count);
             int n = BreachSize(Layout.Depth, players), made = 0;
-            // One wall point; the party files out of it.
+
             if (!RandomWallPoint(room, out var wall, out var outward)) return 0;
             for (int i = 0; i < n; i++)
             {
@@ -282,12 +251,8 @@ namespace Deepbound.World
             UI.Tips.OfferNow("breach", "BREACH PATROLS: deep down, a room you have already cleared can break open behind you, and a hunting party follows your trail. Going back for loot is never quite safe.");
         }
 
-        // ---------------------------------------------------------------- RIFTS
-
-        /// <summary>Server, tests: a rift calling skeletons at <paramref name="at"/>.</summary>
         public SoulRift ServerDebugRift(Vector3 at) => ServerOpenRift(at, Quaternion.identity, skeletonPrefab);
 
-        /// <summary>Server: a necromancer tears a <see cref="SoulRift"/> open at <paramref name="at"/>, calling <paramref name="through"/>.</summary>
         public static SoulRift ServerOpenRift(Vector3 at, Quaternion rot, NetworkObject through)
         {
             var d = Instance;
@@ -301,7 +266,6 @@ namespace Deepbound.World
             return rift;
         }
 
-        /// <summary>A point on one of <paramref name="room"/>'s walls, clear of its doorways and corners.</summary>
         private static bool RandomWallPoint(DungeonLayout.Room room, out Vector3 wall, out Vector3 outward)
         {
             for (int tries = 0; tries < 12; tries++)
@@ -313,8 +277,6 @@ namespace Deepbound.World
             return false;
         }
 
-        /// <summary>The point on side <paramref name="side"/> (DungeonLayout.Dir order) at <paramref name="along"/> -1..1 of its
-        /// usable length, or false if that lands in a doorway.</summary>
         private static bool TryWallPoint(DungeonLayout.Room room, int side, float along, out Vector3 wall, out Vector3 outward)
         {
             var d = DungeonLayout.Dir[side];
@@ -329,10 +291,6 @@ namespace Deepbound.World
             return true;
         }
 
-        /// <summary>
-        /// Server: how an enemy about to appear at <paramref name="at"/> comes in: out of the nearest wall (within 4 m, not a
-        /// doorway; the body then stands a pace inside it, facing the room), through a rift, or up through the floor.
-        /// </summary>
         public EnemyBrain.EntranceKind PickEntrance(ref Vector3 at, ref Quaternion rot, out Vector3 from, float wallShare, float portalShare)
         {
             from = at;
@@ -340,7 +298,6 @@ namespace Deepbound.World
             var room = Layout != null ? Layout.RoomAt(at) : null;
             if (room != null && r < wallShare)
             {
-                // The nearest side that has room for it.
                 int best = -1; float bestD = 4f;
                 for (int s = 0; s < 4; s++)
                 {
@@ -370,7 +327,6 @@ namespace Deepbound.World
             return EnemyBrain.EntranceKind.Floor;
         }
 
-        /// <summary>Server: instantiate, give it a way in (<see cref="PickEntrance"/>), spawn.</summary>
         public NetworkObject SpawnEntering(NetworkObject prefab, Vector3 at, Quaternion rot, float wallShare = 0.45f, float portalShare = 0.2f)
         {
             var kind = PickEntrance(ref at, ref rot, out var from, wallShare, portalShare);
@@ -380,7 +336,6 @@ namespace Deepbound.World
             return obj;
         }
 
-        /// <summary>For the brains (a necromancer's raised, a guardian's summons): the director's way in, or a plain spawn.</summary>
         public static NetworkObject ServerSpawnEntering(NetworkObject prefab, Vector3 at, Quaternion rot, float wallShare, float portalShare)
         {
             if (Instance != null && Instance.IsServer) return Instance.SpawnEntering(prefab, at, rot, wallShare, portalShare);

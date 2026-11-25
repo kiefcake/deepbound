@@ -2,11 +2,6 @@ using UnityEngine;
 
 namespace Deepbound.Art
 {
-    /// <summary>
-    /// A glowing ring that rides under someone for a few seconds and beats faster as it runs out (2026-10-26: the
-    /// Cardinal's Excommunication brand shows its blast radius around the branded player, so allies can step clear).
-    /// Client-side; <see cref="Attach"/> adds it at runtime.
-    /// </summary>
     public class FollowRing : MonoBehaviour
     {
         private Transform target;
@@ -30,7 +25,7 @@ namespace Deepbound.Art
             float t = Time.time - start;
             if (target == null || t >= seconds) { Destroy(gameObject); return; }
             float k = t / seconds;
-            // Beats from slow to frantic, and draws in a little at the end.
+
             float beat = Mathf.Abs(Mathf.Sin(t * Mathf.Lerp(3f, 14f, k * k)));
             transform.position = Vfx.Floor(target.position) + Vector3.up * 0.06f;
             float r = radius * (1f + 0.05f * beat);

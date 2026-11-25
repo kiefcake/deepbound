@@ -2,12 +2,6 @@ using UnityEngine;
 
 namespace Deepbound.Art
 {
-    /// <summary>
-    /// The Ranger's ultimate, Twin Wyrms (2026-11-20, local art on every peer): a spirit arrow that splits into two
-    /// pale serpents coiling round each other as they run straight ahead, through stone, for <c>range</c> metres.
-    /// Each wyrm is a chain of glowing beads on a helix round the flight line, a horned head at the front.
-    /// The damage is the server's (<see cref="Player.Ultimates"/>); this only draws it.
-    /// </summary>
     public class SpiritWyrms : MonoBehaviour
     {
         private const int Beads = 22;
@@ -52,7 +46,7 @@ namespace Deepbound.Art
                     ArtLibrary.SetGlow(r, color * (0.7f + 0.9f * taper));
                     beads[i] = bead.transform;
                 }
-                // The head: a long snout, a jaw and two swept horns, all on the first bead.
+
                 var head = beads[0];
                 foreach (var (pos, scale) in new[] { (new Vector3(0f, 0f, 0.28f), new Vector3(0.22f, 0.16f, 0.5f)), (new Vector3(0f, -0.12f, 0.22f), new Vector3(0.16f, 0.06f, 0.4f)) })
                 {
@@ -88,7 +82,7 @@ namespace Deepbound.Art
             float travelled = Mathf.Max(0f, age - windup) * speed;
             float total = range + length;
             if (travelled > total + 0.5f) { Destroy(gameObject); return; }
-            // Before the split: a single bright arrow streaking out of the bow.
+
             float head = Mathf.Min(travelled, range);
             float fade = travelled > range ? 1f - Mathf.Clamp01((travelled - range) / length) : 1f;
             float spacing = length / Beads;
@@ -98,20 +92,20 @@ namespace Deepbound.Art
                 for (int i = 0; i < Beads; i++)
                 {
                     var bead = wyrms[k][i];
-                    // Beads past the end of the run fold away as the tail catches up.
+
                     float along = travelled - i * spacing;
                     bool show = age >= windup && along > 0f && along <= range;
                     if (bead.gameObject.activeSelf != show) bead.gameObject.SetActive(show);
                     if (!show) continue;
                     float s = Mathf.Min(along, range);
                     float a = s * Twist + phase + age * 2.2f;
-                    // The coil opens out after the first few metres.
+
                     float coil = Coil * Mathf.Clamp01(s / 3f);
                     var p = origin + dir * s + (side * Mathf.Cos(a) + up * Mathf.Sin(a)) * coil;
                     bead.position = p;
                     float sz = (1f - 0.5f * (1f - fade));
                     bead.localScale = Vector3.one * sz * (i == 0 ? 1.6f : 1f);
-                    // Face along the helix (the head leads with its snout).
+
                     float a2 = (s + 0.2f) * Twist + phase + age * 2.2f;
                     var p2 = origin + dir * (s + 0.2f) + (side * Mathf.Cos(a2) + up * Mathf.Sin(a2)) * coil;
                     var fwd = p2 - p;

@@ -4,6 +4,7 @@ using Deepbound.Loot;
 using Deepbound.Player;
 using Deepbound.World;
 using UnityEngine;
+using Deepbound.Core;
 
 namespace Deepbound.UI
 {
@@ -29,7 +30,7 @@ namespace Deepbound.UI
                 if (known != null) return known;
                 known = new HashSet<string>();
                 if (Progression.Cosmetics.TestMode) return known;
-                try { foreach (var k in PlayerPrefs.GetString(SaveKey, "").Split('|')) if (k.Length > 0) known.Add(k); } catch { }
+                foreach (var k in Prefs.GetString(SaveKey, "").Split('|')) if (k.Length > 0) known.Add(k);
                 return known;
             }
         }
@@ -41,7 +42,7 @@ namespace Deepbound.UI
             if (string.IsNullOrEmpty(key) || !Known.Add(key)) return false;
             Version++;
             if (!Progression.Cosmetics.TestMode)
-                try { PlayerPrefs.SetString(SaveKey, string.Join("|", Known)); PlayerPrefs.Save(); } catch { }
+                Prefs.SetString(SaveKey, string.Join("|", Known)); Prefs.Save();
             if (!string.IsNullOrEmpty(what)) GameHud.Feed("New in your Guide: " + what + "  (Esc > Guide)", new Color(0.85f, 0.8f, 0.6f));
             return true;
         }

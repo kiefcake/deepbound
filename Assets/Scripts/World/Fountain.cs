@@ -7,10 +7,6 @@ using UnityEngine;
 
 namespace Deepbound.World
 {
-    /// <summary>
-    /// A fountain of clear water in a side room. Drinking from it fully heals the whole
-    /// party, wherever they are — once per floor. Worth deciding when to spend it.
-    /// </summary>
     public class Fountain : Interactable
     {
         public readonly NetworkVariable<bool> Spent = new NetworkVariable<bool>();

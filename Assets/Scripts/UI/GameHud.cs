@@ -22,7 +22,7 @@ namespace Deepbound.UI
 
         public static bool MenuOpen { get; private set; }
 
-        public static bool SeatedGame => BlackjackTable.LocalOpen || PokerDiceTable.LocalSeated || DiceTable.LocalOpen;
+        public static bool SeatedGame => BlackjackTable.LocalOpen || PokerDiceTable.LocalSeated;
 
         public static bool PanelShowing { get; private set; }
 
@@ -77,7 +77,7 @@ namespace Deepbound.UI
             float y = h * 0.3f;
             Rect(w / 2f - 110, y - 2, 220, 1, new Color(Gold.r, Gold.g, Gold.b, a * 0.6f));
             GUI.Label(new Rect(0, y, w, 30), "ROOM CLEARED", st);
-            if (clearedReward) GUI.Label(new Rect(0, y + 28, w, 20), "something was left behind", new GUIStyle(small) { alignment = TextAnchor.MiddleCenter, normal = { textColor = new Color(1f, 0.9f, 0.7f, a * 0.85f) } });
+            if (clearedReward) GUI.Label(new Rect(0, y + 28, w, 20), "something was left behind", UiSkin.Derive(small, new Color(1f, 0.9f, 0.7f, a * 0.85f), align: TextAnchor.MiddleCenter));
         }
 
         public static System.Action<string, string> Heard;
@@ -139,10 +139,10 @@ namespace Deepbound.UI
             var ink = new Color(0.22f, 0.14f, 0.08f);
             string[] floors = { "The Ossuary", "The Drowned Vaults", "The Hollow Throne", "The Black Cathedral", "Eulogies", "The First Expedition" };
             GUI.Label(new Rect(px + 24, py + 16, pw - 48, 20), floors[Mathf.Clamp(e.Floor, 0, 5)].ToUpperInvariant() + (pageNew ? "   -   NEW PAGE  (" + Journal.Count + " / " + Journal.Entries.Length + ")" : ""),
-                new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = new Color(0.45f, 0.25f, 0.12f) } });
-            GUI.Label(new Rect(px + 24, py + 38, pw - 48, 34), e.Title, new GUIStyle(big) { fontSize = 26, alignment = TextAnchor.MiddleLeft, normal = { textColor = ink } });
-            GUI.Label(new Rect(px + 24, py + 82, pw - 48, ph - 120), e.Text, new GUIStyle(label) { wordWrap = true, fontSize = 16, fontStyle = FontStyle.Italic, normal = { textColor = ink } });
-            GUI.Label(new Rect(px, py + ph - 28, pw, 20), "Esc or walk away to close   ·   kept in your Journal (Esc > Guide)", new GUIStyle(small) { alignment = TextAnchor.MiddleCenter, normal = { textColor = new Color(0.4f, 0.3f, 0.2f) } });
+                UiSkin.Derive(small, new Color(0.45f, 0.25f, 0.12f), fontStyle: FontStyle.Bold));
+            GUI.Label(new Rect(px + 24, py + 38, pw - 48, 34), e.Title, UiSkin.Derive(big, ink, fontSize: 26, align: TextAnchor.MiddleLeft));
+            GUI.Label(new Rect(px + 24, py + 82, pw - 48, ph - 120), e.Text, UiSkin.Derive(label, ink, fontSize: 16, fontStyle: FontStyle.Italic, wrap: true));
+            GUI.Label(new Rect(px, py + ph - 28, pw, 20), "Esc or walk away to close   ·   kept in your Journal (Esc > Guide)", UiSkin.Derive(small, new Color(0.4f, 0.3f, 0.2f), align: TextAnchor.MiddleCenter));
         }
 
         private static string tauntWho, tauntLine;
@@ -166,7 +166,7 @@ namespace Deepbound.UI
             float y = h - 196f;
             Rect(w * 0.18f, y - 18, w * 0.64f, 54, new Color(0f, 0f, 0f, 0.5f * a));
             GUI.Label(new Rect(w * 0.18f, y - 16, w * 0.64f, 18), tauntWho.ToUpperInvariant(),
-                new GUIStyle(small) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold, normal = { textColor = new Color(Gold.r, Gold.g, Gold.b, a) } });
+                UiSkin.Derive(small, new Color(Gold.r, Gold.g, Gold.b, a), fontStyle: FontStyle.Bold, align: TextAnchor.MiddleCenter));
             GUI.Label(new Rect(w * 0.18f, y + 2, w * 0.64f, 34), "\u201C" + tauntLine.Substring(0, shown) + (shown < tauntLine.Length ? "" : "\u201D"), style);
         }
 
@@ -211,13 +211,13 @@ namespace Deepbound.UI
             float line = Mathf.Min(w * 0.36f, 460f) * Mathf.Clamp01((t - 0.5f) / 0.6f);
             Rect(w / 2f - line / 2f, y + nameSize + 16, line, 2, new Color(Gold.r, Gold.g, Gold.b, 0.8f * text));
             GUI.Label(new Rect(0, y + nameSize + 22, w, 28), introEpithet.ToUpperInvariant(),
-                new GUIStyle(center) { fontSize = 18, fontStyle = FontStyle.Bold, normal = { textColor = new Color(Gold.r, Gold.g, Gold.b, text) } });
+                UiSkin.Derive(center, new Color(Gold.r, Gold.g, Gold.b, text), fontSize: 18, fontStyle: FontStyle.Bold));
             float hintA = Mathf.Clamp01(Mathf.Min((t - 1.2f) / 0.6f, (IntroLength - t) / 0.8f));
             if (hintA > 0f)
             {
                 Rect(w * 0.18f, y + nameSize + 52, w * 0.64f, 48, new Color(0f, 0f, 0f, 0.5f * hintA));
                 GUI.Label(new Rect(w * 0.22f, y + nameSize + 54, w * 0.56f, 44), introHint,
-                    new GUIStyle(center) { fontSize = 15, wordWrap = true, fontStyle = FontStyle.Italic, normal = { textColor = new Color(0.85f, 0.82f, 0.75f, hintA) } });
+                    UiSkin.Derive(center, new Color(0.85f, 0.82f, 0.75f, hintA), fontSize: 15, fontStyle: FontStyle.Italic, wrap: true));
             }
         }
 
@@ -236,7 +236,7 @@ namespace Deepbound.UI
             Rect(w * 0.3f, cy - 12, w * 0.4f, 1, new Color(Gold.r, Gold.g, Gold.b, 0.6f * a));
             Rect(w * 0.3f, cy + 83, w * 0.4f, 1, new Color(Gold.r, Gold.g, Gold.b, 0.6f * a));
             UiSkin.Shadowed(new Rect(0, cy - 4, w, 54), cardTitle, st, a);
-            GUI.Label(new Rect(w * 0.15f, cy + 50, w * 0.7f, 26), cardSub, new GUIStyle(center) { fontSize = 17, wordWrap = true, normal = { textColor = new Color(1f, 1f, 1f, a) } });
+            GUI.Label(new Rect(w * 0.15f, cy + 50, w * 0.7f, 26), cardSub, UiSkin.Derive(center, new Color(1f, 1f, 1f, a), fontSize: 17, wrap: true));
         }
 
         public static void Feed(string text, Color color)
@@ -306,7 +306,7 @@ namespace Deepbound.UI
 
         private void LateUpdate()
         {
-            PauseMenu.OtherMenuOpenLastFrame = shopOpen || forgeOpen || invOpen || runeOpen || pageShown >= 0 || CharacterSelect.Open || Wardrobe.Open || Dialogue.Open || DiceTable.LocalOpen || PokerDiceTable.LocalSeated || BellFrame.LocalOpen || ArmWrestle.LocalOpen;
+            PauseMenu.OtherMenuOpenLastFrame = shopOpen || forgeOpen || invOpen || runeOpen || pageShown >= 0 || CharacterSelect.Open || Wardrobe.Open || Dialogue.Open || PokerDiceTable.LocalSeated || BellFrame.LocalOpen || ArmWrestle.LocalOpen;
         }
 
         private void OnDestroy()
@@ -455,7 +455,7 @@ namespace Deepbound.UI
                 foreach (var (t, a) in dummyHits) { sum += a; first = Mathf.Min(first, t); }
                 float span = Mathf.Max(1f, Time.time - first);
                 GUI.Label(new Rect(0, h / 2f + 104, w, 24), "TRAINING:  " + Mathf.RoundToInt(sum / span) + " damage per second",
-                    new GUIStyle(center) { fontStyle = FontStyle.Bold, normal = { textColor = Gold } });
+                    UiSkin.Derive(center, Gold, fontStyle: FontStyle.Bold));
             }
 
             var gongNear = Gong.Instance;
@@ -466,17 +466,17 @@ namespace Deepbound.UI
                 var parts = new List<string>();
                 foreach (var kv in RangeTarget.Tally) parts.Add(kv.Key + " " + kv.Value);
                 Rect(w / 2f - 210, 100, 420, 46, Panel);
-                GUI.Label(new Rect(0, 104, w, 22), "THE BUTTS", new GUIStyle(center) { normal = { textColor = Gold } });
+                GUI.Label(new Rect(0, 104, w, 22), "THE BUTTS", UiSkin.Derive(center, Gold));
                 GUI.Label(new Rect(0, 124, w, 20), parts.Count > 0 ? "Targets hit:   " + string.Join("   ·   ", parts) : "Hit the moving targets with anything you have.",
-                    new GUIStyle(small) { alignment = TextAnchor.MiddleCenter });
+                    UiSkin.Derive(small, small.normal.textColor, align: TextAnchor.MiddleCenter));
             }
             var gong = Gong.Instance;
             if (gong != null && dGong < 9f && dGong <= dRange)
             {
                 string rec = gong.Record.Value > 0f ? Mathf.RoundToInt(gong.Record.Value) + "  by " + gong.RecordHolder.Value : "nobody yet";
                 Rect(w / 2f - 190, 100, 380, 46, Panel);
-                GUI.Label(new Rect(0, 104, w, 22), "THE TEST OF MIGHT", new GUIStyle(center) { normal = { textColor = Gold } });
-                GUI.Label(new Rect(0, 124, w, 20), "Strike the gong as hard as you can.   Record: " + rec, new GUIStyle(small) { alignment = TextAnchor.MiddleCenter });
+                GUI.Label(new Rect(0, 104, w, 22), "THE TEST OF MIGHT", UiSkin.Derive(center, Gold));
+                GUI.Label(new Rect(0, 124, w, 20), "Strike the gong as hard as you can.   Record: " + rec, UiSkin.Derive(small, small.normal.textColor, align: TextAnchor.MiddleCenter));
             }
         }
 
@@ -496,12 +496,13 @@ namespace Deepbound.UI
         private static void DrawWatchHint(float w, float h, float top)
         {
             bool anyone = false;
-            foreach (var p in PlayerLife.All) if (p != null && p.gameObject != Player.NetworkPlayer.Local?.gameObject && !p.Downed.Value) anyone = true;
+            var localPlayer = Player.NetworkPlayer.Local;
+            foreach (var p in PlayerLife.All) if (p != null && (localPlayer == null || p.gameObject != localPlayer.gameObject) && !p.Downed.Value) anyone = true;
             if (!anyone) return;
             var w8 = Teamwork.Watching;
             string text = w8 != null ? "Watching " + w8.name + "   (" + (Binds.PadActive ? "RT" : "LMB") + " next, " + (Binds.PadActive ? "LT" : "RMB") + " your own eyes)"
                 : "(" + (Binds.PadActive ? "RT" : "LMB") + ") watch an ally while you wait";
-            UiSkin.Shadowed(new Rect(0, h / 2f + top + 50, w, 24), text, new GUIStyle(UiSkin.Small) { alignment = TextAnchor.MiddleCenter, normal = { textColor = new Color(0.85f, 0.85f, 0.9f) } });
+            UiSkin.Shadowed(new Rect(0, h / 2f + top + 50, w, 24), text, UiSkin.Derive(UiSkin.Small, new Color(0.85f, 0.85f, 0.9f), align: TextAnchor.MiddleCenter));
         }
 
         public static void ShowCombo(Vector3 at, string text, Color color)
@@ -541,14 +542,6 @@ namespace Deepbound.UI
             DrawPouchFull();
         }
 
-        private bool InRogueSmoke()
-        {
-            foreach (var p in PlayerLife.All)
-                if (p != null && p != life && p.Hidden.Value && p.GetComponent<PlayerProgress>().ClassId.Value == ClassId.Rogue &&
-                    Vector3.Distance(p.transform.position, player.transform.position) < RogueKit.SmokeCloudRadius) return true;
-            return false;
-        }
-
         private void DrawDamageNumbers()
         {
             var cam = player.Camera;
@@ -581,7 +574,7 @@ namespace Deepbound.UI
             if (d == null || d.Quests.Count == 0) return;
             int n = d.Quests.Count;
             Rect(14, 14, 360, 22 + n * 38, Panel);
-            GUI.Label(new Rect(22, 16, 340, 20), "QUESTS  " + n + " / " + DungeonDirector.MaxQuests, new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = Gold } });
+            GUI.Label(new Rect(22, 16, 340, 20), "QUESTS  " + n + " / " + DungeonDirector.MaxQuests, UiSkin.Derive(small, Gold, fontStyle: FontStyle.Bold));
             for (int i = 0; i < n; i++)
             {
                 var q = d.Quests[i];
@@ -599,8 +592,8 @@ namespace Deepbound.UI
                 if (racing && bellLeft > 0 && bellLeft < 60) col = Color.Lerp(new Color(1f, 0.45f, 0.3f), new Color(1f, 0.85f, 0.6f), 0.5f + 0.5f * Mathf.Sin(Time.time * 8f));
                 float y = 36 + i * 38;
                 GUI.Label(new Rect(22, y, 340, 18), Dialogue.NameOf(q.Who) + "  ·  " + DungeonDirector.ContractName(q.Contract).ToUpperInvariant() + (q.Special ? "  ★" : ""),
-                    new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = new Color(0.95f, 0.82f, 0.55f) } });
-                GUI.Label(new Rect(22, y + 17, 340, 18), UiSkin.Fit(line, small, 340), new GUIStyle(small) { normal = { textColor = col } });
+                    UiSkin.Derive(small, new Color(0.95f, 0.82f, 0.55f), fontStyle: FontStyle.Bold));
+                GUI.Label(new Rect(22, y + 17, 340, 18), UiSkin.Fit(line, small, 340), UiSkin.Derive(small, col));
             }
         }
 
@@ -746,7 +739,7 @@ namespace Deepbound.UI
                     bool over = r.Contains(mouse);
                     ItemFrame(r, col, over, count == 0);
                     MapIcons.Draw(MapIcons.Id.Flask, new Vector2(r.x + 20, r.y + 20), count > 0 ? col : new Color(0.3f, 0.3f, 0.3f), 3f);
-                    GUI.Label(new Rect(r.x + 36, r.y + 10, tw - 38, 20), count.ToString(), new GUIStyle(label) { fontStyle = FontStyle.Bold, normal = { textColor = count > 0 ? Color.white : new Color(0.5f, 0.5f, 0.5f) } });
+                    GUI.Label(new Rect(r.x + 36, r.y + 10, tw - 38, 20), count.ToString(), UiSkin.Derive(label, count > 0 ? Color.white : new Color(0.5f, 0.5f, 0.5f), fontStyle: FontStyle.Bold));
                     if (over) hoverText = fname + "  " + count + " / 5";
                 }
                 cy += 48;
@@ -862,12 +855,12 @@ namespace Deepbound.UI
             else if (hoverText != null)
             {
                 Rect(dx, dy, 360, 70, new Color(0.04f, 0.035f, 0.03f, 0.93f));
-                GUI.Label(new Rect(dx + 10, dy + 8, 340, 60), hoverText, new GUIStyle(small) { wordWrap = true });
+                GUI.Label(new Rect(dx + 10, dy + 8, 340, 60), hoverText, UiSkin.Derive(small, small.normal.textColor, wrap: true));
             }
 
             if (hoveredWorn) hintLine = "right-click  take off";
             if (hintLine != null)
-                GUI.Label(new Rect(px, py + ph - 22, pw, 20), hintLine, new GUIStyle(small) { alignment = TextAnchor.MiddleCenter, normal = { textColor = new Color(0.62f, 0.58f, 0.5f) } });
+                GUI.Label(new Rect(px, py + ph - 22, pw, 20), hintLine, UiSkin.Derive(small, new Color(0.62f, 0.58f, 0.5f), align: TextAnchor.MiddleCenter));
         }
 
         private void DrawWorkbench(float x, float y, float w, float h)
@@ -880,7 +873,7 @@ namespace Deepbound.UI
             {
                 var c = Crafting.PartColor(part);
                 Rect(hx, y + 4, 14, 14, c);
-                GUI.Label(new Rect(hx + 20, y, 70, 22), progress.PartCount(part) + " " + Crafting.PartName(part), new GUIStyle(label) { fontStyle = FontStyle.Bold, normal = { textColor = c } });
+                GUI.Label(new Rect(hx + 20, y, 70, 22), progress.PartCount(part) + " " + Crafting.PartName(part), UiSkin.Derive(label, c, fontStyle: FontStyle.Bold));
                 hx += 110;
             }
             y += 40;
@@ -916,7 +909,7 @@ namespace Deepbound.UI
                     if (need <= 0) continue;
                     bool lacking = progress.PartCount(part) < need;
                     Rect(cxp, tile.y + 64, 12, 12, Crafting.PartColor(part));
-                    GUI.Label(new Rect(cxp + 15, tile.y + 60, 30, 20), need.ToString(), new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = lacking ? new Color(1f, 0.45f, 0.4f) : new Color(0.9f, 0.88f, 0.8f) } });
+                    GUI.Label(new Rect(cxp + 15, tile.y + 60, 30, 20), need.ToString(), UiSkin.Derive(small, lacking ? new Color(1f, 0.45f, 0.4f) : new Color(0.9f, 0.88f, 0.8f), fontStyle: FontStyle.Bold));
                     cxp += 44;
                 }
 
@@ -939,65 +932,16 @@ namespace Deepbound.UI
                 var row = new Rect(rx, ryy, 250, 40);
                 ItemFrame(row, ready ? Gold : new Color(0.45f, 0.42f, 0.38f), row.Contains(mouse), n == 0);
                 MapIcons.Draw(tool == CraftKind.Caltrops ? MapIcons.Id.Gem : MapIcons.Id.Skull, new Vector2(row.x + 20, row.y + 20), ready ? Gold : new Color(0.85f, 0.82f, 0.75f), 3f);
-                GUI.Label(new Rect(row.x + 40, row.y + 10, 130, 20), Crafting.ToolName(tool) + "  x" + n, new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = ready ? Gold : new Color(0.9f, 0.87f, 0.8f) } });
+                GUI.Label(new Rect(row.x + 40, row.y + 10, 130, 20), Crafting.ToolName(tool) + "  x" + n, UiSkin.Derive(small, ready ? Gold : new Color(0.9f, 0.87f, 0.8f), fontStyle: FontStyle.Bold));
                 GUI.enabled = n > 0 && !ready;
-                if (GUI.Button(new Rect(row.xMax - 76, row.y + 9, 70, 22), ready ? "Readied" : "Ready", new GUIStyle(UiSkin.Button) { fontSize = 12 })) progress.ReadyToolRpc((byte)tool);
+                if (GUI.Button(new Rect(row.xMax - 76, row.y + 9, 70, 22), ready ? "Readied" : "Ready", UiSkin.Derive(UiSkin.Button, UiSkin.Button.normal.textColor, fontSize: 12))) progress.ReadyToolRpc((byte)tool);
                 GUI.enabled = true;
                 ryy += 48;
             }
             if (hover != null)
             {
                 Rect(rx, ryy + 10, 260, 84, new Color(0.04f, 0.035f, 0.03f, 0.93f));
-                GUI.Label(new Rect(rx + 10, ryy + 18, 240, 72), hover, new GUIStyle(small) { wordWrap = true });
-            }
-        }
-
-        private void DrawCraft(float x, float y, float cw, float chH, Vector2 mouse)
-        {
-            if (cw < 240f) return;
-            GUI.Label(new Rect(x, y, cw, 22), "CRAFT  (anywhere)", new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = Gold } });
-            float px2 = x + 140f;
-            foreach (Part part in System.Enum.GetValues(typeof(Part)))
-            {
-                GUI.Label(new Rect(px2, y, 90, 22), progress.PartCount(part) + " " + Crafting.PartName(part), new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = Crafting.PartColor(part) } });
-                px2 += 70f;
-            }
-            y += 26;
-            string hover = null;
-            for (int i = 0; i < Crafting.Recipes.Length; i++)
-            {
-                var r = Crafting.Recipes[i];
-                string why = progress.CannotCraftReason(i);
-                var row = new Rect(x, y, cw, 32);
-                bool over = row.Contains(mouse);
-                Rect(row.x, row.y, row.width, row.height, new Color(0f, 0f, 0f, over ? 0.5f : 0.3f));
-                string name = r.Kind == CraftKind.Potion && r.Arg == 1 ? Flasks.FullName(Flasks.Kind.Mana) : r.Name;
-                GUI.Label(new Rect(x + 8, y + 1, cw - 110, 18), name, new GUIStyle(small) { fontStyle = FontStyle.Bold, wordWrap = false });
-                GUI.Label(new Rect(x + 8, y + 15, cw - 110, 16), Crafting.Cost(r), new GUIStyle(small) { fontSize = 12, wordWrap = false, normal = { textColor = why == null ? new Color(0.85f, 0.83f, 0.74f) : new Color(0.9f, 0.62f, 0.5f) } });
-                GUI.enabled = why == null;
-                if (GUI.Button(new Rect(x + cw - 96, y + 4, 90, 24), why == null ? "Make" : (why.StartsWith("Need") ? "Need parts" : why), new GUIStyle(UiSkin.Button) { fontSize = 12 })) progress.CraftRpc((byte)i);
-                GUI.enabled = true;
-                if (over) hover = name + ": " + r.Description + (why != null ? "   (" + why + ")" : "");
-                y += 35;
-            }
-            y += 4;
-            GUI.Label(new Rect(x, y, cw, 20), "Upgrades:  lining " + progress.Lining + "/" + Crafting.MaxUpgrade + "   edge " + progress.Whetted + "/" + Crafting.MaxUpgrade + "   boots " + progress.Boots + "/" + Crafting.MaxUpgrade, small);
-            y += 22;
-            foreach (var tool in new[] { CraftKind.Caltrops, CraftKind.Rattle })
-            {
-                int n = progress.ToolCount(tool);
-                bool ready = progress.ReadiedTool == tool;
-                GUI.Label(new Rect(x, y, cw - 100, 20), Crafting.ToolName(tool) + "  x" + n + (ready ? "   (" + Binds.Label(Bind.Tool) + " throws)" : ""), new GUIStyle(small) { normal = { textColor = ready ? Gold : small.normal.textColor } });
-                GUI.enabled = n > 0 && !ready;
-                if (GUI.Button(new Rect(x + cw - 96, y, 90, 20), ready ? "Readied" : "Ready", new GUIStyle(UiSkin.Button) { fontSize = 12 })) progress.ReadyToolRpc((byte)tool);
-                GUI.enabled = true;
-                y += 23;
-            }
-            if (hover != null)
-            {
-                float hy = Mathf.Min(y + 6, UiScale.H - 80);
-                Rect(x, hy, cw, 54, new Color(0.04f, 0.035f, 0.03f, 0.93f));
-                GUI.Label(new Rect(x + 8, hy + 5, cw - 16, 46), hover, new GUIStyle(small) { wordWrap = true });
+                GUI.Label(new Rect(rx + 10, ryy + 18, 240, 72), hover, UiSkin.Derive(small, small.normal.textColor, wrap: true));
             }
         }
 
@@ -1024,14 +968,14 @@ namespace Deepbound.UI
             float pw = 300f, ph = 50f + lines.Length * 20f;
             float x = w - pw - 24f, y = h * 0.5f - ph / 2f;
             Rect(x, y, pw, ph, Panel);
-            GUI.Label(new Rect(x + 12, y + 8, pw - 24, 20), "DOWNED BY", new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = new Color(0.75f, 0.7f, 0.65f) } });
-            GUI.Label(new Rect(x + 12, y + 24, pw - 24, 22), recapKiller, new GUIStyle(label) { fontStyle = FontStyle.Bold, normal = { textColor = new Color(1f, 0.4f, 0.3f) } });
+            GUI.Label(new Rect(x + 12, y + 8, pw - 24, 20), "DOWNED BY", UiSkin.Derive(small, new Color(0.75f, 0.7f, 0.65f), fontStyle: FontStyle.Bold));
+            GUI.Label(new Rect(x + 12, y + 24, pw - 24, 22), recapKiller, UiSkin.Derive(label, new Color(1f, 0.4f, 0.3f), fontStyle: FontStyle.Bold));
             for (int i = 0; i < lines.Length; i++)
             {
                 var parts = lines[i].Split('\t');
                 float ly = y + 48 + i * 20;
                 GUI.Label(new Rect(x + 12, ly, pw - 80, 20), parts[0], small);
-                if (parts.Length > 1) GUI.Label(new Rect(x + pw - 72, ly, 60, 20), parts[1], new GUIStyle(small) { alignment = TextAnchor.MiddleRight, normal = { textColor = new Color(1f, 0.55f, 0.45f) } });
+                if (parts.Length > 1) GUI.Label(new Rect(x + pw - 72, ly, 60, 20), parts[1], UiSkin.Derive(small, new Color(1f, 0.55f, 0.45f), align: TextAnchor.MiddleRight));
             }
         }
 
@@ -1046,7 +990,7 @@ namespace Deepbound.UI
                 float rd = Vector3.Distance(cam.transform.position, rel.transform.position);
                 if (rs.z > 0f && (rd < 30f || rel.Carried))
                     GUI.Label(new Rect(rs.x - 120, h - rs.y - 10, 240, 20), (rel.Carried ? "RELIQUARY (carried)  " : "RELIQUARY  ") + Mathf.RoundToInt(rel.Integrity.Value) + "%" + (rd > 8f ? "  " + Mathf.RoundToInt(rd) + "m" : ""),
-                        new GUIStyle(small) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold, normal = { textColor = rel.MarkerColor } });
+                        UiSkin.Derive(small, rel.MarkerColor, fontStyle: FontStyle.Bold, align: TextAnchor.MiddleCenter));
             }
             foreach (var cy in Carryable.All) if (cy != null && cy.Carrier.Value == player.NetworkObjectId) carrying = true;
             foreach (var sk in SoulSkull.Skulls)
@@ -1058,7 +1002,7 @@ namespace Deepbound.UI
                 float dist = Vector3.Distance(cam.transform.position, sk.transform.position);
                 string text = (sk.Carried ? "SOUL (carried): " : "SOUL: ") + sk.SoulName + (dist > 8f ? "  " + Mathf.RoundToInt(dist) + "m" : "");
                 GUI.Label(new Rect(screen.x - 120, h - screen.y - 10, 240, 20), text,
-                    new GUIStyle(small) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold, normal = { textColor = new Color(0.78f, 0.6f, 1f) } });
+                    UiSkin.Derive(small, new Color(0.78f, 0.6f, 1f), fontStyle: FontStyle.Bold, align: TextAnchor.MiddleCenter));
             }
             if (!carrying || DungeonDirector.Layout == null) return;
             var way = DungeonDirector.Layout.WaystonePosition + Vector3.up * 2.9f;
@@ -1066,7 +1010,7 @@ namespace Deepbound.UI
             float wd = Vector3.Distance(player.transform.position, DungeonDirector.Layout.WaystonePosition);
             if (ws.z > 0f)
                 GUI.Label(new Rect(ws.x - 120, h - ws.y - 10, 240, 20), "WAYSTONE  " + Mathf.RoundToInt(wd) + "m",
-                    new GUIStyle(small) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold, normal = { textColor = new Color(0.6f, 0.85f, 1f) } });
+                    UiSkin.Derive(small, new Color(0.6f, 0.85f, 1f), fontStyle: FontStyle.Bold, align: TextAnchor.MiddleCenter));
         }
 
         private void DrawThreats(float w, float h)
@@ -1138,7 +1082,7 @@ namespace Deepbound.UI
                     float pulse = 0.6f + 0.4f * Mathf.Sin(Time.time * 6f);
                     string downText = p.Soul.Value ? "BLED OUT - carry the soul skull" : "DOWNED " + Mathf.CeilToInt(p.BleedLeft) + "s - hold F";
                     GUI.Label(new Rect(screen.x - 120, y - 2, 240, 18), downText,
-                        new GUIStyle(small) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold, normal = { textColor = new Color(1f, 0.3f, 0.25f, pulse) } });
+                        UiSkin.Derive(small, new Color(1f, 0.3f, 0.25f, pulse), fontStyle: FontStyle.Bold, align: TextAnchor.MiddleCenter));
                     continue;
                 }
                 float bw = 54f;
@@ -1175,7 +1119,7 @@ namespace Deepbound.UI
             var inward = (c - at).normalized;
             var lp = at + inward * 34f;
             string text = p.name + (p.Soul.Value ? "  SOUL  " : "  DOWN  ") + Mathf.RoundToInt(dist) + "m";
-            GUI.Label(new Rect(lp.x - 90, lp.y - 9, 180, 18), text, new GUIStyle(small) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold, normal = { textColor = red } });
+            GUI.Label(new Rect(lp.x - 90, lp.y - 9, 180, 18), text, UiSkin.Derive(small, red, fontStyle: FontStyle.Bold, align: TextAnchor.MiddleCenter));
         }
 
         private float fpsSmoothed = 60f;
@@ -1186,7 +1130,7 @@ namespace Deepbound.UI
             if (!Settings.ShowFps) return;
             var c = fpsSmoothed >= 55f ? new Color(0.6f, 1f, 0.6f) : fpsSmoothed >= 30f ? new Color(1f, 0.85f, 0.4f) : new Color(1f, 0.4f, 0.35f);
             GUI.Label(new Rect(w - 220, UiScale.H - 20, 206, 18), Mathf.RoundToInt(fpsSmoothed) + " fps  (" + (1000f / fpsSmoothed).ToString("F1") + " ms)",
-                new GUIStyle(small) { alignment = TextAnchor.UpperRight, normal = { textColor = c } });
+                UiSkin.Derive(small, c, align: TextAnchor.UpperRight));
         }
 
         private void DrawLobby(float w, float h)
@@ -1202,7 +1146,7 @@ namespace Deepbound.UI
             var bannerLine = new GUIStyle(small) { alignment = TextAnchor.MiddleCenter, wordWrap = false };
 
             string title = midRun ? "CASTLE RAVENHOLD   ·   FLOOR " + director.NextDepth.Value + " CLEARED" : "CASTLE RAVENHOLD";
-            GUI.Label(new Rect(x, y + 4, pw, 22), title, new GUIStyle(center) { normal = { textColor = Gold } });
+            GUI.Label(new Rect(x, y + 4, pw, 22), title, UiSkin.Derive(center, Gold));
 
             var diff = Enemies.Difficulty.Level;
             bool host = Unity.Netcode.NetworkManager.Singleton.IsHost;
@@ -1219,7 +1163,7 @@ namespace Deepbound.UI
             if (counting)
             {
                 int seconds = Mathf.Max(0, Mathf.CeilToInt((float)(director.PhaseEndsAt.Value - Unity.Netcode.NetworkManager.Singleton.ServerTime.Time)));
-                GUI.Label(new Rect(x, y + 58, pw, 24), "The carriage departs in " + seconds + "...", new GUIStyle(center) { fontSize = 17, normal = { textColor = Gold } });
+                GUI.Label(new Rect(x, y + 58, pw, 24), "The carriage departs in " + seconds + "...", UiSkin.Derive(center, Gold, fontSize: 17));
             }
         }
 
@@ -1242,8 +1186,8 @@ namespace Deepbound.UI
                 if (k > 0.45f && k < 0.98f)
                 {
                     float ta = Mathf.Sin((k - 0.45f) / 0.53f * Mathf.PI);
-                    UiSkin.Shadowed(new Rect(0, h * 0.78f - 20, w, 40), "INTO THE DEEP", new GUIStyle(big) { normal = { textColor = new Color(0.95f, 0.85f, 0.6f, ta) } });
-                    GUI.Label(new Rect(0, h * 0.78f + 26, w, 26), "\u201C" + HymnLine + "\u201D", new GUIStyle(center) { fontSize = 17, fontStyle = FontStyle.Italic, normal = { textColor = new Color(0.85f, 0.78f, 0.62f, ta) } });
+                    UiSkin.Shadowed(new Rect(0, h * 0.78f - 20, w, 40), "INTO THE DEEP", UiSkin.Derive(big, new Color(0.95f, 0.85f, 0.6f, ta)));
+                    GUI.Label(new Rect(0, h * 0.78f + 26, w, 26), "\u201C" + HymnLine + "\u201D", UiSkin.Derive(center, new Color(0.85f, 0.78f, 0.62f, ta), fontSize: 17, fontStyle: FontStyle.Italic));
                 }
                 if (k >= 1f && !arrivingFromBeam) departStart = -1f;
                 return;
@@ -1272,8 +1216,6 @@ namespace Deepbound.UI
             else if (life.NearestFreeSeat(ride) >= 0) text = "F  Sit on the back of the carriage (ready to go)";
             if (text != null) GUI.Label(new Rect(0, h / 2f + 92, w, 24), text, center);
         }
-
-        private bool NearMerchant() => NearVendor(Shop.Vendor.Merchant);
 
         private bool NearVendor(Shop.Vendor v) => !life.Downed.Value && Shop.InReach(v, player.transform.position);
 
@@ -1327,30 +1269,30 @@ namespace Deepbound.UI
             float pw = 460f, ph = 46f + lines.Length * 22f + 34f + deedRows * 19f + (fallen.Length > 0 ? 30f + fallen.Length * 18f : 0f);
             var r = new Rect(w / 2f - pw / 2f, 96f, pw, ph);
             UiSkin.Panel(r, 0.94f);
-            GUI.Label(new Rect(r.x, r.y + 8, pw, 24), "THE HALL OF RECORDS", new GUIStyle(center) { fontStyle = FontStyle.Bold, normal = { textColor = Gold } });
+            GUI.Label(new Rect(r.x, r.y + 8, pw, 24), "THE HALL OF RECORDS", UiSkin.Derive(center, Gold, fontStyle: FontStyle.Bold));
             var st = new GUIStyle(small) { alignment = TextAnchor.MiddleLeft, fontSize = 14, normal = { textColor = new Color(0.92f, 0.88f, 0.8f) } };
             for (int i = 0; i < lines.Length; i++)
             {
                 var parts = lines[i].Split(new[] { "  " }, System.StringSplitOptions.RemoveEmptyEntries);
                 GUI.Label(new Rect(r.x + 26, r.y + 38 + i * 22, pw - 52, 20), parts[0].Trim(), st);
-                GUI.Label(new Rect(r.x + 26, r.y + 38 + i * 22, pw - 52, 20), parts.Length > 1 ? parts[parts.Length - 1].Trim() : "", new GUIStyle(st) { alignment = TextAnchor.MiddleRight, fontStyle = FontStyle.Bold, normal = { textColor = Gold } });
+                GUI.Label(new Rect(r.x + 26, r.y + 38 + i * 22, pw - 52, 20), parts.Length > 1 ? parts[parts.Length - 1].Trim() : "", UiSkin.Derive(st, Gold, fontStyle: FontStyle.Bold, align: TextAnchor.MiddleRight));
             }
 
             float dy = r.y + 40 + lines.Length * 22f;
-            GUI.Label(new Rect(r.x + 26, dy, pw - 52, 20), "DEEDS   " + Deeds.ListedDone + " / " + Deeds.Listed.Length, new GUIStyle(st) { fontStyle = FontStyle.Bold, normal = { textColor = Gold } });
+            GUI.Label(new Rect(r.x + 26, dy, pw - 52, 20), "DEEDS   " + Deeds.ListedDone + " / " + Deeds.Listed.Length, UiSkin.Derive(st, Gold, fontStyle: FontStyle.Bold));
             var ds = new GUIStyle(st) { fontSize = 12 };
             for (int i = 0; i < Deeds.Listed.Length; i++)
             {
                 var (deed, name) = Deeds.Listed[i];
                 bool done = Deeds.Has(deed);
                 float cx = r.x + 26 + (i % 2) * ((pw - 52) / 2f), cy = dy + 24 + (i / 2) * 19f;
-                GUI.Label(new Rect(cx, cy, (pw - 52) / 2f, 18), (done ? "+  " : "-  ") + name, new GUIStyle(ds) { normal = { textColor = done ? new Color(0.95f, 0.85f, 0.5f) : new Color(0.66f, 0.62f, 0.57f) } });
+                GUI.Label(new Rect(cx, cy, (pw - 52) / 2f, 18), (done ? "+  " : "-  ") + name, UiSkin.Derive(ds, done ? new Color(0.95f, 0.85f, 0.5f) : new Color(0.66f, 0.62f, 0.57f)));
             }
 
             if (fallen.Length > 0)
             {
                 float fy = dy + 30 + deedRows * 19f;
-                GUI.Label(new Rect(r.x + 26, fy, pw - 52, 20), "THE FALLEN", new GUIStyle(st) { fontStyle = FontStyle.Bold, normal = { textColor = new Color(0.85f, 0.55f, 0.5f) } });
+                GUI.Label(new Rect(r.x + 26, fy, pw - 52, 20), "THE FALLEN", UiSkin.Derive(st, new Color(0.85f, 0.55f, 0.5f), fontStyle: FontStyle.Bold));
                 var fs = new GUIStyle(ds) { fontStyle = FontStyle.Italic, clipping = TextClipping.Clip, normal = { textColor = new Color(0.8f, 0.75f, 0.7f) } };
                 for (int i = 0; i < fallen.Length; i++) GUI.Label(new Rect(r.x + 26, fy + 22 + i * 18f, pw - 52, 18), fallen[i], fs);
             }
@@ -1466,7 +1408,7 @@ namespace Deepbound.UI
             if (shopOpen && !NearVendor(shopVendor)) shopOpen = false;
             if (anvil == null) forgeOpen = false;
             bool inspect = keyboard != null && keyboard.leftAltKey.isPressed && !life.Downed.Value;
-            MenuOpen = shopOpen || forgeOpen || invOpen || runeOpen || DevMenu.Open || inspect || BlackjackTable.LocalOpen || DiceTable.LocalOpen || PokerDiceTable.LocalSeated || BellFrame.LocalOpen || ArmWrestle.LocalOpen || CharacterSelect.Open || PauseMenu.Open || Wardrobe.Open || Dialogue.Open;
+            MenuOpen = shopOpen || forgeOpen || invOpen || runeOpen || DevMenu.Open || inspect || BlackjackTable.LocalOpen || PokerDiceTable.LocalSeated || BellFrame.LocalOpen || ArmWrestle.LocalOpen || CharacterSelect.Open || PauseMenu.Open || Wardrobe.Open || Dialogue.Open;
             InventoryOpen = invOpen;
             statsHeld = DebugShowStats || (keyboard != null && Binds.Held(Bind.Stats) && !Wardrobe.Open);
             PanelShowing = MenuOpen || statsHeld || pageShown >= 0;
@@ -1670,8 +1612,8 @@ namespace Deepbound.UI
                 var c = Relics.GemColor(relic);
                 float a = Mathf.Clamp01((30f - dist) / 8f);
                 var r = new Rect(sp.x - 160f, UiScale.H - sp.y - 30f, 320f, 22f);
-                UiSkin.Shadowed(r, "RELIC:  " + Relics.Name(relic), new GUIStyle(label) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold, normal = { textColor = new Color(Mathf.Lerp(c.r, 1f, 0.3f), Mathf.Lerp(c.g, 1f, 0.3f), Mathf.Lerp(c.b, 1f, 0.3f), a) } }, a);
-                if (dist < 9f) GUI.Label(new Rect(r.x, r.y + 20f, r.width, 18f), Relics.Describe(relic), new GUIStyle(small) { alignment = TextAnchor.MiddleCenter, normal = { textColor = new Color(1f, 1f, 1f, 0.8f * a) } });
+                UiSkin.Shadowed(r, "RELIC:  " + Relics.Name(relic), UiSkin.Derive(label, new Color(Mathf.Lerp(c.r, 1f, 0.3f), Mathf.Lerp(c.g, 1f, 0.3f), Mathf.Lerp(c.b, 1f, 0.3f), a), fontStyle: FontStyle.Bold, align: TextAnchor.MiddleCenter), a);
+                if (dist < 9f) GUI.Label(new Rect(r.x, r.y + 20f, r.width, 18f), Relics.Describe(relic), UiSkin.Derive(small, new Color(1f, 1f, 1f, 0.8f * a), align: TextAnchor.MiddleCenter));
             }
         }
 
@@ -1691,13 +1633,13 @@ namespace Deepbound.UI
                     if (pouch.Rare.Value == 0) continue;
                     var found = (RareItem)d.Amount.Value;
                     GUI.Label(new Rect(0, UiScale.H / 2f + 44f, UiScale.W, 22f), "SLOT 5 FULL  -  " + RareItems.Name(found) + " lies here; use your " + RareItems.Name(pouch.RareHeld) + " (5) to make room",
-                        new GUIStyle(small) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold, normal = { textColor = RareItems.Color(found) } });
+                        UiSkin.Derive(small, RareItems.Color(found), fontStyle: FontStyle.Bold, align: TextAnchor.MiddleCenter));
                     return;
                 }
                 var kind = k == LootKind.PotionHP ? Flasks.Kind.Health : Flasks.Kind.Mana;
                 if (!pouch.IsFull(kind)) continue;
                 GUI.Label(new Rect(0, UiScale.H / 2f + 44f, UiScale.W, 22f), "POUCH FULL  -  " + (kind == Flasks.Kind.Health ? "Health" : "Mana") + " Potions " + Flasks.Max + "/" + Flasks.Max + "  (drink one to make room)",
-                    new GUIStyle(small) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold, normal = { textColor = Flasks.ColorOf(kind) } });
+                    UiSkin.Derive(small, Flasks.ColorOf(kind), fontStyle: FontStyle.Bold, align: TextAnchor.MiddleCenter));
                 return;
             }
         }
@@ -1721,7 +1663,7 @@ namespace Deepbound.UI
             }
             if (!outOfRange || BossIntroShowing) return;
             GUI.Label(new Rect(c.x - 100f, c.y + 24f, 200f, 18f), "OUT OF RANGE  (" + player.ActiveKit.AttackRange.ToString(player.ActiveKit.AttackRange < 10f ? "F1" : "F0") + " m)",
-                new GUIStyle(small) { alignment = TextAnchor.UpperCenter, fontStyle = FontStyle.Bold, normal = { textColor = new Color(1f, 0.55f, 0.4f, 0.9f) } });
+                UiSkin.Derive(small, new Color(1f, 0.55f, 0.4f, 0.9f), fontStyle: FontStyle.Bold, align: TextAnchor.UpperCenter));
         }
 
         private static float hitMarkAt = -10f, killMarkAt = -10f;
@@ -2106,7 +2048,7 @@ namespace Deepbound.UI
             float ph = 26f + rows.Count * 18f;
             Rect(x, y, pw, ph, new Color(0.04f, 0.035f, 0.03f, 0.82f));
             string who = boss ? ((BossBrain)e).DisplayName : e.IsChampion ? e.Title.Value.ToString() : "Elite " + Health.NameOf(e.NetworkObjectId).Replace("Elite ", "");
-            GUI.Label(new Rect(x + 8, y + 3, pw - 16, 18), "RAGE  -  " + who, new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = new Color(1f, 0.45f, 0.35f) } });
+            GUI.Label(new Rect(x + 8, y + 3, pw - 16, 18), "RAGE  -  " + who, UiSkin.Derive(small, new Color(1f, 0.45f, 0.35f), fontStyle: FontStyle.Bold));
             var nm = Unity.Netcode.NetworkManager.Singleton;
             float targetThreat = v.Of(v.Target);
             for (int i = 0; i < rows.Count; i++)
@@ -2122,7 +2064,7 @@ namespace Deepbound.UI
                     if (obj.TryGetComponent<PlayerProgress>(out var pp)) name += " (" + pp.Class.Name + ")";
                 }
                 bool me = id == player.NetworkObjectId, hunted = id == v.Target;
-                GUI.Label(new Rect(x + 8, ry, 130, 18), name, new GUIStyle(small) { fontStyle = me ? FontStyle.Bold : FontStyle.Normal, normal = { textColor = me ? Color.white : new Color(0.82f, 0.8f, 0.75f) } });
+                GUI.Label(new Rect(x + 8, ry, 130, 18), name, UiSkin.Derive(small, me ? Color.white : new Color(0.82f, 0.8f, 0.75f), fontStyle: me ? FontStyle.Bold : FontStyle.Normal));
                 var bar = new Rect(x + 140, ry + 4, pw - 220, 9);
                 Rect(bar.x - 1, bar.y - 1, bar.width + 2, bar.height + 2, new Color(0f, 0f, 0f, 0.8f));
                 Rect(bar.x, bar.y, bar.width * Mathf.Clamp01(t / top), bar.height, new Color(col.r, col.g, col.b, 0.95f));
@@ -2132,7 +2074,7 @@ namespace Deepbound.UI
                     float line = Mathf.Clamp01(targetThreat * EnemyBrain.SwitchThreshold / top);
                     Rect(bar.x + bar.width * line - 1f, bar.y - 2f, 2f, bar.height + 4f, new Color(1f, 0.4f, 0.3f, 0.7f));
                 }
-                if (hunted) GUI.Label(new Rect(x + pw - 76, ry, 72, 18), "HUNTED", new GUIStyle(small) { fontStyle = FontStyle.Bold, alignment = TextAnchor.UpperRight, normal = { textColor = new Color(1f, 0.35f, 0.3f) } });
+                if (hunted) GUI.Label(new Rect(x + pw - 76, ry, 72, 18), "HUNTED", UiSkin.Derive(small, new Color(1f, 0.35f, 0.3f), fontStyle: FontStyle.Bold, align: TextAnchor.UpperRight));
             }
 
             float mine = v.Of(player.NetworkObjectId);
@@ -2140,7 +2082,7 @@ namespace Deepbound.UI
             if (v.Target == player.NetworkObjectId && progress.ClassId.Value != Classes.ClassId.Knight && rows.Count > 1) warn = "It is coming for YOU";
             else if (v.Target != player.NetworkObjectId && targetThreat > 0f && mine > targetThreat * EnemyBrain.SwitchThreshold * 0.85f) warn = "Careful: you are about to pull its rage";
             if (warn != null)
-                GUI.Label(new Rect(x, y + ph + 2f, pw, 18), warn, new GUIStyle(small) { alignment = TextAnchor.UpperCenter, fontStyle = FontStyle.Bold, normal = { textColor = new Color(1f, 0.6f, 0.3f) } });
+                GUI.Label(new Rect(x, y + ph + 2f, pw, 18), warn, UiSkin.Derive(small, new Color(1f, 0.6f, 0.3f), fontStyle: FontStyle.Bold, align: TextAnchor.UpperCenter));
         }
 
         private void DrawTally(float w, float h)
@@ -2188,7 +2130,7 @@ namespace Deepbound.UI
             if (!inRoom && !hurt) return;
 
             float bw = Mathf.Min(620f, w * 0.6f), x = w / 2f - bw / 2f, y = 28;
-            GUI.Label(new Rect(x, y - 4, bw, 24), boss.DisplayName, new GUIStyle(center) { normal = { textColor = Gold } });
+            GUI.Label(new Rect(x, y - 4, bw, 24), boss.DisplayName, UiSkin.Derive(center, Gold));
             Rect(x - 3, y + 21, bw + 6, 20, Panel);
             var stance = boss.CurrentStance;
             var barColor = boss.Immune ? new Color(0.35f, 0.45f, 0.62f) : stance == BossBrain.Stance.Armored ? new Color(0.45f, 0.45f, 0.5f) : new Color(0.55f, 0.08f, 0.1f);
@@ -2211,14 +2153,14 @@ namespace Deepbound.UI
 
             Rect(x - 3, y + 20, bw + 6, 1, new Color(0.8f, 0.62f, 0.3f, 0.8f));
             Rect(x - 3, y + 41, bw + 6, 1, new Color(0.8f, 0.62f, 0.3f, 0.8f));
-            GUI.Label(new Rect(x, y + 23, bw - 6, 16), Mathf.CeilToInt(boss.Health.Fraction * 100f) + "%", new GUIStyle(small) { fontSize = 11, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleRight, normal = { textColor = new Color(1f, 1f, 1f, 0.9f) } });
+            GUI.Label(new Rect(x, y + 23, bw - 6, 16), Mathf.CeilToInt(boss.Health.Fraction * 100f) + "%", UiSkin.Derive(small, new Color(1f, 1f, 1f, 0.9f), fontSize: 11, fontStyle: FontStyle.Bold, align: TextAnchor.MiddleRight));
             int party = 0;
             foreach (var pl in Player.PlayerLife.All) if (pl != null) party++;
-            GUI.Label(new Rect(x + 6, y + 23, bw, 16), party <= 1 ? "SOLO" : "PARTY OF " + party, new GUIStyle(small) { fontSize = 10, alignment = TextAnchor.MiddleLeft, normal = { textColor = new Color(1f, 1f, 1f, 0.6f) } });
+            GUI.Label(new Rect(x + 6, y + 23, bw, 16), party <= 1 ? "SOLO" : "PARTY OF " + party, UiSkin.Derive(small, new Color(1f, 1f, 1f, 0.6f), fontSize: 10, align: TextAnchor.MiddleLeft));
 
             string phase = boss.PhaseName.Value.ToString();
             if (phase.Length > 0)
-                GUI.Label(new Rect(x, y - 4, bw, 24), phase, new GUIStyle(small) { alignment = TextAnchor.MiddleRight, fontStyle = FontStyle.Italic, normal = { textColor = new Color(0.85f, 0.8f, 0.7f) } });
+                GUI.Label(new Rect(x, y - 4, bw, 24), phase, UiSkin.Derive(small, new Color(0.85f, 0.8f, 0.7f), fontStyle: FontStyle.Italic, align: TextAnchor.MiddleRight));
             string tags = Words(StatusTags(boss.Health, boss));
             string stanceTag = null;
             double left = boss.StanceEndsAt.Value > 0.0 && Unity.Netcode.NetworkManager.Singleton != null ? boss.StanceEndsAt.Value - Unity.Netcode.NetworkManager.Singleton.ServerTime.Time : 0.0;
@@ -2234,7 +2176,7 @@ namespace Deepbound.UI
             else if (boss.Health.Fraction < 0.25f) tags = "<color=#E0403A>ENRAGED</color>" + (tags.Length > 0 ? "   " + tags : "");
             string hint = boss.PhaseHint.Value.ToString();
             if (hint.Length > 0 && (boss.Immune || stance == BossBrain.Stance.Armored || Time.time - tauntAt < 12f))
-                GUI.Label(new Rect(x - 60, y + 58, bw + 120, 20), hint, new GUIStyle(small) { alignment = TextAnchor.MiddleCenter, normal = { textColor = new Color(0.8f, 0.85f, 1f) } });
+                GUI.Label(new Rect(x - 60, y + 58, bw + 120, 20), hint, UiSkin.Derive(small, new Color(0.8f, 0.85f, 1f), align: TextAnchor.MiddleCenter));
             if (tags.Length > 0)
                 GUI.Label(new Rect(x, y + 40, bw, 20), tags, new GUIStyle(small) { alignment = TextAnchor.MiddleCenter, richText = true, fontStyle = FontStyle.Bold });
         }
@@ -2251,8 +2193,8 @@ namespace Deepbound.UI
             var qc = Gear.QualityColor(item.Quality);
             Rect(x - 2, y - 2, cw + 4, ch + 4, new Color(qc.r, qc.g, qc.b, 0.55f));
             Rect(x, y, cw, ch, new Color(0.04f, 0.035f, 0.03f, 0.93f));
-            GUI.Label(new Rect(x + 10, y + 6, cw - 20, 22), Gear.Name(item), new GUIStyle(label) { normal = { textColor = qc } });
-            GUI.Label(new Rect(x + 10, y + 6, cw - 20, 22), slot.ToString().ToUpperInvariant(), new GUIStyle(small) { alignment = TextAnchor.UpperRight });
+            GUI.Label(new Rect(x + 10, y + 6, cw - 20, 22), Gear.Name(item), UiSkin.Derive(label, qc));
+            GUI.Label(new Rect(x + 10, y + 6, cw - 20, 22), slot.ToString().ToUpperInvariant(), UiSkin.Derive(small, small.normal.textColor, align: TextAnchor.UpperRight));
 
             float ry = y + 30;
             foreach (var s in stats)
@@ -2260,19 +2202,19 @@ namespace Deepbound.UI
                 float v = Gear.StatValue(item, s), diff = v - Gear.StatValue(current, s);
                 GUI.Label(new Rect(x + 10, ry, 120, 18), (v >= 0 ? "+" : "") + v + " " + Stats.ShortName(s), small);
                 if (compare && !current.IsEmpty && Mathf.Abs(diff) > 0.01f)
-                    GUI.Label(new Rect(x + 130, ry, 80, 18), (diff > 0 ? "(+" : "(-") + Mathf.Abs(diff) + ")", new GUIStyle(small) { normal = { textColor = diff > 0 ? new Color(0.5f, 1f, 0.5f) : new Color(1f, 0.45f, 0.4f) } });
+                    GUI.Label(new Rect(x + 130, ry, 80, 18), (diff > 0 ? "(+" : "(-") + Mathf.Abs(diff) + ")", UiSkin.Derive(small, diff > 0 ? new Color(0.5f, 1f, 0.5f) : new Color(1f, 0.45f, 0.4f)));
                 ry += 18;
             }
-            GUI.Label(new Rect(x + 10, ry + 2, cw - 20, 34), Gear.Effect(item.Kind), new GUIStyle(small) { wordWrap = true, normal = { textColor = Gold } });
+            GUI.Label(new Rect(x + 10, ry + 2, cw - 20, 34), Gear.Effect(item.Kind), UiSkin.Derive(small, Gold, wrap: true));
             if (setLine != null)
             {
                 ry += 34;
-                GUI.Label(new Rect(x + 10, ry + 2, cw - 20, 34), setLine, new GUIStyle(small) { wordWrap = true, normal = { textColor = new Color(0.6f, 0.85f, 1f) } });
+                GUI.Label(new Rect(x + 10, ry + 2, cw - 20, 34), setLine, UiSkin.Derive(small, new Color(0.6f, 0.85f, 1f), wrap: true));
             }
             if (compare)
             {
                 GUI.Label(new Rect(x + 10, ry + 34, cw - 20, 18), "Wearing: " + (current.IsEmpty ? "nothing" : Gear.Name(current)), small);
-                GUI.Label(new Rect(x + 10, ry + 52, cw - 20, 18), "X   scrap for " + Gear.ScrapValue(item) + " embers" + (progress.BagFull ? "" : "Shift+F   stow in pack"), new GUIStyle(small) { normal = { textColor = LootInfo.EmberColor } });
+                GUI.Label(new Rect(x + 10, ry + 52, cw - 20, 18), "X   scrap for " + Gear.ScrapValue(item) + " embers" + (progress.BagFull ? "" : "Shift+F   stow in pack"), UiSkin.Derive(small, LootInfo.EmberColor));
             }
         }
 
@@ -2311,7 +2253,7 @@ namespace Deepbound.UI
                 {
                     float left = life.BleedLeft;
                     var bc = left < 10f ? new Color(1f, 0.3f, 0.25f, 0.6f + 0.4f * Mathf.Sin(Time.time * 8f)) : new Color(1f, 0.6f, 0.5f);
-                    GUI.Label(new Rect(0, h / 2f + top + 22, w, 24), "Bleeding out in " + Mathf.CeilToInt(left) + "s", new GUIStyle(center) { normal = { textColor = bc } });
+                    GUI.Label(new Rect(0, h / 2f + top + 22, w, 24), "Bleeding out in " + Mathf.CeilToInt(left) + "s", UiSkin.Derive(center, bc));
                 }
                 DrawWatchHint(w, h, top);
                 DrawRecap(w, h);
@@ -2323,19 +2265,19 @@ namespace Deepbound.UI
                 if (sk == null || sk.Carrier.Value != player.NetworkObjectId) continue;
                 string msg = sk.Ritual.Value > 0f ? "The waystone stirs... (don't get hit)" : sk.CarryingLine;
                 if (sk is Reliquary rq) msg += "   Intact " + Mathf.RoundToInt(rq.Integrity.Value) + "%";
-                GUI.Label(new Rect(0, h / 2f + 96, w, 24), msg, new GUIStyle(center) { normal = { textColor = sk.MarkerColor } });
+                GUI.Label(new Rect(0, h / 2f + 96, w, 24), msg, UiSkin.Derive(center, sk.MarkerColor));
                 if (sk.Ritual.Value > 0f) ProgressBar(w, h / 2f + 124, sk.Ritual.Value / sk.DeliverSeconds, sk.MarkerColor);
             }
 
             var hauled = PlayerLife.DraggedByPlayer(player.NetworkObjectId);
             if (hauled != null)
                 GUI.Label(new Rect(0, h / 2f + 96, w, 24), "Dragging " + hauled.name + " (" + (Binds.Merged ? "tap " : "") + Binds.Live(Bind.Interact) + " lets go; stop and hold " + Binds.Live(Bind.Use) + " to revive)",
-                    new GUIStyle(center) { normal = { textColor = new Color(0.6f, 0.9f, 1f) } });
+                    UiSkin.Derive(center, new Color(0.6f, 0.9f, 1f)));
 
             var target = PlayerLife.DownedNear(player.transform.position, life);
             if (target == null)
             {
-                if (Dialogue.Open || DiceTable.LocalOpen || PokerDiceTable.LocalSeated || BellFrame.LocalOpen || ArmWrestle.LocalOpen) return;
+                if (Dialogue.Open || PokerDiceTable.LocalSeated || BellFrame.LocalOpen || ArmWrestle.LocalOpen) return;
                 if (Dialogue.Aimed != null && !statsHeld) { PromptLine(w, h, "F   Talk to " + Dialogue.Aimed.DisplayName); return; }
                 if (CampStations.LocalAimed != null && !statsHeld && !MenuOpen) { PromptLine(w, h, StationPrompt(CampStations.LocalAimed)); return; }
                 var use = Interactable.Nearest(player.AimOrigin, player.AimForward, progress);
@@ -2382,13 +2324,13 @@ namespace Deepbound.UI
             {
                 phaseBigAt = Time.time;
                 Rect(0, h * 0.28f - 10, w, 90, new Color(0f, 0f, 0f, 0.55f));
-                GUI.Label(new Rect(0, h * 0.28f, w, 44), title, new GUIStyle(big) { normal = { textColor = Gold } });
+                GUI.Label(new Rect(0, h * 0.28f, w, 44), title, UiSkin.Derive(big, Gold));
                 GUI.Label(new Rect(0, h * 0.28f + 46, w, 24), sub, center);
             }
             else
             {
                 Rect(w * 0.25f, 88, w * 0.5f, 24, new Color(0f, 0f, 0f, 0.5f));
-                GUI.Label(new Rect(w * 0.25f, 88, w * 0.5f, 24), sub, new GUIStyle(small) { alignment = TextAnchor.MiddleCenter, normal = { textColor = Gold } });
+                GUI.Label(new Rect(w * 0.25f, 88, w * 0.5f, 24), sub, UiSkin.Derive(small, Gold, align: TextAnchor.MiddleCenter));
             }
 
             if (director.Phase.Value == RunPhase.FloorCleared && director.PhaseEndsAt.Value <= 0)
@@ -2414,7 +2356,7 @@ namespace Deepbound.UI
             var ps = UiScale.World(cam, DungeonDirector.ExitPosition + Vector3.up * 3.2f);
             if (ps.z > 0f)
                 GUI.Label(new Rect(ps.x - 100, h - ps.y - 10, 200, 20), "THE LIFT  " + Mathf.RoundToInt(Vector3.Distance(player.transform.position, DungeonDirector.ExitPosition)) + "m",
-                    new GUIStyle(small) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold, normal = { textColor = new Color(0.6f, 0.9f, 1f) } });
+                    UiSkin.Derive(small, new Color(0.6f, 0.9f, 1f), fontStyle: FontStyle.Bold, align: TextAnchor.MiddleCenter));
         }
 
         private void DrawBanner(float w, float h)
@@ -2424,17 +2366,17 @@ namespace Deepbound.UI
             float a = Mathf.Clamp01((bannerUntil - Time.time) / 1.5f) * Mathf.Clamp01(1f - fade * 1.5f);
             var gold = new Color(Gold.r, Gold.g, Gold.b, a);
 
-            UiSkin.Shadowed(new Rect(0, h * 0.18f, w, 44), bannerTitle, new GUIStyle(big) { normal = { textColor = gold } }, a);
-            UiSkin.Shadowed(new Rect(0, h * 0.18f + 44, w, 26), bannerSub, new GUIStyle(center) { fontSize = 18, normal = { textColor = Color.white } }, a);
+            UiSkin.Shadowed(new Rect(0, h * 0.18f, w, 44), bannerTitle, UiSkin.Derive(big, gold), a);
+            UiSkin.Shadowed(new Rect(0, h * 0.18f + 44, w, 26), bannerSub, UiSkin.Derive(center, Color.white, fontSize: 18), a);
             if (!string.IsNullOrEmpty(bannerHint))
-                UiSkin.Shadowed(new Rect(0, h * 0.18f + 72, w, 22), bannerHint, new GUIStyle(center) { fontSize = 15, fontStyle = FontStyle.Italic, normal = { textColor = new Color(1f, 0.8f, 0.45f) } }, a * 0.95f);
+                UiSkin.Shadowed(new Rect(0, h * 0.18f + 72, w, 22), bannerHint, UiSkin.Derive(center, new Color(1f, 0.8f, 0.45f), fontSize: 15, fontStyle: FontStyle.Italic), a * 0.95f);
 
             var ev = DungeonDirector.CurrentEvent;
             if (ev != FloorEvent.None)
             {
                 var ec = DungeonDirector.EventColor(ev);
                 UiSkin.Shadowed(new Rect(0, h * 0.18f + 98, w, 26), DungeonDirector.EventName(ev).ToUpperInvariant() + "  -  " + DungeonDirector.EventText(ev),
-                    new GUIStyle(center) { fontSize = 17, fontStyle = FontStyle.Bold, normal = { textColor = ec } }, a);
+                    UiSkin.Derive(center, ec, fontSize: 17, fontStyle: FontStyle.Bold), a);
             }
         }
 
@@ -2583,7 +2525,7 @@ namespace Deepbound.UI
             if (key != null)
             {
                 UiSkin.Panel(new Rect(x + 4, y + 1, 24, 22), 0.95f);
-                GUI.Label(new Rect(x + 4, y + 1, 24, 22), key, new GUIStyle(center) { fontSize = 14, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter, normal = { textColor = Gold } });
+                GUI.Label(new Rect(x + 4, y + 1, 24, 22), key, UiSkin.Derive(center, Gold, fontSize: 14, fontStyle: FontStyle.Bold, align: TextAnchor.MiddleCenter));
             }
             GUI.Label(new Rect(x + badge + 8f, y, tw, th), body, st);
         }
@@ -2614,10 +2556,10 @@ namespace Deepbound.UI
             var ember = LootInfo.EmberColor;
             Rect(x - 3, y0 - 3, pw + 6, ph + 6, new Color(ember.r, ember.g, ember.b, 0.5f));
             Rect(x, y0, pw, ph, new Color(0.05f, 0.03f, 0.02f, 0.95f));
-            GUI.Label(new Rect(x + 16, y0 + 12, 140, 24), forgeTab == ForgeTab.Anvil ? "THE ANVIL" : forgeTab == ForgeTab.Grindstone ? "THE GRINDSTONE" : "THE FORGE", new GUIStyle(label) { normal = { textColor = ember } });
+            GUI.Label(new Rect(x + 16, y0 + 12, 140, 24), forgeTab == ForgeTab.Anvil ? "THE ANVIL" : forgeTab == ForgeTab.Grindstone ? "THE GRINDSTONE" : "THE FORGE", UiSkin.Derive(label, ember));
             if (Shop.Position(Shop.Vendor.Smith) != null && GUI.Button(new Rect(x + 170, y0 + 10, 170, 24), "Hobb's wares (buy)"))
             { forgeOpen = false; shopOpen = true; shopVendor = Shop.Vendor.Smith; }
-            GUI.Label(new Rect(x + pw - 300, y0 + 12, 284, 24), progress.Sigils.Value + (progress.Sigils.Value == 1 ? " sigil    " : " sigils    ") + progress.Embers.Value + " embers", new GUIStyle(label) { alignment = TextAnchor.UpperRight, normal = { textColor = ember } });
+            GUI.Label(new Rect(x + pw - 300, y0 + 12, 284, 24), progress.Sigils.Value + (progress.Sigils.Value == 1 ? " sigil    " : " sigils    ") + progress.Embers.Value + " embers", UiSkin.Derive(label, ember, align: TextAnchor.UpperRight));
             string[] tabNames = { "ANVIL: temper", "GRINDSTONE: hone", "FORGE: scrap" };
             for (int t = 0; t < 3; t++)
             {
@@ -2631,7 +2573,7 @@ namespace Deepbound.UI
             {
                 float y = y0 + 30;
 
-                GUI.Label(new Rect(x + 16, y + 44, 200, 24), weapon + " +" + level, new GUIStyle(label) { fontSize = 20 });
+                GUI.Label(new Rect(x + 16, y + 44, 200, 24), weapon + " +" + level, UiSkin.Derive(label, label.normal.textColor, fontSize: 20));
                 for (int i = 0; i < Anvil.MaxLevel; i++)
                 {
                     float px = x + 180 + i * 17 + (i >= 5 ? 6 : 0);
@@ -2655,7 +2597,7 @@ namespace Deepbound.UI
                       (level + 1 == Runes.SocketLevels[2] ? ", a 3rd rune socket" : "") +
                       (level + 1 == Anvil.AscendedLevel ? ", ASCENDED (+10% dmg)" : "") +
                       (level + 1 == Anvil.MasterworkLevel ? ", MASTERWORK (+8% crit)" : "");
-                GUI.Label(new Rect(x + 16, y + 80, leftW - 32, 20), UiSkin.Fit(next, new GUIStyle(small) { wordWrap = false }, leftW - 32), new GUIStyle(small) { wordWrap = false });
+                GUI.Label(new Rect(x + 16, y + 80, leftW - 32, 20), UiSkin.Fit(next, UiSkin.Derive(small, small.normal.textColor, wrap: false), leftW - 32), UiSkin.Derive(small, small.normal.textColor, wrap: false));
                 int goldCost = Anvil.GoldCost(level);
                 if (honing)
                 {
@@ -2669,7 +2611,7 @@ namespace Deepbound.UI
                 }
 
                 string head = path != 0 ? "PATH" : level >= WeaponPaths.PathLevel ? "CHOOSE A PATH (once per run)" : "PATHS  -  choose one at +" + WeaponPaths.PathLevel;
-                GUI.Label(new Rect(x + 16, y + 108, leftW, 20), head, new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = Gold } });
+                GUI.Label(new Rect(x + 16, y + 108, leftW, 20), head, UiSkin.Derive(small, Gold, fontStyle: FontStyle.Bold));
                 for (int p = 1; p <= WeaponPaths.Count; p++)
                 {
                     float cw = (leftW - 32f - 12f * (WeaponPaths.Count - 1)) / WeaponPaths.Count, cx = x + 16 + (p - 1) * (cw + 12), cy = y + 132, chh = 182;
@@ -2678,7 +2620,7 @@ namespace Deepbound.UI
                     Rect(cx - 2, cy - 2, cw + 4, chh + 4, border);
                     Rect(cx, cy, cw, chh, new Color(0.08f, 0.06f, 0.05f, 0.95f));
                     float alpha = locked ? 0.4f : 1f;
-                    GUI.Label(new Rect(cx + 10, cy + 8, cw - 20, 22), WeaponPaths.Name(id, p).ToUpperInvariant(), new GUIStyle(label) { normal = { textColor = new Color(ember.r, ember.g, ember.b, alpha) } });
+                    GUI.Label(new Rect(cx + 10, cy + 8, cw - 20, 22), WeaponPaths.Name(id, p).ToUpperInvariant(), UiSkin.Derive(label, new Color(ember.r, ember.g, ember.b, alpha)));
                     var wrap = new GUIStyle(small) { wordWrap = true, fontSize = Mathf.Max(10, small.fontSize - 1), normal = { textColor = new Color(0.9f, 0.88f, 0.85f, alpha) } };
 
                     string describe = WeaponPaths.Describe(id, p), mastery = WeaponPaths.Mastery(id, p);
@@ -2694,7 +2636,7 @@ namespace Deepbound.UI
                     bool mastered = chosen && level >= WeaponPaths.MasteryLevel;
                     float masteryY = cy + 32 + describeH;
                     GUI.Label(new Rect(cx + 10, masteryY, cw - 20, 18), mastered ? "MASTERED" : "Mastery at +" + WeaponPaths.MasteryLevel,
-                        new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = new Color(Gold.r, Gold.g, Gold.b, alpha) } });
+                        UiSkin.Derive(small, new Color(Gold.r, Gold.g, Gold.b, alpha), fontStyle: FontStyle.Bold));
                     GUI.Label(new Rect(cx + 10, masteryY + 15, cw - 20, masteryH), mastery, wrap);
                     if (path == 0)
                     {
@@ -2709,13 +2651,13 @@ namespace Deepbound.UI
                 float ey = y + 326;
                 GUI.Label(new Rect(x + 16, ey, leftW - 32, 20), openEdge >= 0 ? "FORGE AN EDGE  (+" + Edges.Levels[openEdge] + ")  -  choose one; tempering waits"
                     : "EDGES  -  at +" + Edges.Levels[0] + ", +" + Edges.Levels[1] + " and +" + Edges.Levels[2] + " forge one of three into the weapon",
-                    new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = openEdge >= 0 ? new Color(1f, 0.6f, 0.35f) : Gold } });
+                    UiSkin.Derive(small, openEdge >= 0 ? new Color(1f, 0.6f, 0.35f) : Gold, fontStyle: FontStyle.Bold));
                 var offer = openEdge >= 0 ? progress.EdgeOffer(openEdge) : null;
                 if (offer != null && openEdge > 0)
                 {
                     string forged = "";
                     for (int s = 0; s < openEdge; s++) forged += (s > 0 ? ", " : "") + Edges.Name(progress.EdgeAt(s));
-                    GUI.Label(new Rect(x + 16, ey, leftW - 32, 20), "forged: " + forged, new GUIStyle(small) { alignment = TextAnchor.UpperRight, normal = { textColor = new Color(1f, 0.85f, 0.7f, 0.8f) } });
+                    GUI.Label(new Rect(x + 16, ey, leftW - 32, 20), "forged: " + forged, UiSkin.Derive(small, new Color(1f, 0.85f, 0.7f, 0.8f), align: TextAnchor.UpperRight));
                 }
                 float ecw = (leftW - 32 - 20) / 3f, ech = 108;
                 for (int i = 0; i < 3; i++)
@@ -2727,9 +2669,9 @@ namespace Deepbound.UI
                     Rect(ecx - 2, ecy - 2, ecw + 4, ech + 4, offer != null ? new Color(ec.r, ec.g, ec.b, 0.75f) : new Color(ec.r, ec.g, ec.b, empty ? 0.18f : 0.45f));
                     Rect(ecx, ecy, ecw, ech, new Color(0.08f, 0.06f, 0.05f, 0.97f));
                     GUI.Label(new Rect(ecx + 8, ecy + 6, ecw - 16, 20), empty ? "+" + Edges.Levels[i] + "  -  not yet" : Edges.Name(e).ToUpperInvariant() + "   " + Edges.Kind(e),
-                        new GUIStyle(small) { fontStyle = FontStyle.Bold, wordWrap = false, normal = { textColor = empty ? new Color(1f, 1f, 1f, 0.4f) : UiSkin.Readable(ec) } });
+                        UiSkin.Derive(small, empty ? new Color(1f, 1f, 1f, 0.4f) : UiSkin.Readable(ec), fontStyle: FontStyle.Bold, wrap: false));
                     GUI.Label(new Rect(ecx + 8, ecy + 26, ecw - 16, 50), empty ? "Temper to +" + Edges.Levels[i] + " to choose." : Edges.Describe(e),
-                        new GUIStyle(small) { wordWrap = true, normal = { textColor = new Color(0.9f, 0.88f, 0.85f, empty ? 0.5f : 1f) } });
+                        UiSkin.Derive(small, new Color(0.9f, 0.88f, 0.85f, empty ? 0.5f : 1f), wrap: true));
                     if (offer != null && !empty && GUI.Button(new Rect(ecx + 8, ecy + ech - 30, ecw - 16, 24), "Forge " + Edges.Name(e))) progress.ChooseEdgeRpc((byte)e);
 
                     if (offer == null && !empty)
@@ -2745,9 +2687,9 @@ namespace Deepbound.UI
 
             if (forgeTab == ForgeTab.Grindstone) DrawGrindTab(x, y0 + 74, pw, weapon);
             else if (forgeTab == ForgeTab.Hearth) DrawHearthTab(x, y0 + 74, pw, ember);
-            else GUI.Label(new Rect(x + 16, y0 + ph - 50, pw - 32, 20), "Runes, sigils and ability ranks are Ysolde's work: find her at the standing stones.", new GUIStyle(small) { wordWrap = false, normal = { textColor = new Color(0.6f, 0.85f, 1f) } });
-            GUI.Label(new Rect(x + pw - 216, y0 + ph - 26, 200, 20), "F or Esc to close", new GUIStyle(small) { alignment = TextAnchor.UpperRight, normal = { textColor = new Color(0.6f, 0.58f, 0.55f) } });
-            if (!string.IsNullOrEmpty(GUI.tooltip)) GUI.Label(new Rect(x + 16, y0 + ph - 26, pw - 250, 20), GUI.tooltip, new GUIStyle(small) { normal = { textColor = Gold } });
+            else GUI.Label(new Rect(x + 16, y0 + ph - 50, pw - 32, 20), "Runes, sigils and ability ranks are Ysolde's work: find her at the standing stones.", UiSkin.Derive(small, new Color(0.6f, 0.85f, 1f), wrap: false));
+            GUI.Label(new Rect(x + pw - 216, y0 + ph - 26, 200, 20), "F or Esc to close", UiSkin.Derive(small, new Color(0.6f, 0.58f, 0.55f), align: TextAnchor.UpperRight));
+            if (!string.IsNullOrEmpty(GUI.tooltip)) GUI.Label(new Rect(x + 16, y0 + ph - 26, pw - 250, 20), GUI.tooltip, UiSkin.Derive(small, Gold));
         }
 
         private void DrawGrindTab(float x, float top, float pw, string weapon)
@@ -2778,7 +2720,7 @@ namespace Deepbound.UI
             {
                 var g = progress.Equipped(gslot);
                 GUI.Label(new Rect(x + 16, cy + 4, pw - 250, 20), g.IsEmpty ? gslot + ": nothing worn" : Gear.Name(g),
-                    new GUIStyle(small) { normal = { textColor = g.IsEmpty ? new Color(1f, 1f, 1f, 0.4f) : Gear.QualityColor(g.Quality) } });
+                    UiSkin.Derive(small, g.IsEmpty ? new Color(1f, 1f, 1f, 0.4f) : Gear.QualityColor(g.Quality)));
                 if (!g.IsEmpty)
                 {
                     int refine = Gear.RefineCost(g);
@@ -2794,13 +2736,13 @@ namespace Deepbound.UI
         {
             int floorDepth = DungeonDirector.GearDepth;
             float cy = top;
-            GUI.Label(new Rect(x + 16, cy, pw - 32, 20), "ATTUNE  -  rework the gear you wear to floor " + (floorDepth + 1) + "'s depth", new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = Gold } });
+            GUI.Label(new Rect(x + 16, cy, pw - 32, 20), "ATTUNE  -  rework the gear you wear to floor " + (floorDepth + 1) + "'s depth", UiSkin.Derive(small, Gold, fontStyle: FontStyle.Bold));
             cy += 26;
             foreach (var gslot in new[] { GearSlot.Armor, GearSlot.Charm })
             {
                 var g = progress.Equipped(gslot);
                 GUI.Label(new Rect(x + 16, cy + 4, pw - 250, 20), g.IsEmpty ? gslot + ": nothing worn" : Gear.Name(g) + "  (floor " + (g.Depth + 1) + ")",
-                    new GUIStyle(small) { normal = { textColor = g.IsEmpty ? new Color(1f, 1f, 1f, 0.4f) : Gear.QualityColor(g.Quality) } });
+                    UiSkin.Derive(small, g.IsEmpty ? new Color(1f, 1f, 1f, 0.4f) : Gear.QualityColor(g.Quality)));
                 if (!g.IsEmpty)
                 {
                     int attune = Gear.AttuneCost(g, floorDepth);
@@ -2811,13 +2753,13 @@ namespace Deepbound.UI
                 cy += 34;
             }
             cy += 12;
-            GUI.Label(new Rect(x + 16, cy, pw - 32, 20), "SCRAP  -  melt pack gear down for embers", new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = ember } });
+            GUI.Label(new Rect(x + 16, cy, pw - 32, 20), "SCRAP  -  melt pack gear down for embers", UiSkin.Derive(small, ember, fontStyle: FontStyle.Bold));
             cy += 26;
             if (progress.BagCount == 0) GUI.Label(new Rect(x + 16, cy + 4, pw - 32, 20), "Nothing in your pack. Gear you pick up goes there (I to look).", small);
             for (int i = 0; i < progress.BagCount; i++)
             {
                 var item = progress.BagItem(i);
-                GUI.Label(new Rect(x + 16, cy + 4, pw - 250, 20), Gear.Name(item), new GUIStyle(small) { normal = { textColor = Gear.QualityColor(item.Quality) } });
+                GUI.Label(new Rect(x + 16, cy + 4, pw - 250, 20), Gear.Name(item), UiSkin.Derive(small, Gear.QualityColor(item.Quality)));
                 if (GUI.Button(new Rect(x + pw - 216, cy, 200, 24), "Scrap  +" + Gear.ScrapValue(item) + " embers")) progress.BagScrapRpc(i);
                 cy += 30;
             }
@@ -2842,7 +2784,7 @@ namespace Deepbound.UI
             var body = new GUIStyle(small) { fontSize = 13, wordWrap = true };
             GUI.Label(new Rect(x + 20, y + 14, 300, 28), "YSOLDE'S STONES", head);
             GUI.Label(new Rect(x + pw - 340, y + 16, 320, 24), progress.Sigils.Value + (progress.Sigils.Value == 1 ? " sigil      " : " sigils      ") + progress.Embers.Value + " embers",
-                new GUIStyle(label) { fontSize = 16, alignment = TextAnchor.MiddleRight, normal = { textColor = blue } });
+                UiSkin.Derive(label, blue, fontSize: 16, align: TextAnchor.MiddleRight));
             if (GUI.Button(new Rect(x + pw - 540, y + 14, 180, 28), "Buy a Sigil")) { runeOpen = false; shopOpen = true; shopVendor = Shop.Vendor.Runewright; }
 
             var sig = LootInfo.SigilColor;
@@ -2865,7 +2807,7 @@ namespace Deepbound.UI
                     var tc = t < 2 ? sig : blue;
                     Rect(tr.x, tr.y, tr.width, tr.height, new Color(tc.r, tc.g, tc.b, sel ? 0.2f : 0.06f));
                     if (sel) Rect(tr.x, tr.yMax - 3, tr.width, 3, tc);
-                    GUI.Label(tr, name, new GUIStyle(label) { fontSize = 15, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter, normal = { textColor = sel ? Color.white : new Color(1f, 1f, 1f, 0.6f) } });
+                    GUI.Label(tr, name, UiSkin.Derive(label, sel ? Color.white : new Color(1f, 1f, 1f, 0.6f), fontSize: 15, fontStyle: FontStyle.Bold, align: TextAnchor.MiddleCenter));
                     if (ready) { Rect(tr.xMax - 16, tr.y + 6, 9, 9, sig); }
                     if (GUI.Button(tr, GUIContent.none, GUIStyle.none)) { ysTab = t; ysScroll = Vector2.zero; }
                 }
@@ -2908,10 +2850,10 @@ namespace Deepbound.UI
                     float rh = rowH[tier];
 
                     var lc = done ? sig : now ? Color.white : new Color(1f, 1f, 1f, 0.45f);
-                    GUI.Label(new Rect(ox, cy + 4, labelW, 24), "RANK " + (tier + 1), new GUIStyle(label) { fontSize = 18, fontStyle = FontStyle.Bold, normal = { textColor = lc } });
+                    GUI.Label(new Rect(ox, cy + 4, labelW, 24), "RANK " + (tier + 1), UiSkin.Derive(label, lc, fontSize: 18, fontStyle: FontStyle.Bold));
                     string status = done ? "chosen" : now ? (can ? "choose one now" : "needs " + cost + (cost == 1 ? " sigil" : " sigils")) : "after rank " + tier;
-                    GUI.Label(new Rect(ox, cy + 28, labelW, 18), status, new GUIStyle(small) { fontSize = 12, wordWrap = false, normal = { textColor = now && can ? sig : new Color(1f, 1f, 1f, 0.55f) } });
-                    if (!done) GUI.Label(new Rect(ox, cy + 46, labelW, 18), cost + (cost == 1 ? " sigil" : " sigils"), new GUIStyle(small) { fontSize = 12, wordWrap = false, normal = { textColor = new Color(1f, 1f, 1f, 0.4f) } });
+                    GUI.Label(new Rect(ox, cy + 28, labelW, 18), status, UiSkin.Derive(small, now && can ? sig : new Color(1f, 1f, 1f, 0.55f), fontSize: 12, wrap: false));
+                    if (!done) GUI.Label(new Rect(ox, cy + 46, labelW, 18), cost + (cost == 1 ? " sigil" : " sigils"), UiSkin.Derive(small, new Color(1f, 1f, 1f, 0.4f), fontSize: 12, wrap: false));
 
                     if (tier < AbilityRanks.Tiers) Rect(ox + 8, cy + rh - 6, 2, 14, new Color(sig.r, sig.g, sig.b, done ? 0.6f : 0.15f));
                     for (int k = 0; k < 2; k++)
@@ -2926,10 +2868,10 @@ namespace Deepbound.UI
                         if (now) { var bc = new Color(sig.r, sig.g, sig.b, 0.55f); Rect(card.x, card.y, card.width, 1, bc); Rect(card.x, card.yMax - 1, card.width, 1, bc); Rect(card.x, card.y, 1, card.height, bc); Rect(card.xMax - 1, card.y, 1, card.height, bc); }
                         float a = passed ? 0.35f : later ? 0.6f : 1f;
                         var nc = taken || now ? sig : Color.white;
-                        GUI.Label(new Rect(card.x + 12, card.y + 6, card.width - 90, 22), o.Name.ToUpperInvariant(), new GUIStyle(nameSt) { normal = { textColor = new Color(nc.r, nc.g, nc.b, a) } });
-                        if (taken) GUI.Label(new Rect(card.xMax - 84, card.y + 7, 74, 20), "TAKEN", new GUIStyle(small) { fontSize = 12, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleRight, normal = { textColor = sig } });
-                        else if (passed) GUI.Label(new Rect(card.xMax - 84, card.y + 7, 74, 20), "passed", new GUIStyle(small) { fontSize = 12, alignment = TextAnchor.MiddleRight, normal = { textColor = new Color(1f, 1f, 1f, 0.3f) } });
-                        GUI.Label(new Rect(card.x + 12, card.y + 30, card.width - 24, rh - 30), o.Text, new GUIStyle(textSt) { normal = { textColor = new Color(0.92f, 0.9f, 0.86f, a) } });
+                        GUI.Label(new Rect(card.x + 12, card.y + 6, card.width - 90, 22), o.Name.ToUpperInvariant(), UiSkin.Derive(nameSt, new Color(nc.r, nc.g, nc.b, a)));
+                        if (taken) GUI.Label(new Rect(card.xMax - 84, card.y + 7, 74, 20), "TAKEN", UiSkin.Derive(small, sig, fontSize: 12, fontStyle: FontStyle.Bold, align: TextAnchor.MiddleRight));
+                        else if (passed) GUI.Label(new Rect(card.xMax - 84, card.y + 7, 74, 20), "passed", UiSkin.Derive(small, new Color(1f, 1f, 1f, 0.3f), fontSize: 12, align: TextAnchor.MiddleRight));
+                        GUI.Label(new Rect(card.x + 12, card.y + 30, card.width - 24, rh - 30), o.Text, UiSkin.Derive(textSt, new Color(0.92f, 0.9f, 0.86f, a)));
                         if (now)
                         {
                             GUI.enabled = can;
@@ -2942,7 +2884,7 @@ namespace Deepbound.UI
                 if (scrolls) GUI.EndScrollView();
                 if (rank >= AbilityRanks.MaxRank)
                 {
-                    GUI.Label(new Rect(x + 20, y + ph - 68, pw - 360, 24), "MASTERED.", new GUIStyle(label) { fontSize = 15, fontStyle = FontStyle.Bold, normal = { textColor = sig } });
+                    GUI.Label(new Rect(x + 20, y + ph - 68, pw - 360, 24), "MASTERED.", UiSkin.Derive(label, sig, fontSize: 15, fontStyle: FontStyle.Bold));
                     if (progress.Rank(AbilitySlot.Q) >= AbilityRanks.MaxRank && progress.Rank(AbilitySlot.E) >= AbilityRanks.MaxRank && progress.Sigils.Value > 0
                         && GUI.Button(new Rect(x + pw - 340, y + ph - 70, 320, 26), "Melt a spare Sigil into " + AbilityRanks.MeltEmbers + " embers")) progress.MeltSigilRpc();
                 }
@@ -2956,7 +2898,7 @@ namespace Deepbound.UI
 
             ly += 6;
             int sockets = Runes.SocketsAt(level);
-            GUI.Label(new Rect(lx, ly, lw, 20), "YOUR WEAPON  -  sockets open at +1, +3 and +6", new GUIStyle(section) { normal = { textColor = Gold } });
+            GUI.Label(new Rect(lx, ly, lw, 20), "YOUR WEAPON  -  sockets open at +1, +3 and +6", UiSkin.Derive(section, Gold));
             ly += 24;
             if (runeSocketPick >= sockets) runeSocketPick = -1;
             for (int sIdx = 0; sIdx < Runes.MaxSockets; sIdx++)
@@ -2969,7 +2911,7 @@ namespace Deepbound.UI
                 if (picked) Rect(row.x, row.y, 3, row.height, Gold);
                 Rect(row.x + 12, row.y + 10, 12, 12, open ? (r == Rune.None ? new Color(1f, 1f, 1f, 0.25f) : Runes.Color(r)) : new Color(1f, 1f, 1f, 0.06f));
                 GUI.Label(new Rect(row.x + 32, row.y + 4, lw - 44, 20), (sIdx == Runes.MajorSocket ? "MAJOR  " : "") + (open ? (r == Rune.None ? "Empty socket" : Runes.Name(r)) : "Locked  (weapon +" + Runes.SocketLevels[sIdx] + ")"),
-                    new GUIStyle(label) { fontSize = 14, fontStyle = FontStyle.Bold, normal = { textColor = open && r != Rune.None ? Runes.Color(r) : new Color(1f, 1f, 1f, 0.55f) } });
+                    UiSkin.Derive(label, open && r != Rune.None ? Runes.Color(r) : new Color(1f, 1f, 1f, 0.55f), fontSize: 14, fontStyle: FontStyle.Bold));
                 string under = !open ? "" : r != Rune.None ? (sIdx == Runes.MajorSocket ? "x2: " : "") + Runes.Describe(r) : picked ? "The next rune you set goes here." : sIdx == Runes.MajorSocket ? "The MAJOR socket: a rune here works twice as hard." : "Click to choose this socket.";
                 var underSt = new GUIStyle(body) { wordWrap = false };
                 GUI.Label(new Rect(row.x + 32, row.y + 23, lw - 44, 20), UiSkin.Fit(under, underSt, lw - 44), underSt);
@@ -2979,7 +2921,7 @@ namespace Deepbound.UI
 
             float rx = x + leftW + 8, rw = pw - leftW - 28, ry = top - 6f;
             Rect(rx - 14, top - 8f, 1, y + ph - 40f - top, new Color(1f, 1f, 1f, 0.08f));
-            GUI.Label(new Rect(rx, ry, rw, 20), "YOUR RUNES  -  SET one in your weapon, or MELD three alike into the next tier (II, III)", new GUIStyle(section) { normal = { textColor = blue } });
+            GUI.Label(new Rect(rx, ry, rw, 20), "YOUR RUNES  -  SET one in your weapon, or MELD three alike into the next tier (II, III)", UiSkin.Derive(section, blue));
             ry += 26;
             var kinds = new System.Collections.Generic.List<Rune>();
             for (int i = 0; i < progress.RuneBagCount; i++) { var r = progress.RuneInBag(i); if (!kinds.Contains(r)) kinds.Add(r); }
@@ -3000,7 +2942,7 @@ namespace Deepbound.UI
                     Rect(row.x, row.y, row.width, row.height, new Color(1f, 1f, 1f, k % 2 == 0 ? 0.05f : 0.03f));
                     Rect(row.x, row.y, 3, row.height, Runes.Color(r));
                     float bw = 150f, textW = row.width - bw - 28;
-                    GUI.Label(new Rect(row.x + 14, row.y + 6, textW, 22), Runes.Name(r) + "   x" + have, new GUIStyle(label) { fontSize = 15, fontStyle = FontStyle.Bold, normal = { textColor = Runes.Color(r) } });
+                    GUI.Label(new Rect(row.x + 14, row.y + 6, textW, 22), Runes.Name(r) + "   x" + have, UiSkin.Derive(label, Runes.Color(r), fontSize: 15, fontStyle: FontStyle.Bold));
                     var rdSt = new GUIStyle(body) { wordWrap = false };
                     GUI.Label(new Rect(row.x + 14, row.y + 28, textW, 20), UiSkin.Fit(Runes.Describe(r), rdSt, textW), rdSt);
                     var nextSt = new GUIStyle(body) { wordWrap = false, normal = { textColor = new Color(0.62f, 0.68f, 0.75f) } };
@@ -3017,10 +2959,10 @@ namespace Deepbound.UI
                 }
                 GUI.EndScrollView();
                 if (content.height > view.height)
-                    GUI.Label(new Rect(rx, view.yMax + 2, rw, 18), kinds.Count + " kinds of rune  -  scroll for more", new GUIStyle(small) { alignment = TextAnchor.MiddleRight, fontStyle = FontStyle.Italic, normal = { textColor = blue } });
+                    GUI.Label(new Rect(rx, view.yMax + 2, rw, 18), kinds.Count + " kinds of rune  -  scroll for more", UiSkin.Derive(small, blue, fontStyle: FontStyle.Italic, align: TextAnchor.MiddleRight));
             }
             }
-            GUI.Label(new Rect(x + 20, y + ph - 26, pw - 40, 20), "F or Esc to close", new GUIStyle(small) { normal = { textColor = new Color(0.6f, 0.58f, 0.55f) } });
+            GUI.Label(new Rect(x + 20, y + ph - 26, pw - 40, 20), "F or Esc to close", UiSkin.Derive(small, new Color(0.6f, 0.58f, 0.55f)));
             if (runeHover != null)
             {
                 var mp = Event.current.mousePosition;
@@ -3077,7 +3019,7 @@ namespace Deepbound.UI
             float x = w / 2f - pw / 2f, y = h / 2f - ph / 2f;
             Rect(x - 3, y - 3, pw + 6, ph + 6, new Color(Gold.r, Gold.g, Gold.b, 0.5f));
             Rect(x, y, pw, ph, new Color(0.04f, 0.035f, 0.03f, 0.94f));
-            GUI.Label(new Rect(x + 14, y + 10, pw, 24), Shop.VendorTitle(vendor), new GUIStyle(label) { normal = { textColor = Gold } });
+            GUI.Label(new Rect(x + 14, y + 10, pw, 24), Shop.VendorTitle(vendor), UiSkin.Derive(label, Gold));
             GUI.Label(new Rect(x + 14, y + 30, pw - 28, 20), vendor == Shop.Vendor.Yard ? "Your regimen: " + Shop.RegimenName(progress.ClassId.Value) : Shop.VendorLine(vendor), small);
             if (vendor == Shop.Vendor.Smith && GUI.Button(new Rect(x + pw - 300, y + 8, 160, 24), "Back to the anvil")) { shopOpen = false; forgeOpen = true; }
             if (vendor == Shop.Vendor.Runewright && GUI.Button(new Rect(x + pw - 300, y + 8, 160, 24), "Back to the stones")) { shopOpen = false; runeOpen = true; }
@@ -3086,12 +3028,12 @@ namespace Deepbound.UI
             if (amends > 0)
             {
                 int pct = Mathf.RoundToInt((progress.PriceMultiplier(vendor) - 1f) * 100f);
-                GUI.Label(new Rect(x + 14, y + ph + 6, pw - 200, 22), "You struck them: +" + pct + "% on everything here.", new GUIStyle(small) { normal = { textColor = new Color(0.95f, 0.45f, 0.35f) } });
+                GUI.Label(new Rect(x + 14, y + ph + 6, pw - 200, 22), "You struck them: +" + pct + "% on everything here.", UiSkin.Derive(small, new Color(0.95f, 0.45f, 0.35f)));
                 GUI.enabled = progress.Gold.Value >= amends;
                 if (GUI.Button(new Rect(x + pw - 190, y + ph + 4, 190, 26), "Make amends (" + amends + " gold)")) progress.AmendsRpc(vendor);
                 GUI.enabled = true;
             }
-            GUI.Label(new Rect(x + pw - 120, y + 10, 106, 24), progress.Gold.Value + " gold", new GUIStyle(label) { alignment = TextAnchor.UpperRight, normal = { textColor = Gold } });
+            GUI.Label(new Rect(x + pw - 120, y + 10, 106, 24), progress.Gold.Value + " gold", UiSkin.Derive(label, Gold, align: TextAnchor.UpperRight));
             if (top > 0f)
             {
                 var dir = DungeonDirector.Instance;
@@ -3100,11 +3042,11 @@ namespace Deepbound.UI
                 var diff = Enemies.Difficulty.Level;
                 float dy = y + 56;
                 Rect(x + 10, dy - 2, pw - 20, top - 6, new Color(1f, 1f, 1f, 0.04f));
-                GUI.Label(new Rect(x + 16, dy + 4, 120, 22), "THE ROAD", new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = Gold } });
+                GUI.Label(new Rect(x + 16, dy + 4, 120, 22), "THE ROAD", UiSkin.Derive(small, Gold, fontStyle: FontStyle.Bold));
                 GUI.enabled = host && !locked && dir.DifficultyIndex.Value > 0;
                 if (GUI.Button(new Rect(x + 120, dy + 2, 28, 24), "<")) dir.SetDifficultyRpc((byte)(dir.DifficultyIndex.Value - 1));
                 GUI.enabled = true;
-                GUI.Label(new Rect(x + 152, dy + 4, 110, 22), diff.Name.ToUpperInvariant(), new GUIStyle(label) { alignment = TextAnchor.UpperCenter });
+                GUI.Label(new Rect(x + 152, dy + 4, 110, 22), diff.Name.ToUpperInvariant(), UiSkin.Derive(label, label.normal.textColor, align: TextAnchor.UpperCenter));
                 int maxDiff = Enemies.Difficulty.TormentUnlocked ? Enemies.Difficulty.Settings.Length - 1 : Enemies.Difficulty.TormentIndex - 1;
                 GUI.enabled = host && !locked && dir.DifficultyIndex.Value < maxDiff;
                 if (GUI.Button(new Rect(x + 266, dy + 2, 28, 24), ">")) dir.SetDifficultyRpc((byte)(dir.DifficultyIndex.Value + 1));
@@ -3127,13 +3069,13 @@ namespace Deepbound.UI
                 if (practiceRow)
                 {
                     float py = dy + 58;
-                    GUI.Label(new Rect(x + 16, py + 3, 100, 22), "PRACTICE", new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = new Color(0.7f, 0.8f, 0.95f) } });
+                    GUI.Label(new Rect(x + 16, py + 3, 100, 22), "PRACTICE", UiSkin.Derive(small, new Color(0.7f, 0.8f, 0.95f), fontStyle: FontStyle.Bold));
                     float bx = x + 96;
                     for (int d = 0; d <= DungeonDirector.FinalDepth; d++)
                     {
                         bool open = DungeonDirector.PracticeUnlocked(d);
                         GUI.enabled = host && open;
-                        if (GUI.Button(new Rect(bx, py, 59, 24), open ? PracticeNames[Mathf.Min(d, PracticeNames.Length - 1)] : "?", new GUIStyle(GUI.skin.button) { fontSize = 11 })) { dir.PracticeRpc((byte)d); shopOpen = false; }
+                        if (GUI.Button(new Rect(bx, py, 59, 24), open ? PracticeNames[Mathf.Min(d, PracticeNames.Length - 1)] : "?", UiSkin.Derive(GUI.skin.button, GUI.skin.button.normal.textColor, fontSize: 11))) { dir.PracticeRpc((byte)d); shopOpen = false; }
                         bx += 61;
                     }
                     GUI.enabled = true;
@@ -3153,9 +3095,9 @@ namespace Deepbound.UI
                 var item = stock[i];
                 string reason = progress.CannotBuyReason(vendor, i);
 
-                var nameStyle = item.Kind == Shop.ItemKind.Relic ? new GUIStyle(label) { normal = { textColor = Relics.GemColor((Relic)(int)item.Amount) } }
-                    : item.Kind == Shop.ItemKind.Gear ? new GUIStyle(label) { normal = { textColor = Gear.QualityColor(item.Gear.Quality) } }
-                    : item.Kind == Shop.ItemKind.Sigil ? new GUIStyle(label) { normal = { textColor = LootInfo.SigilColor } }
+                var nameStyle = item.Kind == Shop.ItemKind.Relic ? UiSkin.Derive(label, Relics.GemColor((Relic)(int)item.Amount))
+                    : item.Kind == Shop.ItemKind.Gear ? UiSkin.Derive(label, Gear.QualityColor(item.Gear.Quality))
+                    : item.Kind == Shop.ItemKind.Sigil ? UiSkin.Derive(label, LootInfo.SigilColor)
                     : label;
                 string title = item.Kind == Shop.ItemKind.Relic ? "RELIC: " + item.Name : item.Kind == Shop.ItemKind.Gear ? "FOR YOU: " + item.Name : item.Name;
                 GUI.Label(new Rect(x + 14, ry, pw - 200, 20), UiSkin.Fit(title, nameStyle, pw - 200), nameStyle);
@@ -3163,7 +3105,7 @@ namespace Deepbound.UI
 
                 GUI.enabled = reason == null;
                 GUI.enabled = true;
-                if (GUI.Button(new Rect(x + pw - 174, ry + 3, 160, 28), reason ?? (item.Price + " gold"), reason == null ? GUI.skin.button : new GUIStyle(GUI.skin.button) { normal = { textColor = new Color(0.6f, 0.55f, 0.5f) } }))
+                if (GUI.Button(new Rect(x + pw - 174, ry + 3, 160, 28), reason ?? (item.Price + " gold"), reason == null ? GUI.skin.button : UiSkin.Derive(GUI.skin.button, new Color(0.6f, 0.55f, 0.5f))))
                 {
                     if (reason == null) progress.BuyRpc(vendor, i);
                     else Art.Sfx.Play2D(Art.Sound.UiError, 0.8f);
@@ -3211,7 +3153,7 @@ namespace Deepbound.UI
             float tx = x + hover * 30, ty = y - th - 8f;
             Rect(tx - 1, ty - 1, tw + 2, th + 2, new Color(Relics.GemColor(hr).r, Relics.GemColor(hr).g, Relics.GemColor(hr).b, 0.9f));
             Rect(tx, ty, tw, th, new Color(0.04f, 0.035f, 0.03f, 0.96f));
-            GUI.Label(new Rect(tx + 10, ty + 6, tw - 20, 20), progress.RelicLabel(hover).ToUpperInvariant(), new GUIStyle(small) { fontSize = 14, fontStyle = FontStyle.Bold, normal = { textColor = UiSkin.Readable(Relics.GemColor(hr)) } });
+            GUI.Label(new Rect(tx + 10, ty + 6, tw - 20, 20), progress.RelicLabel(hover).ToUpperInvariant(), UiSkin.Derive(small, UiSkin.Readable(Relics.GemColor(hr)), fontSize: 14, fontStyle: FontStyle.Bold));
             GUI.Label(new Rect(tx + 10, ty + 26, tw - 20, th - 28), hrText, body);
         }
 
@@ -3235,13 +3177,13 @@ namespace Deepbound.UI
                 float rh = 40 + perCol * relRowH;
                 float rx = w - 300 - 24 - rw - 12, ry = Mathf.Max(20f, Mathf.Min(h / 2f - rh / 2f, cardY - 12f - rh));
                 Rect(rx, ry, rw, rh, Panel);
-                GUI.Label(new Rect(rx + 12, ry + 10, rw, 22), "RELICS  (" + count + " / " + Relics.MaxCarried + ")", new GUIStyle(label) { normal = { textColor = Gold } });
+                GUI.Label(new Rect(rx + 12, ry + 10, rw, 22), "RELICS  (" + count + " / " + Relics.MaxCarried + ")", UiSkin.Derive(label, Gold));
                 var desc = new GUIStyle(small) { wordWrap = false };
                 for (int i = 0; i < count; i++)
                 {
                     var r = progress.RelicAt(i);
                     float cx = rx + 12 + (i / perCol) * colW, cy = ry + 36 + (i % perCol) * relRowH;
-                    GUI.Label(new Rect(cx, cy - 2, colW - 20, 22), progress.RelicLabel(i), new GUIStyle(label) { fontSize = 14, fontStyle = FontStyle.Bold, normal = { textColor = UiSkin.Readable(Relics.GemColor(r)) } });
+                    GUI.Label(new Rect(cx, cy - 2, colW - 20, 22), progress.RelicLabel(i), UiSkin.Derive(label, UiSkin.Readable(Relics.GemColor(r)), fontSize: 14, fontStyle: FontStyle.Bold));
                     string rd = (progress.RelicTierAt(i) > 0 ? "x" + Relics.Power(progress.RelicTierAt(i)).ToString("0.#") + ": " : "") + Relics.Describe(r);
                     if (relRowH >= 30f) GUI.Label(new Rect(cx, cy + 17, colW - 24, 20), UiSkin.Fit(rd, desc, colW - 24), desc);
                 }
@@ -3259,7 +3201,7 @@ namespace Deepbound.UI
                 var g = progress.Equipped(slot);
                 var gc = g.IsEmpty ? new Color(1f, 1f, 1f, 0.4f) : Gear.QualityColor(g.Quality);
                 GUI.Label(new Rect(x + 12, gy, 70, 20), slot.ToString().ToUpperInvariant(), small);
-                GUI.Label(new Rect(x + 80, gy, pw - 90, 20), g.IsEmpty ? "-" : Gear.Name(g), new GUIStyle(small) { normal = { textColor = gc } });
+                GUI.Label(new Rect(x + 80, gy, pw - 90, 20), g.IsEmpty ? "-" : Gear.Name(g), UiSkin.Derive(small, gc));
                 gy += 22;
             }
             for (int sIdx = 0; sIdx < Runes.MaxSockets; sIdx++)
@@ -3268,7 +3210,7 @@ namespace Deepbound.UI
                 bool open = sIdx < Runes.SocketsAt(progress.WeaponLevel.Value);
                 GUI.Label(new Rect(x + 12, gy, 70, 20), "RUNE " + (sIdx + 1), small);
                 GUI.Label(new Rect(x + 80, gy, pw - 90, 20), !open ? "locked" : r == Rune.None ? "-" : Runes.Name(r),
-                    new GUIStyle(small) { normal = { textColor = open && r != Rune.None ? Runes.Color(r) : new Color(1f, 1f, 1f, 0.4f) } });
+                    UiSkin.Derive(small, open && r != Rune.None ? Runes.Color(r) : new Color(1f, 1f, 1f, 0.4f)));
                 gy += 22;
             }
 
@@ -3277,7 +3219,7 @@ namespace Deepbound.UI
             float bonus = (melee ? progress.ReachMultiplier : progress.RangeMultiplier) - 1f;
             GUI.Label(new Rect(x + 12, gy, 70, 20), "RANGE", small);
             GUI.Label(new Rect(x + 80, gy, pw - 90, 20), rangeNow.ToString(melee ? "F1" : "F0") + " m" + (melee ? " reach" : "") + (bonus > 0.001f ? "  (+" + Mathf.RoundToInt(bonus * 100f) + "%)" : "  (anvil, Farsight +)"),
-                new GUIStyle(small) { normal = { textColor = bonus > 0.001f ? new Color(0.5f, 0.95f, 0.9f) : new Color(1f, 1f, 1f, 0.6f) } });
+                UiSkin.Derive(small, bonus > 0.001f ? new Color(0.5f, 0.95f, 0.9f) : new Color(1f, 1f, 1f, 0.6f)));
             gy += 22;
             string edgeList = "";
             for (int s = 0; s < Edges.Slots; s++)
@@ -3314,7 +3256,7 @@ namespace Deepbound.UI
             {
                 GUI.Label(new Rect(x + 12, gy, 70, 20), slot.ToString(), small);
                 GUI.Label(new Rect(x + 80, gy, pw - 90, 20), ClassDefinition.AbilityName(progress.ClassId.Value, slot) + "  rank " + progress.Rank(slot),
-                    new GUIStyle(small) { normal = { textColor = progress.Rank(slot) > 1 ? LootInfo.SigilColor : new Color(1f, 1f, 1f, 0.6f) } });
+                    UiSkin.Derive(small, progress.Rank(slot) > 1 ? LootInfo.SigilColor : new Color(1f, 1f, 1f, 0.6f)));
                 gy += 22;
             }
 
@@ -3322,23 +3264,23 @@ namespace Deepbound.UI
             {
                 float dw = 330, dh = 44 + hits.Count * 22, dx = 24, dy = 24;
                 Rect(dx, dy, dw, dh, Panel);
-                GUI.Label(new Rect(dx + 12, dy + 10, dw - 24, 20), "DAMAGE", new GUIStyle(label) { normal = { textColor = Gold } });
-                GUI.Label(new Rect(dx + 12, dy + 12, dw - 24, 20), "a plain hit  ·  since the run began", new GUIStyle(small) { alignment = TextAnchor.UpperRight, wordWrap = false, normal = { textColor = new Color(1f, 1f, 1f, 0.5f) } });
+                GUI.Label(new Rect(dx + 12, dy + 10, dw - 24, 20), "DAMAGE", UiSkin.Derive(label, Gold));
+                GUI.Label(new Rect(dx + 12, dy + 12, dw - 24, 20), "a plain hit  ·  since the run began", UiSkin.Derive(small, new Color(1f, 1f, 1f, 0.5f), align: TextAnchor.UpperRight, wrap: false));
                 float ry2 = dy + 36;
                 var nameStyle = new GUIStyle(small) { wordWrap = false };
                 foreach (var l in hits)
                 {
-                    GUI.Label(new Rect(dx + 12, ry2, 40, 20), l.Key, new GUIStyle(small) { wordWrap = false, normal = { textColor = new Color(1f, 1f, 1f, 0.5f) } });
+                    GUI.Label(new Rect(dx + 12, ry2, 40, 20), l.Key, UiSkin.Derive(small, new Color(1f, 1f, 1f, 0.5f), wrap: false));
                     GUI.Label(new Rect(dx + 52, ry2, 140, 20), UiSkin.Fit(l.Name, nameStyle, 138), nameStyle);
-                    GUI.Label(new Rect(dx + 196, ry2, 80, 20), Mathf.RoundToInt(l.Now) + l.Unit, new GUIStyle(small) { wordWrap = false, fontStyle = FontStyle.Bold, normal = { textColor = Color.white } });
+                    GUI.Label(new Rect(dx + 196, ry2, 80, 20), Mathf.RoundToInt(l.Now) + l.Unit, UiSkin.Derive(small, Color.white, fontStyle: FontStyle.Bold, wrap: false));
                     int pct = l.Start > 0.01f ? Mathf.RoundToInt((l.Now / l.Start - 1f) * 100f) : 0;
-                    GUI.Label(new Rect(dx + dw - 62, ry2, 50, 20), pct == 0 ? "-" : (pct > 0 ? "+" : "") + pct + "%", new GUIStyle(small) { alignment = TextAnchor.UpperRight, normal = { textColor = pct > 0 ? Gold : pct < 0 ? new Color(0.9f, 0.45f, 0.4f) : new Color(1f, 1f, 1f, 0.4f) } });
+                    GUI.Label(new Rect(dx + dw - 62, ry2, 50, 20), pct == 0 ? "-" : (pct > 0 ? "+" : "") + pct + "%", UiSkin.Derive(small, pct > 0 ? Gold : pct < 0 ? new Color(0.9f, 0.45f, 0.4f) : new Color(1f, 1f, 1f, 0.4f), align: TextAnchor.UpperRight));
                     ry2 += 22;
                 }
             }
             GUI.Label(new Rect(x + 12, y + 10, pw, 22), progress.Class.Name.ToUpperInvariant() + "  -  " + ClassDefinition.WeaponName(progress.ClassId.Value) + " +" + progress.WeaponLevel.Value
                 + (progress.Hones.Value > 0 ? "  (honed " + progress.Hones.Value + ")" : ""),
-                new GUIStyle(label) { normal = { textColor = Gold } });
+                UiSkin.Derive(label, Gold));
 
             for (int i = 0; i < Stats.Count; i++)
             {
@@ -3363,7 +3305,7 @@ namespace Deepbound.UI
                 Rect(x + 110 + 120 * Mathf.Clamp01(baseValue / ceiling), ry + 6, 120 * Mathf.Clamp01((value - baseValue) / ceiling), 10, c);
                 float added = value - baseValue;
                 if (Mathf.Abs(added) >= 0.5f)
-                    GUI.Label(new Rect(x + 238, ry, 60, 22), (added > 0 ? "+" : "") + Mathf.RoundToInt(added), new GUIStyle(small) { normal = { textColor = Gold } });
+                    GUI.Label(new Rect(x + 238, ry, 60, 22), (added > 0 ? "+" : "") + Mathf.RoundToInt(added), UiSkin.Derive(small, Gold));
             }
         }
 
@@ -3696,7 +3638,7 @@ namespace Deepbound.UI
             {
                 float a = Mathf.Clamp01((1.8f - age) / 0.5f);
                 string word = afflictText.Split(new[] { "  -  " }, System.StringSplitOptions.None)[0];
-                UiSkin.Shadowed(new Rect(0, h * 0.56f, w, 26), word, new GUIStyle(big) { fontSize = 18, normal = { textColor = new Color(afflictColor.r, afflictColor.g, afflictColor.b, a) } }, a);
+                UiSkin.Shadowed(new Rect(0, h * 0.56f, w, 26), word, UiSkin.Derive(big, new Color(afflictColor.r, afflictColor.g, afflictColor.b, a), fontSize: 18), a);
             }
         }
 
@@ -3738,8 +3680,6 @@ namespace Deepbound.UI
         private static void Bar(float x, float y, float width, float height, float k, Color color, float trail = -1f)
         {
             UiSkin.Bar(new Rect(x, y, width, height), k, color, height >= 18f ? 10 : 0, trail);
-            return;
-            Rect(x, y, width * Mathf.Clamp01(k), height * 0.35f, new Color(1f, 1f, 1f, 0.12f));
         }
 
         private static void Rect(float x, float y, float width, float height, Color color)

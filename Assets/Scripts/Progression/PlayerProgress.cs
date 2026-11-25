@@ -10,41 +10,21 @@ using UnityEngine;
 
 namespace Deepbound.Progression
 {
-    /// <summary>
-    /// A player's run-scoped power: the stat block, the class weapon's level, bonuses, relics,
-    /// gold and embers. Everything here is wiped when the run ends — the game's central rule.
-    ///
-    /// <para>
-    /// The authoritative <see cref="StatBlock"/> lives on the server. Bonuses are mirrored
-    /// into a network list so every peer can compute the same stat values: the owner needs
-    /// SPD for movement and DEX for swing speed without asking the server, and the HUD's
-    /// stat panel needs all eight.
-    /// </para>
-    /// </summary>
     [RequireComponent(typeof(Health))]
     public partial class PlayerProgress : NetworkBehaviour
     {
         public readonly NetworkVariable<int> Gold = new NetworkVariable<int>();
 
-        /// <summary>Weapon upgrade material, spent at the anvil.</summary>
         public readonly NetworkVariable<int> Embers = new NetworkVariable<int>();
 
-        /// <summary>The class weapon's anvil level, 0 to <see cref="World.Anvil.MaxLevel"/>.</summary>
         public readonly NetworkVariable<int> WeaponLevel = new NetworkVariable<int>();
 
-        /// <summary>Ability rank-ups, spent at the anvil.</summary>
         public readonly NetworkVariable<int> Sigils = new NetworkVariable<int>();
 
-        // ---- The castle cat's verdict, kept until the run ends ----
-        /// <summary>Picked the cat up without petting it first: it peed on you. -5% max health this run.</summary>
         public readonly NetworkVariable<bool> CatPeed = new NetworkVariable<bool>();
-        /// <summary>Petted, then picked up: it gave you a whisker. 1% chance to evade any hit this run (one per run).</summary>
+
         public readonly NetworkVariable<bool> CatWhisker = new NetworkVariable<bool>();
 
-        /// <summary>
-        /// How much each camp character resents you (3 bits per <see cref="World.FolkId"/>, 0..4), from
-        /// hitting them. Server-written; eases by one per return to camp, cleared with the run.
-        /// </summary>
         public readonly NetworkVariable<int> Grudges = new NetworkVariable<int>();
 
         private System.Collections.IEnumerator AddPrayerLast()
@@ -54,28 +34,23 @@ namespace Deepbound.Progression
             if (health != null) health.IncomingModifiers.Add(PrayerModifier);
         }
 
-        /// <summary>Bought Brother Aldric's prayer: the next blow that would down you leaves you at 1 health instead.</summary>
         public readonly NetworkVariable<bool> PrayedFor = new NetworkVariable<bool>();
 
-        /// <summary>Training-yard drills taken this run: four bits per stat (see Shop.Drills).</summary>
         public readonly NetworkVariable<ulong> Drills = new NetworkVariable<ulong>();
         public int DrillCount(StatType s) => (int)((Drills.Value >> (4 * (int)s)) & 0xF);
 
-        /// <summary>Bought Corwin's map: the next floor is charted from the start. MapRevealed: this floor is.</summary>
         public readonly NetworkVariable<bool> ScoutMap = new NetworkVariable<bool>();
         public readonly NetworkVariable<bool> MapRevealed = new NetworkVariable<bool>();
-        /// <summary>Smelling salts: going down, you come round on your own (once).</summary>
+
         public readonly NetworkVariable<bool> Salts = new NetworkVariable<bool>();
-        /// <summary>A climbing rope from Corwin: one retreat to camp from a floor's waystone.</summary>
+
         public readonly NetworkVariable<bool> Rope = new NetworkVariable<bool>();
 
         public const float RopeRange = 3.2f;
 
-        /// <summary>Owner: can I climb out here, now?</summary>
         public bool CanUseRope => Rope.Value && World.DungeonDirector.Instance != null && World.DungeonDirector.Instance.CanRetreat && World.DungeonDirector.Layout != null
             && Vector3.Distance(transform.position, World.DungeonDirector.Layout.WaystonePosition) <= RopeRange;
 
-        /// <summary>Owner → server: climb the rope (the whole party goes up).</summary>
         [Rpc(SendTo.Server)]
         public void UseRopeRpc()
         {
@@ -83,13 +58,11 @@ namespace Deepbound.Progression
             Rope.Value = false;
             World.DungeonDirector.Instance.ServerRetreat(name);
         }
-        /// <summary>How many times Hobb has re-forged your piece this run (it reseeds his offer).</summary>
+
         public readonly NetworkVariable<byte> StockRerolls = new NetworkVariable<byte>();
 
-        /// <summary>Server, last in the incoming chain: a paid prayer catches a killing blow, once.</summary>
         private float PrayerModifier(float dealt, Vector3 from)
         {
-            // A shield soaks what comes after this; only a blow that would really down you spends the prayer.
             if (!PrayedFor.Value || health == null || dealt - health.Shield.Value < health.Current.Value) return dealt;
             PrayedFor.Value = false;
             PrayerHeldRpc(name);
@@ -117,7 +90,6 @@ namespace Deepbound.Progression
             Grudges.Value = (Grudges.Value & ~(7 << shift)) | (Mathf.Clamp(level, 0, MaxGrudge) << shift);
         }
 
-        /// <summary>Server: one more offence against <paramref name="who"/>. Returns the new level.</summary>
         public int ServerAddGrudge(World.FolkId who)
         {
             int level = Mathf.Min(MaxGrudge, Grudge(who) + 1);
@@ -125,23 +97,19 @@ namespace Deepbound.Progression
             return level;
         }
 
-        /// <summary>Server: time heals - every grudge eases by one (called on each return to camp).</summary>
         public void ServerEaseGrudges()
         {
             for (int i = 0; i <= (int)World.FolkId.Peddler; i++) SetGrudge((World.FolkId)i, Grudge((World.FolkId)i) - 1);
         }
 
-        /// <summary>A vendor's mark-up for you: +25% per grudge level.</summary>
         public float PriceMultiplier(Shop.Vendor vendor) => (1f + 0.25f * Grudge(VendorFolk(vendor))) * World.DungeonDirector.OmenPrices
             * (World.DungeonDirector.InLobby ? World.DungeonDirector.FavourPriceScale(VendorFolk(vendor)) : 1f)
             * (HasRelic(Relic.PilgrimsPurse) && World.DungeonDirector.InLobby ? Mathf.Max(0.55f, 1f - 0.15f * RelicPower(Relic.PilgrimsPurse)) : 1f);
 
-        /// <summary>Who stands behind a vendor's counter right now (the peddler, off camp).</summary>
         public static World.FolkId VendorFolk(Shop.Vendor vendor) => vendor == Shop.Vendor.Smith ? World.FolkId.Hobb : vendor == Shop.Vendor.Shrine ? World.FolkId.Aldric
             : vendor == Shop.Vendor.Carriage ? World.FolkId.Corwin : vendor == Shop.Vendor.Yard ? World.FolkId.Brann : vendor == Shop.Vendor.Runewright ? World.FolkId.Ysolde
             : World.DungeonDirector.InLobby ? World.FolkId.Silas : World.FolkId.Peddler;
 
-        /// <summary>Owner -> server: you start or stop talking/trading with <paramref name="who"/> (they hold still meanwhile).</summary>
         [Rpc(SendTo.Server)]
         public void TalkHoldRpc(byte who, bool on)
         {
@@ -151,7 +119,6 @@ namespace Deepbound.Progression
             d.ServerHoldFolk((World.FolkId)who, OwnerClientId, on);
         }
 
-        /// <summary>Owner -> server: take <paramref name="who"/>'s quest while talking to them (party-wide).</summary>
         [Rpc(SendTo.Server)]
         public void TakeQuestRpc(byte who)
         {
@@ -161,13 +128,11 @@ namespace Deepbound.Progression
             d.ServerTakeQuest((World.FolkId)who, name);
         }
 
-        /// <summary>What it costs to make amends with a vendor (0: nothing to mend).</summary>
         public int AmendsCost(Shop.Vendor vendor)
         {
             return Grudge(VendorFolk(vendor)) * 30;
         }
 
-        /// <summary>Owner → server: pay a vendor to forget it (at their stall).</summary>
         [Rpc(SendTo.Server)]
         public void AmendsRpc(Shop.Vendor vendor)
         {
@@ -182,7 +147,6 @@ namespace Deepbound.Progression
         [Rpc(SendTo.ClientsAndHost)]
         private void AmendsMadeRpc(byte who) => UI.CampChatter.Forgiven((World.FolkId)who, name);
 
-        /// <summary>The player object whose owner is <paramref name="clientId"/>, on any peer.</summary>
         public static PlayerProgress ForClient(ulong clientId)
         {
             foreach (var life in Player.PlayerLife.All)
@@ -191,38 +155,27 @@ namespace Deepbound.Progression
         }
         public const float CatPeeHealth = 0.95f, WhiskerEvade = 0.01f;
 
-        /// <summary>Server: the cat has judged you.</summary>
         public void ServerCatVerdict(bool petted)
         {
-            // Not petted first: it squirms free (2026-11-07, the user: "remove the pee"). No penalty any more.
             if (petted && !CatWhisker.Value) CatWhisker.Value = true;
         }
         public readonly NetworkVariable<byte> RankQ = new NetworkVariable<byte>(1);
         public readonly NetworkVariable<byte> RankE = new NetworkVariable<byte>(1);
 
-        /// <summary>
-        /// The choice taken at each rank (2026-11-20 rework): bit (slot x 4 + tier - 1) set = option B at that tier (tier 1-4 =
-        /// rank 2-5). Locked for the run; cleared by <see cref="ServerResetRun"/>. The Hollow Crown's free rank takes option A.
-        /// </summary>
         public readonly NetworkVariable<byte> RankChoice = new NetworkVariable<byte>();
 
-        /// <summary>0 = that tier not reached, 1 = option A taken, 2 = option B taken.</summary>
         public int Pick(AbilitySlot slot, int tier) => tier < 1 || Rank(slot) < tier + 1 ? 0 : ((RankChoice.Value >> ((int)slot * 4 + tier - 1)) & 1) + 1;
-        /// <summary>Took option A at <paramref name="tier"/> (1-4).</summary>
+
         public bool A(AbilitySlot slot, int tier) => Pick(slot, tier) == 1;
-        /// <summary>Took option B at <paramref name="tier"/> (1-4).</summary>
+
         public bool B(AbilitySlot slot, int tier) => Pick(slot, tier) == 2;
 
-        /// <summary>Effective rank: bought ranks, plus one for the Hollow Crown (max 5).</summary>
         public int Rank(AbilitySlot slot) => Mathf.Min(AbilityRanks.MaxRank, (slot == AbilitySlot.Q ? RankQ.Value : RankE.Value) + (Wears(GearId.HollowCrown) ? 1 : 0));
 
-        /// <summary>Ranks actually bought with Sigils (what the anvil can still raise).</summary>
         public int BoughtRank(AbilitySlot slot) => slot == AbilitySlot.Q ? RankQ.Value : RankE.Value;
 
-        /// <summary>A quiet bit of strength a rank: the choices are the headline, this keeps the ability up with the deeper floors.</summary>
         public float Potency(AbilitySlot slot) => 1f + AbilityRanks.PotencyPerRank * (Rank(slot) - 1);
 
-        /// <summary>Q/E cooldown scale: relics and gear.</summary>
         public float CooldownFor(AbilitySlot slot) => CooldownMultiplier * (1f - AbilityRanks.CooldownPerRank * (Rank(slot) - 1));
 
         public void ServerAddSigil()
@@ -235,11 +188,9 @@ namespace Deepbound.Progression
         [Rpc(SendTo.ClientsAndHost)]
         private void SigilRpc() => UI.GameHud.Feed(name + " found a Sigil  -  rank an ability at Ysolde's stones", LootInfo.SigilColor);
 
-        /// <summary>Owner -> server: spend Sigils on the next rank of Q or E at Ysolde's stones, taking option A or B.</summary>
         [Rpc(SendTo.Server)]
         public void EmpowerRpc(byte slot, bool optionB) => ServerEmpowerAbility(slot, optionB);
 
-        /// <summary>Server: raise a rank and lock in its choice. Public for the tests.</summary>
         public bool ServerEmpowerAbility(byte slot, bool optionB)
         {
             if (!AtRunewright || slot > 1) return false;
@@ -257,7 +208,6 @@ namespace Deepbound.Progression
             return true;
         }
 
-        /// <summary>Owner → server: with both abilities at their top rank, a spare Sigil melts into embers.</summary>
         [Rpc(SendTo.Server)]
         public void MeltSigilRpc()
         {
@@ -275,18 +225,14 @@ namespace Deepbound.Progression
             UI.GameHud.Feed(name + "'s " + ability + " reaches rank " + rank + ": " + opt.Name.ToUpperInvariant(), LootInfo.SigilColor);
         }
 
-        /// <summary>The weapon's chosen path: 0 = not yet, 1 or 2. See <see cref="WeaponPaths"/>.</summary>
         public readonly NetworkVariable<byte> WeaponPath = new NetworkVariable<byte>();
 
         public bool OnPath(int path) => WeaponPath.Value == path;
 
-        /// <summary>Forged edges (see <see cref="Edges"/>), one byte per slot: slot s in bits 8s..8s+7.</summary>
         public readonly NetworkVariable<int> EdgeBits = new NetworkVariable<int>();
 
-        /// <summary>Hones past +10 (see <see cref="World.Anvil.MaxHones"/>).</summary>
         public readonly NetworkVariable<byte> Hones = new NetworkVariable<byte>();
 
-        /// <summary>Server: when Momentum's bonus runs out (Time.time).</summary>
         public float ServerMomentumUntil;
 
         public Edge EdgeAt(int slot) => (Edge)((EdgeBits.Value >> (8 * slot)) & 0xFF);
@@ -297,7 +243,6 @@ namespace Deepbound.Progression
             return false;
         }
 
-        /// <summary>The first edge slot the weapon has reached but not filled, or -1.</summary>
         public int OpenEdgeSlot
         {
             get
@@ -310,10 +255,8 @@ namespace Deepbound.Progression
 
         private int RunSeed => World.DungeonDirector.Instance != null ? (int)(World.DungeonDirector.Instance.RunStartedAt.Value * 10.0) : 0;
 
-        /// <summary>The three edges on offer for <paramref name="slot"/> (any peer: the same seed on both sides).</summary>
         public Edge[] EdgeOffer(int slot) => Edges.Offer(RunSeed, OwnerClientId, slot, EdgeBits.Value);
 
-        /// <summary>Owner -> server: forge one of the offered edges (at the anvil).</summary>
         [Rpc(SendTo.Server)]
         public void ChooseEdgeRpc(byte edge)
         {
@@ -321,24 +264,18 @@ namespace Deepbound.Progression
             ServerChooseEdge((Edge)edge);
         }
 
-        /// <summary>Server: fill the open edge slot with <paramref name="e"/> if it is on offer.</summary>
         public bool ServerChooseEdge(Edge e)
         {
             int slot = OpenEdgeSlot;
             if (!IsServer || slot < 0 || System.Array.IndexOf(EdgeOffer(slot), e) < 0) return false;
             EdgeBits.Value |= (int)e << (8 * slot);
-            // The guard edges that are simply more of you (2026-11-12).
+
             if (e == Edge.Bastion) ServerAddBonus(StatType.HP, Edges.BastionHP);
             if (e == Edge.Ironhide) ServerAddBonus(StatType.DEF, Edges.IronhideDEF);
             EdgeChosenRpc((byte)e);
             return true;
         }
 
-        /// <summary>
-        /// RESPEC (2026-11-13, the user: "A paid option at Ysolde or Hobb to swap one edge per run, so a bad early pick isn't
-        /// fatal"): at Hobb's anvil, once a run, for <see cref="RespecCost"/> gold, one forged edge comes out and its slot opens
-        /// again on the same offer.
-        /// </summary>
         public readonly NetworkVariable<bool> EdgeRespecced = new NetworkVariable<bool>();
         public int RespecCost => 150 + 50 * World.DungeonDirector.Act(Mathf.Max(0, World.DungeonDirector.Instance != null ? World.DungeonDirector.Instance.NextDepth.Value : 0));
 
@@ -357,7 +294,6 @@ namespace Deepbound.Progression
             ServerRespecEdge(slot);
         }
 
-        /// <summary>Server: take the edge in <paramref name="slot"/> back out (tests call this).</summary>
         public bool ServerRespecEdge(int slot)
         {
             if (!IsServer || CannotRespecReason(slot) != null) return false;
@@ -386,7 +322,6 @@ namespace Deepbound.Progression
             if (IsOwner && EdgeAt(Edges.Slots - 1) != Edge.None) Deeds.Earn(Deeds.Deed.ThreeEdges, "Three edges forged");
         }
 
-        /// <summary>Why the weapon cannot be honed now, or null.</summary>
         public string CannotHoneReason()
         {
             if (WeaponLevel.Value < World.Anvil.MaxLevel) return "Temper to +" + World.Anvil.MaxLevel + " first";
@@ -397,12 +332,11 @@ namespace Deepbound.Progression
             return null;
         }
 
-        /// <summary>Owner -> server: hone a +10 weapon at the anvil you stand by.</summary>
         [Rpc(SendTo.Server)]
         public void HoneRpc()
         {
             var anvil = World.Anvil.Near(transform.position);
-            if (anvil != null && ServerHone()) anvil.WorkFxRpc(World.Anvil.Work.Grindstone, 1f); // the grindstone's work (2026-11-12)
+            if (anvil != null && ServerHone()) anvil.WorkFxRpc(World.Anvil.Work.Grindstone, 1f);
         }
 
         public bool ServerHone()
@@ -422,23 +356,20 @@ namespace Deepbound.Progression
             UI.GameHud.Feed(name + " hones their " + ClassDefinition.WeaponName(ClassId.Value) + " (" + hones + "/" + World.Anvil.MaxHones + "): +" + Mathf.RoundToInt(hones * World.Anvil.HoneDamage * 100f) + "% damage", LootInfo.EmberColor);
         }
 
-        /// <summary>The shrine's blessing for the current floor (see <see cref="Blessings"/>).</summary>
         public readonly NetworkVariable<byte> ActiveBlessing = new NetworkVariable<byte>();
         public bool Blessed(Blessing b) => ActiveBlessing.Value == (byte)b;
 
-        /// <summary>How often this player has asked the shrine for other relics this run.</summary>
         public readonly NetworkVariable<byte> ShrineRerolls = new NetworkVariable<byte>();
 
         public void ServerBless(Blessing b)
         {
             if (!IsServer) return;
             ActiveBlessing.Value = (byte)b;
-            // Fortune pays out late in a run too: gold piles up by then, a Sigil never goes to waste.
+
             if (b == Blessing.Fortune) ServerAddSigil();
             OnStatsChangedServer(StatType.HP);
         }
 
-        /// <summary>Server: the floor is over (or the run): the blessing fades.</summary>
         public void ServerClearBlessing()
         {
             if (!IsServer || ActiveBlessing.Value == 0) return;
@@ -446,20 +377,17 @@ namespace Deepbound.Progression
             ApplyToHealth(refill: false);
         }
 
-        // ---- Gear: one armour, one charm. Stats derive from the item on every peer. ----
         public readonly NetworkVariable<GearItem> Armor = new NetworkVariable<GearItem>();
         public readonly NetworkVariable<GearItem> Charm = new NetworkVariable<GearItem>();
 
         public GearItem Equipped(GearSlot slot) => slot == GearSlot.Armor ? Armor.Value : Charm.Value;
 
-        // ---- The pack: spare gear carried for the run (Dark and Darker's stash, small). ----
         public const int BagSize = 8;
         private NetworkList<GearItem> bag;
         public int BagCount => bag.Count;
         public GearItem BagItem(int i) => i >= 0 && i < bag.Count ? bag[i] : default;
         public bool BagFull => bag.Count >= BagSize;
 
-        /// <summary>Server: put a piece in the pack. False if it is full.</summary>
         public bool ServerStow(GearItem item)
         {
             if (!IsServer || item.IsEmpty || bag.Count >= BagSize) return false;
@@ -468,10 +396,9 @@ namespace Deepbound.Progression
         }
 
         private bool CanManagePack(int i) => IsServer && i >= 0 && i < bag.Count && !GetComponent<Player.PlayerLife>().Downed.Value;
-        /// <summary>Scrapping is smith's work: only at the anvil.</summary>
+
         private bool AtAnvil => World.Anvil.Near(transform.position) != null;
 
-        /// <summary>Owner → server: wear a piece from the pack; what was worn takes its place.</summary>
         [Rpc(SendTo.Server)]
         public void BagEquipRpc(int i)
         {
@@ -482,7 +409,6 @@ namespace Deepbound.Progression
             if (!old.IsEmpty) bag.Insert(Mathf.Min(i, bag.Count), old);
         }
 
-        /// <summary>Owner → server: break a piece in the pack down into embers.</summary>
         [Rpc(SendTo.Server)]
         public void BagScrapRpc(int i)
         {
@@ -493,21 +419,19 @@ namespace Deepbound.Progression
             ServerAddPart(Part.Iron, 1 + item.Quality);
             PackFxRpc(0);
             var smithy = World.Anvil.Near(transform.position);
-            if (smithy != null) smithy.WorkFxRpc(World.Anvil.Work.Hearth, 1f); // melted down in the forge (2026-11-12)
+            if (smithy != null) smithy.WorkFxRpc(World.Anvil.Work.Hearth, 1f);
         }
 
-        /// <summary>Owner → server: set a piece down on the floor (yours alone to see, as ever).</summary>
         [Rpc(SendTo.Server)]
         public void BagDropRpc(int i)
         {
             if (!CanManagePack(i)) return;
             var item = bag[i];
             bag.RemoveAt(i);
-            // Put down for anyone: a friend can pick it up (play-test 2026-11-01).
+
             GearDrop.ServerSpawn(item, GearDrop.Anyone, transform.position + transform.forward * 1.2f + Vector3.up * 0.05f);
         }
 
-        /// <summary>Owner → server: take a worn piece off into the pack.</summary>
         [Rpc(SendTo.Server)]
         public void UnequipRpc(byte slot)
         {
@@ -534,7 +458,6 @@ namespace Deepbound.Progression
 
         private float dodgeStrikeUntil, shroudReadyAt, bulwarkReadyAt;
 
-        /// <summary>Server: put a piece on. Returns what was in its slot (maybe empty).</summary>
         public GearItem ServerEquip(GearItem item)
         {
             if (!IsServer || item.IsEmpty) return default;
@@ -553,10 +476,6 @@ namespace Deepbound.Progression
         private void EquippedRpc(GearItem item) =>
             UI.GameHud.Feed(name + " equipped " + Gear.Name(item), Gear.QualityColor(item.Quality));
 
-        /// <summary>
-        /// Owner → server, at the anvil: improve a worn piece. Mode 0 refines its quality,
-        /// mode 1 attunes it to the current floor's depth. Paid in embers.
-        /// </summary>
         [Rpc(SendTo.Server)]
         public void ReforgeRpc(byte slot, byte mode)
         {
@@ -569,13 +488,12 @@ namespace Deepbound.Progression
             Embers.Value -= cost;
             var better = mode == 0 ? new GearItem(item.Kind, item.Quality + 1, item.Depth) : new GearItem(item.Kind, item.Quality, depth);
             ServerEquip(better);
-            // Refining is the grindstone's work, attuning the forge's (2026-11-12).
+
             anvil.WorkFxRpc(mode == 0 ? World.Anvil.Work.Grindstone : World.Anvil.Work.Hearth, 0.7f);
         }
 
-        /// <summary>Server: a dodge readies the Gravecloth Mantle's strike.</summary>
         public const float MartyrDamage = 0.45f, MartyrHeal = 0.85f, WraithstepSpeed = 1.4f, WraithstepSeconds = 1.5f;
-        /// <summary>Owner: the Wraithstep Cuirass's burst after a dodge (speed is worked out on the owner).</summary>
+
         public float WraithstepUntil { get; set; } = -1f;
         public bool Wraithstepping => Time.time < WraithstepUntil;
 
@@ -586,10 +504,9 @@ namespace Deepbound.Progression
         }
 
         public const float PerfectStrikeSeconds = 2f, PerfectStrikeMultiplier = 1.3f;
-        /// <summary>Server: a perfect dodge readied a counter until then (<see cref="Player.PlayerLife"/>).</summary>
+
         public float PerfectStrikeUntil;
 
-        /// <summary>Server: true once, if a perfect-dodge counter is ready.</summary>
         public bool ServerConsumePerfectStrike()
         {
             if (Time.time > PerfectStrikeUntil) return false;
@@ -597,7 +514,6 @@ namespace Deepbound.Progression
             return true;
         }
 
-        /// <summary>Server: true once, if a Mantle strike is ready.</summary>
         public bool ServerConsumeDodgeStrike()
         {
             if (Time.time > dodgeStrikeUntil) return false;
@@ -605,24 +521,21 @@ namespace Deepbound.Progression
             return true;
         }
 
-        /// <summary>Thornhide Jerkin: regeneration while badly hurt, even mid-fight.</summary>
         public bool DesperateRegen => Wears(GearId.ThornhideJerkin) && health.Fraction < 0.4f;
         public bool Mastered(int path) => WeaponPath.Value == path && WeaponLevel.Value >= WeaponPaths.MasteryLevel;
 
-        // ---- Run statistics, for the end-of-run summary. Server-written, reset with the run. ----
         public readonly NetworkVariable<int> Kills = new NetworkVariable<int>();
         public readonly NetworkVariable<int> DamageDealt = new NetworkVariable<int>();
         public readonly NetworkVariable<int> GoldEarned = new NetworkVariable<int>();
         public readonly NetworkVariable<int> Downs = new NetworkVariable<int>();
         public readonly NetworkVariable<int> Revives = new NetworkVariable<int>();
         public readonly NetworkVariable<int> CombosTriggered = new NetworkVariable<int>();
-        /// <summary>For the run summary's titles: damage soaked, critical hits, enemies sent into the abyss.</summary>
+
         public readonly NetworkVariable<int> DamageTaken = new NetworkVariable<int>();
         public readonly NetworkVariable<int> Crits = new NetworkVariable<int>();
         public readonly NetworkVariable<int> AbyssKicks = new NetworkVariable<int>();
         private float takenCarry;
 
-        /// <summary>Server: tally damage this player took.</summary>
         public void ServerCreditTaken(float dealt)
         {
             takenCarry += dealt;
@@ -630,11 +543,9 @@ namespace Deepbound.Progression
             if (whole > 0) { takenCarry -= whole; DamageTaken.Value += whole; }
         }
 
-        /// <summary>Server: this player set off a class combo.</summary>
         public void ServerCreditCombo() => CombosTriggered.Value++;
         private float damageCarry;
 
-        /// <summary>Server: credit damage this player dealt, and a kill if it was the final blow.</summary>
         private float lastKillAt = -10f;
         private int killChain;
 
@@ -661,7 +572,7 @@ namespace Deepbound.Progression
             {
                 Kills.Value++;
                 World.DungeonDirector.ServerOnPlayerKill(GetComponent<Combat.Health>());
-                // Multi-kills: kills in quick succession are called out to the party.
+
                 if (Time.time - lastKillAt > 1.6f) killChain = 0;
                 lastKillAt = Time.time;
                 killChain++;
@@ -669,25 +580,15 @@ namespace Deepbound.Progression
             }
         }
 
-        /// <summary>
-        /// The player's class. Owner-written, but only honoured in the lobby: the HUD only
-        /// offers the choice there, and the server re-checks.
-        /// </summary>
         public readonly NetworkVariable<ClassId> ClassId = new NetworkVariable<ClassId>(Classes.ClassId.Knight,
             NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
-        /// <summary>Can the class change now? Only at camp, before a run begins (never between floors).</summary>
         public static bool ClassChangeAllowed => World.DungeonDirector.InLobby && (World.DungeonDirector.Instance == null || !World.DungeonDirector.Instance.RunInProgress);
 
-        /// <summary>
-        /// Joined a run already under way: they spawned as the default Knight with the class screen locked and nothing said why.
-        /// They choose at camp, until the carriage next leaves.
-        /// </summary>
         public readonly NetworkVariable<bool> LateJoiner = new NetworkVariable<bool>();
 
         public bool CanChangeClass => ClassChangeAllowed || (World.DungeonDirector.InLobby && LateJoiner.Value);
 
-        /// <summary>Owner → server: pick a class. Refused once the run has begun.</summary>
         [Rpc(SendTo.Server)]
         public void ChooseClassRpc(ClassId id)
         {
@@ -698,17 +599,15 @@ namespace Deepbound.Progression
         private NetworkList<byte> runeBag;
         public readonly NetworkVariable<byte> Socket0 = new NetworkVariable<byte>();
         public readonly NetworkVariable<byte> Socket1 = new NetworkVariable<byte>();
-        /// <summary>The third socket, opened at weapon +6.</summary>
+
         public readonly NetworkVariable<byte> Socket2 = new NetworkVariable<byte>();
 
         public Rune Socketed(int socket) => (Rune)(socket == 0 ? Socket0.Value : socket == 1 ? Socket1.Value : Socket2.Value);
-        /// <summary>Is a rune of this kind (any tier) set in the weapon?</summary>
+
         public bool HasRune(Rune r) => RuneTier(r) >= 0;
-        /// <summary>The best tier of this kind set in the weapon, or -1.</summary>
+
         public int RuneTier(Rune kind)
         {
-            // RUNE SPECIALISATION (2026-11-13): the first socket is the MAJOR socket - a rune there counts double
-            // (an "effective tier" of 2t + 2, so Runes.Power doubles: 1 -> 2, 1.5 -> 3, 2 -> 4).
             int best = -1;
             kind = Runes.Kind(kind);
             for (int s = 0; s < Runes.MaxSockets; s++)
@@ -719,7 +618,6 @@ namespace Deepbound.Progression
             return best;
         }
 
-        /// <summary>How many of exactly this rune (kind and tier) are in the bag.</summary>
         public int RuneCount(Rune r)
         {
             int n = 0;
@@ -727,10 +625,8 @@ namespace Deepbound.Progression
             return n;
         }
 
-        /// <summary>At Ysolde's stones (runes, sigils, ability ranks are her work).</summary>
         public bool AtRunewright => Shop.InReach(Shop.Vendor.Runewright, transform.position, 1f);
 
-        /// <summary>Owner -> server: meld three of one rune into one of the next tier, for embers.</summary>
         [Rpc(SendTo.Server)]
         public void MeldRunesRpc(byte rune)
         {
@@ -775,17 +671,13 @@ namespace Deepbound.Progression
         [Rpc(SendTo.ClientsAndHost)]
         private void RuneFoundRpc(byte r) => UI.GameHud.Feed(name + " found " + ("AEIOU".IndexOf(char.ToUpperInvariant(Runes.Name((Rune)r)[0])) >= 0 ? "an " : "a ") + Runes.Name((Rune)r) + "  -  set it at Ysolde's stones", Runes.Color((Rune)r));
 
-        /// <summary>
-        /// Owner → server: set a rune from the bag into the first open empty socket, or, if
-        /// both are full, into the first socket (its old rune goes back into the bag).
-        /// </summary>
         [Rpc(SendTo.Server)]
         public void SocketRuneRpc(byte rune, sbyte socketIndex = -1)
         {
             int sockets = Runes.SocketsAt(WeaponLevel.Value);
             int bagIndex = runeBag.IndexOf(rune);
             if (!AtRunewright || sockets == 0 || bagIndex < 0) return;
-            // Into the socket the player picked; else the first empty one; else the first.
+
             int target = 0;
             if (socketIndex >= 0 && socketIndex < sockets) target = socketIndex;
             else for (int s = 0; s < sockets; s++) if (Socketed(s) == Rune.None) { target = s; break; }
@@ -797,18 +689,15 @@ namespace Deepbound.Progression
         }
         private NetworkList<byte> relics;
 
-        // Server-side relic state.
         private float boneWardReadyAt;
-        /// <summary>Tests: the Bone Ward has just turned a blow (a trap test measures the trap, not the relic).</summary>
+
         public void ServerDebugSpendBoneWard() => boneWardReadyAt = Time.time + 60f;
         private bool phoenixSpent;
 
-        /// <summary>Server only.</summary>
         public StatBlock Stats { get; private set; }
 
         public ClassDefinition Class => ClassDefinition.For(ClassId.Value);
 
-        /// <summary>Raised on every peer when any stat input changes. Owner-side systems re-read stats on this.</summary>
         public event Action StatsChanged;
 
         private Health health;
@@ -816,8 +705,7 @@ namespace Deepbound.Progression
         private void Awake()
         {
             health = GetComponent<Health>();
-            // NetworkLists must exist before spawn, and NGO requires them constructed in
-            // Awake or at declaration so they are registered with the behaviour.
+
             bonuses = new NetworkList<float>();
             relics = new NetworkList<byte>();
             runeBag = new NetworkList<byte>();
@@ -835,7 +723,6 @@ namespace Deepbound.Progression
             Charm.OnValueChanged += (_, __) => StatsChanged?.Invoke();
             ClassId.OnValueChanged += (_, __) =>
             {
-                // A new class is a new character: fresh stat block, nothing carried over.
                 if (IsServer && Stats != null)
                 {
                     Stats = Class.Build();
@@ -859,15 +746,6 @@ namespace Deepbound.Progression
             ApplyToHealth(refill: true);
         }
 
-        // ------------------------------------------------------------------
-        // Reads (any peer)
-        // ------------------------------------------------------------------
-
-        /// <summary>
-        /// The effective stat value, computed from synced inputs with the same formula as
-        /// <see cref="StatBlock.GetValue"/>. On the server the two always agree: everything
-        /// beyond the class base (weapon levels, gear, purchases) is a synced bonus.
-        /// </summary>
         public float Value(StatType stat)
         {
             int i = (int)stat;
@@ -875,20 +753,10 @@ namespace Deepbound.Progression
             return Mathf.Max(0f, Class.BaseStats[i] + bonus + Gear.StatValue(Armor.Value, stat) + Gear.StatValue(Charm.Value, stat));
         }
 
-        /// <summary>
-        /// RotMG ATT scaling (0 ATT is half damage, 50 ATT is double base), then damage
-        /// relics. Every kit multiplies by this, so relics apply to every class for free.
-        /// </summary>
-        /// <summary>
-        /// How far your attacks reach, as a multiple of the class's base range: every temper at the
-        /// anvil adds 5%, a Farsight rune 25%. Any peer (it reads synced values), so visuals agree.
-        /// </summary>
         public float RangeMultiplier => 1f + 0.05f * WeaponLevel.Value + (HasRune(Loot.Rune.Farsight) ? 0.25f * Runes.Power(RuneTier(Loot.Rune.Farsight)) : 0f) + (HasRelic(Relic.LongShadow) ? RelicPower(Relic.LongShadow) * 0.15f : 0f);
 
-        /// <summary>Melee gains half as much reach from the same sources.</summary>
         public float ReachMultiplier => 1f + (RangeMultiplier - 1f) * 0.5f;
 
-        /// <summary>Server time the blood altar's Bloodlust (+15% damage) ends.</summary>
         public readonly NetworkVariable<double> BloodlustEnds = new NetworkVariable<double>();
         public bool Bloodlust => NetworkManager != null && BloodlustEnds.Value > NetworkManager.ServerTime.Time;
         public const float BloodlustDamage = 1.15f;
@@ -912,7 +780,6 @@ namespace Deepbound.Progression
             }
         }
 
-        /// <summary>SPD 50 is the reference speed; each point either side is ±1%.</summary>
         public float SpeedMultiplier => (Player.Ultimates.InBannerLocal(transform.position) ? Player.Ultimates.BannerSpeed : 1f) * (1f + (Value(StatType.SPD) - 50f) / 100f) * (HasRelic(Relic.GhostLantern) ? 1f + 0.15f * RelicPower(Relic.GhostLantern) : 1f) * (Blessed(Blessing.Swiftness) ? 1.12f : 1f)
             * (Rallied ? 1f + 0.2f * RallyPower.Value : 1f)
             * (1f + Crafting.BootsSpeed * Boots)
@@ -925,25 +792,14 @@ namespace Deepbound.Progression
             * (Player.PlayerLife.IsDragging(NetworkObjectId) ? Player.PlayerLife.DragSpeed : 1f)
             * BuildSpeedScale;
 
-        /// <summary>Q and E cooldowns scale by this (Echo Stone).</summary>
-        /// <summary>
-        /// Q and E cooldowns scale by this. Relics, the blessing and edges ADD up and stop at
-        /// <see cref="MaxCooldownCut"/> (2026-10-23: four sources multiplied down to a third of a cooldown,
-        /// and abilities stopped being decisions). Ability ranks cut on top of this.
-        /// </summary>
         public float CooldownMultiplier => (1f - CooldownCut)
             * World.DungeonDirector.OmenCooldown * BuildCooldownScale;
-        /// <summary>
-        /// No cap on cooldown cuts any more (2026-11-24, the user: "remove the 40% cap"): every source adds. This is only the
-        /// floor that keeps a cooldown above a fifth of its length, so it can never reach zero or go negative.
-        /// </summary>
+
         public const float MaxCooldownCut = 0.8f;
 
-        /// <summary>Cooldown cut from items (relics, the blessing, edges, the Grave Trade set, WIS mastery): they add, uncapped (bar the floor).</summary>
         public float CooldownCut => Mathf.Min(MaxCooldownCut,
             (HasRelic(Relic.EchoStone) ? 0.2f * RelicPower(Relic.EchoStone) : 0f) + (Blessed(Blessing.Swiftness) ? 0.15f : 0f) + (HasEdge(Edge.Quickening) ? Edges.QuickeningCut : 0f) + BuildCooldownCut);
 
-        /// <summary>Rallying Bell: synced so speed and damage agree on every peer.</summary>
         public readonly NetworkVariable<double> RallyUntil = new NetworkVariable<double>();
         public readonly NetworkVariable<float> RallyPower = new NetworkVariable<float>(1f);
         public bool Rallied => NetworkManager != null && RallyUntil.Value > NetworkManager.ServerTime.Time;
@@ -955,10 +811,8 @@ namespace Deepbound.Progression
             RallyUntil.Value = NetworkManager.ServerTime.Time + seconds;
         }
 
-        /// <summary>Server: Hunter's Tooth marks the first hit on each elite or boss (by enemy id).</summary>
         public readonly System.Collections.Generic.HashSet<ulong> ToothMarked = new System.Collections.Generic.HashSet<ulong>();
 
-        /// <summary>Server -> owner: the Cracked Hourglass takes seconds off Q and E (cooldowns are timed on the owner).</summary>
         [Rpc(SendTo.Owner)]
         public void ShaveCooldownsRpc(float seconds)
         {
@@ -966,16 +820,9 @@ namespace Deepbound.Progression
             kit?.ShaveCooldowns(seconds);
         }
 
-        /// <summary>
-        /// Gold found: the bonuses ADD (2026-10-23, the autoplay run: a Gilded Skull III, the Ledger and Fortune
-        /// multiplied to x3 and a solo run ended on 15,000 gold), and gold relics grow half as much per tier.
-        /// </summary>
         public float GoldMultiplier => 1f + (HasRelic(Relic.GildedSkull) ? 0.25f + 0.1f * RelicTier(Relic.GildedSkull) : 0f) + (Blessed(Blessing.Fortune) ? 0.5f : 0f)
             + (HasRelic(Relic.TallymansLedger) ? 0.2f + 0.1f * RelicTier(Relic.TallymansLedger) : 0f) + BuildGoldBonus;
 
-        // ---- Relics ----
-
-        // A relic byte: the id in the low five bits, its tier (0-2) in the next two.
         private static Relic IdOf(byte b) => (Relic)(b & 31);
         private static int TierOf(byte b) => (b >> 5) & 3;
 
@@ -987,28 +834,22 @@ namespace Deepbound.Progression
 
         public int RelicCount => relics.Count;
 
-        /// <summary>Relics held, each tier counting as one more (for sharing finds fairly).</summary>
         public int RelicWealth { get { int w = relics.Count; for (int i = 0; i < relics.Count; i++) w += RelicTierAt(i); return w; } }
 
-        /// <summary>Ability ranks plus unspent sigils (for sharing finds fairly).</summary>
         public int SigilWealth => RankQ.Value + RankE.Value + Sigils.Value;
         public Relic RelicAt(int i) => IdOf(relics[i]);
         public int RelicTierAt(int i) => TierOf(relics[i]);
 
-        /// <summary>0-2; 0 if not carried.</summary>
         public int RelicTier(Relic r)
         {
             foreach (var b in relics) if (IdOf(b) == r) return TierOf(b);
             return 0;
         }
 
-        /// <summary>How strong a carried relic is: 1, 1.5 or 2 (0 if not carried).</summary>
         public float RelicPower(Relic r) => HasRelic(r) ? Relics.Power(RelicTier(r)) : 0f;
 
-        /// <summary>"Echo Stone II".</summary>
         public string RelicLabel(int i) => Relics.Name(RelicAt(i)) + Relics.TierName(RelicTierAt(i));
 
-        /// <summary>Would <see cref="ServerAddRelic"/> take this relic (as new, or as an empowering)?</summary>
         public bool CanTakeRelic(Relic r)
         {
             if (HasRelic(r)) return Relics.Scales(r) && RelicTier(r) < Relics.MaxTier;
@@ -1026,26 +867,15 @@ namespace Deepbound.Progression
             RelicEmpoweredRpc((byte)r, (byte)fedBy, (byte)tier);
         }
 
-        /// <returns>
-        /// False if it cannot be taken (the drop stays for a teammate). A relic you carry is empowered
-        /// instead; with a full tray, a new relic empowers your weakest one.
-        /// </returns>
-        /// <summary>Server, tests: take every copy of <paramref name="r"/> back out of the tray.</summary>
         public void ServerRemoveRelic(Relic r)
         {
             if (!IsServer) return;
             for (int i = relics.Count - 1; i >= 0; i--) if (RelicAt(i) == r) relics.RemoveAt(i);
         }
 
-        /// <summary>
-        /// SETTING A RELIC DOWN (2026-11-13, the user: "need an easier way for players to switch between relics mid run"): from
-        /// the inventory, a carried relic goes on the floor at your feet with its tier kept (II, III), so the tray has room for
-        /// another. Picked up again (by you once you have stepped away, or by a teammate) it comes back as it was.
-        /// </summary>
         [Rpc(SendTo.Server)]
         public void SetDownRelicRpc(byte index) => ServerSetDownRelic(index);
 
-        /// <summary>Server: set relic <paramref name="index"/> down at your feet. Returns the drop (tests).</summary>
         public LootDrop ServerSetDownRelic(int index)
         {
             if (!IsServer || index < 0 || index >= relics.Count || World.DungeonDirector.Instance == null) return null;
@@ -1069,10 +899,6 @@ namespace Deepbound.Progression
             UI.GameHud.Feed(name + " sets down " + Relics.Name(r) + (t > 0 ? (t == 1 ? " II" : " III") : "") + " (it keeps its power)", Relics.GemColor(r));
         }
 
-        /// <summary>
-        /// Server: the RELIC CRUCIBLE (2026-11-22). Your weakest relic is melted down and a different one comes out a tier
-        /// higher (II from a plain one, III from a II). False with no relic to give.
-        /// </summary>
         public bool ServerMeltRelic(out Relic gone, out Relic got, out int gotTier)
         {
             gone = got = default; gotTier = 0;
@@ -1098,7 +924,6 @@ namespace Deepbound.Progression
 
         public bool ServerAddRelic(Relic r) => ServerAddRelic(r, 0);
 
-        /// <param name="tier">A relic that was set down comes back at the tier it had (only when it takes a new slot).</param>
         public bool ServerAddRelic(Relic r, int tier)
         {
             if (!IsServer || !CanTakeRelic(r)) return false;
@@ -1124,7 +949,7 @@ namespace Deepbound.Progression
             relics.Add((byte)((byte)r | (Mathf.Clamp(tier, 0, Relics.MaxTier) << 5)));
             if (r == Relic.HeartOfTheDeep || r == Relic.BloodPact) OnStatsChangedServer(StatType.HP);
             RelicGainedRpc((byte)r);
-            // Completing a pair awakens its synergy.
+
             for (int i = 0; i < Relics.Synergies.Length; i++)
             {
                 var syn = Relics.Synergies[i];
@@ -1133,25 +958,21 @@ namespace Deepbound.Progression
             return true;
         }
 
-        /// <summary>Server, for tests: take a relic away again.</summary>
         public void ServerDebugRemoveRelic(Relic r)
         {
             if (!IsServer) return;
             for (int i = relics.Count - 1; i >= 0; i--) if (IdOf(relics[i]) == r) relics.RemoveAt(i);
         }
 
-        /// <summary>Server, each floor: once-per-floor relics recharge.</summary>
         public void ServerNewFloor()
         {
             phoenixSpent = false;
             boneWardReadyAt = 0f;
-            // Corwin's map is for the next floor down: it charts this one, then it is spent.
+
             MapRevealed.Value = ScoutMap.Value;
             ScoutMap.Value = false;
         }
 
-        /// <summary>Server: Phoenix Feather. True if it fires (and is used up for this floor).</summary>
-        /// <summary>Server: the health fraction the Phoenix raises you to.</summary>
         public float PhoenixFraction => Relics.Has(this, Relics.Synergy.Undying) ? 1f : 0.5f + 0.25f * RelicTier(Relic.PhoenixFeather);
 
         [Rpc(SendTo.ClientsAndHost)]
@@ -1188,7 +1009,6 @@ namespace Deepbound.Progression
 
             if (HasRelic(Relic.ThornedMail) && Vector3.Distance(attackerPosition, transform.position) < 4f)
             {
-                // Melee range: the attacker is whatever enemy stands nearest the hit's origin.
                 Health nearest = null;
                 float best = 2.5f;
                 foreach (var h in Health.All)
@@ -1208,7 +1028,7 @@ namespace Deepbound.Progression
             damage *= BuildIncomingScale * PathTriads.Incoming(this, attackerPosition);
             damage = PathTriads.Absorb(this, damage);
             ServerThornCrown(damage, attackerPosition);
-            // Iron Psalter: bolts, spit and hexes from across the room glance off the hymns.
+
             if (HasRelic(Relic.IronPsalter) && Vector3.Distance(attackerPosition, transform.position) >= 5f) damage *= 1f - 0.15f * RelicPower(Relic.IronPsalter);
             return damage;
         }
@@ -1251,14 +1071,14 @@ namespace Deepbound.Progression
                 if (nearest != null) nearest.ServerStun(1.5f);
                 BulwarkFxRpc();
             }
-            // The Wardens' pieces (2026-10-27).
+
             if (Wears(GearId.AldousOath))
             {
                 var to = attackerPosition - transform.position;
                 to.y = 0f;
                 if (to.sqrMagnitude > 0.01f && Vector3.Angle(transform.forward, to) < 60f) damage *= 0.8f;
             }
-            // Retribution (a guard edge, 2026-11-12): the one that struck you up close takes a share of it back.
+
             if (HasEdge(Edge.Retribution) && damage > 0f && (attackerPosition - transform.position).sqrMagnitude < Edges.RetributionReach * Edges.RetributionReach)
             {
                 Health striker = null;
@@ -1303,7 +1123,6 @@ namespace Deepbound.Progression
         private float judgementReadyAt, fetishReadyAt, bellReadyAt, stillSince;
         private Vector3 stillAt;
 
-        /// <summary>Server: the Witchbone Fetish's mark is ready (and is now spent).</summary>
         public bool ServerConsumeFetish()
         {
             if (Time.time < fetishReadyAt) return false;
@@ -1311,7 +1130,6 @@ namespace Deepbound.Progression
             return true;
         }
 
-        /// <summary>Server: has this player stood (near enough) still for a second? Gravedigger's Coat.</summary>
         private bool StandingStill()
         {
             if ((transform.position - stillAt).sqrMagnitude > 0.04f)
@@ -1326,7 +1144,7 @@ namespace Deepbound.Progression
         {
             TickWardShardFx();
             if (IsServer && Wears(GearId.GravediggersCoat)) StandingStill();
-            // The survival path's readout (2026-11-13): its cut, a few times a second, so the HUD shows it working.
+
             if (IsServer && (Time.frameCount + (int)NetworkObjectId) % 8 == 0)
             {
                 byte cut = OnPath(Classes.PathTriads.Path) ? (byte)Mathf.RoundToInt((1f - Classes.PathTriads.Readout(this)) * 100f) : (byte)0;
@@ -1337,7 +1155,6 @@ namespace Deepbound.Progression
         [Rpc(SendTo.ClientsAndHost)]
         public void ZoneHitFxRpc(Vector3 at, byte zone)
         {
-            // 3 = a weak point that burst (full bonus, a small blast); 2 = one still recovering (sparks only).
             bool burst = zone == 3, weak = zone == (byte)HitZone.Weak || burst;
             var c = weak ? new Color(1f, 0.5f, 0.2f) : new Color(1f, 0.92f, 0.55f);
             if (burst)
@@ -1383,7 +1200,6 @@ namespace Deepbound.Progression
             Art.Vfx.Ring(transform.position, 4f, new Color(1f, 0.8f, 0.4f), 0.4f);
         }
 
-        /// <summary>Server: the Cardinal's Vestments — a pillar of holy fire where a foe fell, a moment later.</summary>
         public void ServerJudgement(Vector3 at)
         {
             if (Time.time < judgementReadyAt) return;
@@ -1487,7 +1303,6 @@ namespace Deepbound.Progression
             UI.GameHud.Feed(name + " rises from the ashes!", Relics.GemColor(Relic.PhoenixFeather));
         }
 
-        /// <summary>Thunder Idol: draws a jagged bolt through each struck enemy.</summary>
         [Rpc(SendTo.ClientsAndHost)]
         public void LightningFxRpc(Vector3[] points)
         {
@@ -1495,16 +1310,11 @@ namespace Deepbound.Progression
             Art.Sfx.Play(Art.Sound.Shatter, points[0], 1f, 0.6f);
         }
 
-        /// <summary>DEX 50 is the reference rate; higher DEX shortens swing recovery, floored at 50%.</summary>
         public float AttackTimeMultiplier => Mathf.Max(0.5f, 1.5f - Value(StatType.DEX) / 50f * 0.5f) * (Pouch != null && Pouch.Bloodfury ? RareItems.BloodfuryAttackTime : 1f)
             * (Player.Ultimates.InBannerLocal(transform.position) ? Player.Ultimates.BannerAttackTime : 1f);
 
         private Player.Flasks Pouch => pouchCache != null ? pouchCache : (pouchCache = GetComponent<Player.Flasks>());
         private Player.Flasks pouchCache;
-
-        // ------------------------------------------------------------------
-        // Server API
-        // ------------------------------------------------------------------
 
         public void ServerAddEmbers(int amount)
         {
@@ -1513,7 +1323,6 @@ namespace Deepbound.Progression
             Embers.Value = Mathf.Max(0, Embers.Value + amount);
         }
 
-        /// <summary>Why the weapon cannot be tempered right now, or null. Any peer; the server re-checks.</summary>
         public string CannotTemperReason()
         {
             if (WeaponLevel.Value >= World.Anvil.MaxLevel) return "Fully tempered";
@@ -1524,7 +1333,6 @@ namespace Deepbound.Progression
             return null;
         }
 
-        /// <summary>Owner → server: temper at the anvil you are standing by.</summary>
         [Rpc(SendTo.Server)]
         public void TemperRpc()
         {
@@ -1532,7 +1340,6 @@ namespace Deepbound.Progression
             if (anvil != null && ServerUpgradeWeapon()) anvil.ForgeFxRpc(WeaponLevel.Value);
         }
 
-        /// <summary>Owner → server: pick the weapon's path (once, at the anvil, from +2).</summary>
         [Rpc(SendTo.Server)]
         public void ChoosePathRpc(byte path)
         {
@@ -1549,7 +1356,6 @@ namespace Deepbound.Progression
             UI.GameHud.Feed(name + "'s " + ClassDefinition.WeaponName(ClassId.Value) + " takes the path of the " + WeaponPaths.Name(ClassId.Value, path), LootInfo.EmberColor);
         }
 
-        /// <summary>Server: the armoury's whetstone, a temper with no cost. False if the weapon cannot rise (a path to choose, or the cap).</summary>
         public bool ServerFreeTemper()
         {
             if (!IsServer || CannotTemperReason() != null && WeaponLevel.Value >= World.Anvil.MaxLevel) return false;
@@ -1561,7 +1367,6 @@ namespace Deepbound.Progression
             return true;
         }
 
-        /// <summary>The dark mirror's price: a fifth of your max health, until you are back at camp.</summary>
         public readonly NetworkVariable<bool> MirrorCursed = new NetworkVariable<bool>();
         public const float MirrorHealth = 0.8f;
 
@@ -1572,7 +1377,6 @@ namespace Deepbound.Progression
             ApplyToHealth(refill: false);
         }
 
-        /// <summary>Server: spend embers on the next anvil level. False if it cannot.</summary>
         public bool ServerUpgradeWeapon()
         {
             if (!IsServer || CannotTemperReason() != null) return false;
@@ -1601,7 +1405,6 @@ namespace Deepbound.Progression
             if (level == World.Anvil.MasterworkLevel) UI.GameHud.Feed(name + "'s " + weapon + " is a MASTERWORK: +8% critical chance", new Color(1f, 0.92f, 0.7f));
         }
 
-        /// <summary>A run-scoped flat bonus, e.g. a whetstone bought from the merchant.</summary>
         public void ServerAddBonus(StatType stat, float amount)
         {
             if (!IsServer) return;
@@ -1609,8 +1412,6 @@ namespace Deepbound.Progression
             bonuses[(int)stat] += amount;
             OnStatsChangedServer(stat);
         }
-
-        // ---- The party purse: shared pickups, gifts, and evening out ----
 
         private static System.Collections.Generic.List<PlayerProgress> Party()
         {
@@ -1620,7 +1421,6 @@ namespace Deepbound.Progression
             return list;
         }
 
-        /// <summary>Server: gold someone picked up. Shared loot splits it evenly (the finder keeps the odd coins).</summary>
         public static void ServerShareGold(PlayerProgress finder, int total)
         {
             var party = Party();
@@ -1629,7 +1429,6 @@ namespace Deepbound.Progression
             foreach (var p in party) p.ServerAddGold(each + (p == finder ? rest : 0));
         }
 
-        /// <summary>Server: embers someone picked up, split the same way.</summary>
         public static void ServerShareEmbers(PlayerProgress finder, int total)
         {
             var party = Party();
@@ -1639,7 +1438,6 @@ namespace Deepbound.Progression
             foreach (var p in party) p.ServerAddEmbers(each + (p == finder ? rest : 0));
         }
 
-        /// <summary>Owner → server: hand some of your gold to an ally.</summary>
         [Rpc(SendTo.Server)]
         public void GiveGoldRpc(ulong toPlayer, int amount)
         {
@@ -1650,7 +1448,6 @@ namespace Deepbound.Progression
             GiftRpc(name, to.name, amount + " gold");
         }
 
-        /// <summary>Owner → server: share your gold out so nobody has less than the party's average (you give, you never take).</summary>
         [Rpc(SendTo.Server)]
         public void EvenOutGoldRpc()
         {
@@ -1672,7 +1469,6 @@ namespace Deepbound.Progression
             if (given > 0) GiftRpc(name, "the party", given + " gold, evening out the purse");
         }
 
-        /// <summary>Owner → server: give a piece from your pack to the nearest ally (into their pack, or at their feet if it is full).</summary>
         [Rpc(SendTo.Server)]
         public void BagGiftRpc(int i)
         {
@@ -1716,7 +1512,6 @@ namespace Deepbound.Progression
 
         public float Bonus(StatType stat) => (int)stat < bonuses.Count ? bonuses[(int)stat] : 0f;
 
-        /// <summary>Why an item cannot be bought right now, or null if it can. Any peer; the server re-checks.</summary>
         public string CannotBuyReason(Shop.Vendor vendor, int index)
         {
             var items = Shop.For(OwnerClientId, vendor);
@@ -1747,7 +1542,6 @@ namespace Deepbound.Progression
             }
         }
 
-        /// <summary>Owner → server: buy item <paramref name="index"/> of <paramref name="vendor"/>'s stock (you must be at their stall).</summary>
         [Rpc(SendTo.Server)]
         public void BuyRpc(Shop.Vendor vendor, int index)
         {
@@ -1775,7 +1569,7 @@ namespace Deepbound.Progression
                     bought = pouch != null && pouch.ServerAdd((Player.Flasks.Kind)(int)item.Amount, 1) > 0;
                     break;
                 case Shop.ItemKind.Gear:
-                    // Laid at your feet, so you can compare it before putting it on.
+
                     GearDrop.ServerSpawn(item.Gear, OwnerClientId, transform.position + transform.forward * 1.2f + Vector3.up * 0.05f);
                     gearBoughtSeed = World.DungeonDirector.Instance.Floor.Value.x;
                     GearBoughtRpc(gearBoughtSeed);
@@ -1856,7 +1650,6 @@ namespace Deepbound.Progression
             UI.GameHud.Feed(name + " receives the " + Blessings.Name((Blessing)b).Replace("Blessing of ", "blessing of ") + " for the next floor", c);
         }
 
-        // The merchant's gear piece is one per floor: the seed of the floor it was bought on.
         private int gearBoughtSeed = int.MinValue;
 
         [Rpc(SendTo.Owner)]
@@ -1864,10 +1657,9 @@ namespace Deepbound.Progression
 
         private float grazeStreakUntil;
         private int grazeStreak;
-        /// <summary>Tests: grazes this session.</summary>
+
         public int Grazes { get; private set; }
 
-        /// <summary>Server: an enemy shot slipped past you (<see cref="Combat.Arrows.GrazeRadius"/>): a streak and a tick (no ult charge).</summary>
         public void ServerGraze(Vector3 at)
         {
             var life = GetComponent<Player.PlayerLife>();
@@ -1875,14 +1667,13 @@ namespace Deepbound.Progression
             Grazes++;
             grazeStreak = Time.time < grazeStreakUntil ? grazeStreak + 1 : 1;
             grazeStreakUntil = Time.time + 2.2f;
-            // 2026-11-08 (the user: "weaving will not charge ultimate anymore"): a graze is only a streak and a tick now.
+
             GrazeRpc(at, (byte)Mathf.Min(255, grazeStreak));
         }
 
         [Rpc(SendTo.Owner, Delivery = RpcDelivery.Unreliable)]
         private void GrazeRpc(Vector3 at, byte streak) => UI.GameHud.Graze(at, streak);
 
-        /// <summary>Server → owner: one of your hits landed (or killed). Unreliable: a lost marker is no loss.</summary>
         [Rpc(SendTo.Owner, Delivery = RpcDelivery.Unreliable)]
         public void HitMarkRpc(bool kill, bool heavy) => UI.GameHud.HitMark(kill, heavy);
 
@@ -1901,12 +1692,11 @@ namespace Deepbound.Progression
         [Rpc(SendTo.Owner)]
         private void PurchasedRpc() => Art.Sfx.Play2D(Art.Sound.Purchase, 0.8f);
 
-        /// <summary>Wipes everything the run granted. Called when a run ends or restarts.</summary>
         public void ServerResetRun()
         {
             if (!IsServer) return;
             Stats.ResetRunProgress();
-            // Every run starts with a small pouch: two health potions, one of everything else.
+
             var flasks = GetComponent<Player.Flasks>();
             if (flasks != null) { flasks.ServerReset(); flasks.ServerStartingPouch(); }
             for (int i = 0; i < Core.Stats.Count; i++) bonuses[i] = 0f;
@@ -1951,7 +1741,6 @@ namespace Deepbound.Progression
         private float bannerVigorUntil, bannerVigor;
         private Coroutine bannerVigorEnd;
 
-        /// <summary>Server: the Rallying Banner's extra maximum health (filled in at once) for <paramref name="seconds"/>.</summary>
         public void ServerBannerVigor(float amount, float seconds)
         {
             if (!IsServer) return;
@@ -1969,12 +1758,10 @@ namespace Deepbound.Progression
             ApplyToHealth(refill: false);
         }
 
-        /// <summary>Server, for tests: is the banner's extra health on?</summary>
         public bool BannerVigorOn => Time.time < bannerVigorUntil;
 
         private void OnStatsChangedServer(StatType? stat)
         {
-            // Raising max HP also heals by the amount added, so it is felt right now.
             float before = health.Max.Value;
             ApplyToHealth(refill: false);
             if (stat == null || stat == StatType.HP) health.ServerHeal(health.Max.Value - before);

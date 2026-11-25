@@ -8,12 +8,6 @@ using UnityEngine.AI;
 
 namespace Deepbound.Enemies
 {
-    /// <summary>
-    /// A Gargoyle: a stone statue crouched by a wall, like the dozens of carved ones in the
-    /// dungeon — until someone walks too close or strikes it. While stone it shrugs off
-    /// nearly everything. Awake, it flies: claws up close, and every few seconds a dive along
-    /// a telegraphed line. After a dive it lands hard and is briefly grounded and exposed.
-    /// </summary>
     public class GargoyleBrain : EnemyBrain
     {
         [SerializeField] private float wakeRange = 5f, diveCooldown = 6.5f, diveWindup = 0.8f, diveSpeed = 16f, diveLength = 11f;
@@ -61,7 +55,7 @@ namespace Deepbound.Enemies
         protected override void Update()
         {
             if (HeldByStun()) return;
-            // Everyone: stone stays still; awake it hovers and beats its wings.
+
             if (Rig != null)
             {
                 float hover = Woken.Value && !IsDead && Time.time >= groundedUntil ? 1.1f + Mathf.Sin(Time.time * 3f + NetworkObjectId) * 0.15f : 0f;
@@ -109,7 +103,6 @@ namespace Deepbound.Enemies
             return true;
         }
 
-        /// <summary>A stun ends the dive: it used to set off when the stun wore off, along a line whose warning was long gone.</summary>
         public override void ServerStun(float seconds)
         {
             if (diveAt > 0f || diving) CancelDiveRpc();

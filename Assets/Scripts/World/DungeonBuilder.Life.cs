@@ -3,12 +3,6 @@ using UnityEngine;
 
 namespace Deepbound.World
 {
-    /// <summary>
-    /// More of each act (2026-11-07, the user: room dressing, dungeon life and lighting moods, all five acts evenly).
-    /// Per room, seeded: one act piece (Ossuary gibbet cages, Vaults collapsed shelving, Throne torn banners, Cathedral
-    /// votive racks, Abyss tendrils), a cobweb with its spider in a high corner, cistern fish, moths round a light,
-    /// and a MOOD: warm (a candle cluster and a low gold light), or a broken lantern that stutters.
-    /// </summary>
     public static partial class DungeonBuilder
     {
         private static void ActExtras(DungeonLayout.Room room, MeshKit.Batcher b, Transform lights, System.Random rng, int act)
@@ -19,14 +13,14 @@ namespace Deepbound.World
                 switch (act)
                 {
                     case 0: Gibbet(b, lights, at + inward * 2.2f, room, rng); break;
-                    // ThemeWallSpot stands 0.9 m in from the wall: these sit back against it.
+
                     case 1: FallenShelf(b, at - inward * 0.4f, Quaternion.LookRotation(inward), rng); break;
                     case 2: TornBanner(lights, at - inward * 0.78f + Vector3.up * (room.Height - 1.2f), inward, rng); break;
                     case 3: VotiveRack(b, lights, at - inward * 0.5f, Quaternion.LookRotation(inward)); break;
                     default: Tendrils(b, lights, at - inward * 0.6f, inward, rng); break;
                 }
             }
-            // A web in a high corner, and its spider (the Ossuary and the Throne; one room in two).
+
             if ((act == 0 || act == 2) && rng.NextDouble() < 0.5)
             {
                 float sx = rng.NextDouble() < 0.5 ? -1f : 1f, sz = rng.NextDouble() < 0.5 ? -1f : 1f;
@@ -37,7 +31,7 @@ namespace Deepbound.World
                 var spot = corner + (a + bb) * 0.35f + Vector3.down * 0.25f;
                 LittleLife.Make(lights, LittleLife.Kind.Spider, spot, Color.black).AxisA = (a - bb).normalized;
             }
-            // Fish in a cistern.
+
             if (room.Feature == RoomFeature.Cistern)
                 for (int i = 0; i < 5; i++)
                 {
@@ -45,7 +39,7 @@ namespace Deepbound.World
                     var f = LittleLife.Make(lights, LittleLife.Kind.Fish, p, new Color(0.45f, 0.48f, 0.4f));
                     f.Radius = 1.2f + (float)rng.NextDouble() * 1.4f;
                 }
-            // MOOD, one room in three: warm candlelight, or a broken lantern that stutters.
+
             double mood = rng.NextDouble();
             if (mood < 0.2 && room.Kind != RoomKind.Start)
             {
@@ -71,17 +65,16 @@ namespace Deepbound.World
                 var st = l.gameObject.AddComponent<StutterLight>();
                 st.Pane = pane.GetComponent<Renderer>();
             }
-            // The Abyss: violet moths round the crystal anyway.
+
             if (act == 4 && ThemeSpots.Count > 0 && rng.NextDouble() < 0.6)
             {
                 var (cAt, cIn) = ThemeSpots[ThemeSpots.Count - 1];
-                // Only this room's crystal (the list runs for the whole floor).
+
                 bool here = Mathf.Abs(cAt.x - room.Center.x) <= room.Size.x / 2f && Mathf.Abs(cAt.z - room.Center.z) <= room.Size.y / 2f;
                 if (here) for (int i = 0; i < 2; i++) LittleLife.Make(lights, LittleLife.Kind.Moth, cAt + cIn * 0.8f + Vector3.up * 1.2f, new Color(0.7f, 0.4f, 1f) * 1.4f);
             }
         }
 
-        /// <summary>The Ossuary: an iron gibbet cage on a chain, bones inside.</summary>
         private static void Gibbet(MeshKit.Batcher b, Transform lights, Vector3 floor, DungeonLayout.Room room, System.Random rng)
         {
             float top = room.Height - 0.2f, cageBottom = 2.4f;
@@ -99,7 +92,6 @@ namespace Deepbound.World
                 b.AddBox(c + new Vector3(((float)rng.NextDouble() - 0.5f) * 0.5f, 0.06f, ((float)rng.NextDouble() - 0.5f) * 0.5f), new Vector3(0.36f, 0.05f, 0.05f), Mat.Bone, Quaternion.Euler(0f, (float)rng.NextDouble() * 180f, 0f));
         }
 
-        /// <summary>The Vaults: a shelving rack fallen against the wall, its crates burst on the floor.</summary>
         private static void FallenShelf(MeshKit.Batcher b, Vector3 at, Quaternion face, System.Random rng)
         {
             var tilt = face * Quaternion.Euler(-28f, 0f, 0f);
@@ -112,14 +104,12 @@ namespace Deepbound.World
             }
         }
 
-        /// <summary>The Throne: a torn, faded banner hanging high on a wall.</summary>
         private static void TornBanner(Transform lights, Vector3 at, Vector3 outward, System.Random rng)
         {
             var faded = rng.NextDouble() < 0.5 ? new Color(0.3f, 0.1f, 0.1f) : new Color(0.14f, 0.13f, 0.24f);
             Props.Banner(lights, at, outward, faded);
         }
 
-        /// <summary>The Cathedral: a tiered votive rack of candles, with its own small warm light.</summary>
         private static void VotiveRack(MeshKit.Batcher b, Transform lights, Vector3 at, Quaternion face)
         {
             for (int k = 0; k < 3; k++) b.AddBox(at + face * new Vector3(0f, 0.35f + k * 0.28f, -k * 0.18f), new Vector3(1.4f, 0.06f, 0.3f), Mat.Wood, face);
@@ -127,7 +117,6 @@ namespace Deepbound.World
             for (int k = 0; k < 3; k++) Props.Candles(lights, at + face * new Vector3(0f, 0.38f + k * 0.28f, -k * 0.18f), new Color(1f, 0.75f, 0.4f));
         }
 
-        /// <summary>The Abyss: black tendrils coming up through the floor by the wall, glowing at the tips.</summary>
         private static void Tendrils(MeshKit.Batcher b, Transform lights, Vector3 at, Vector3 inward, System.Random rng)
         {
             for (int i = 0; i < 4; i++)

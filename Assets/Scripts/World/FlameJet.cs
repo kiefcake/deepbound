@@ -3,15 +3,8 @@ using UnityEngine;
 
 namespace Deepbound.World
 {
-    /// <summary>
-    /// A pair of fire vents facing each other across a corridor. They roar on a fixed beat
-    /// (a function of the server clock, like the pendulums), so you can watch the rhythm
-    /// and slip through between bursts. The dead just walk straight in. The
-    /// server (<see cref="DungeonDirector"/>) burns whatever stands in the jet while it is lit.
-    /// </summary>
     public class FlameJet : MonoBehaviour
     {
-        // 2026-11-05 (the user: less downtime, "the player has to time their movement"): lit 1.2 s, dark 1 s (was 1.3 and 2.7).
         public const float Period = 2.2f, Burn = 1.2f, Warn = 0.4f, HalfWidth = 0.75f;
 
         private int phase, index;
@@ -36,7 +29,7 @@ namespace Deepbound.World
             j.phase = trap.Phase;
             j.index = index;
             j.trap = trap;
-            // Iron grates in both walls, and the jet: a long flame across the corridor.
+
             foreach (float s in new[] { -1f, 1f })
                 b.AddBox(trap.At + trap.Across * s * (DungeonLayout.CorridorWidth / 2f - 0.05f) + Vector3.up * 0.5f,
                     trap.Across.x != 0f ? new Vector3(0.12f, 0.5f, 0.9f) : new Vector3(0.9f, 0.5f, 0.12f), Mat.Steel);
@@ -47,7 +40,6 @@ namespace Deepbound.World
             var tongues = new System.Collections.Generic.List<Transform>();
             for (int i = 0; i < 9; i++)
             {
-                // Uneven tongues: orange-red outsides with small hot cores, in a ragged line.
                 float t = (i / 8f - 0.5f) * (DungeonLayout.CorridorWidth - 0.6f);
                 var along = Vector3.Cross(trap.Across, Vector3.up) * (float)(rng.NextDouble() - 0.5) * 0.35f;
                 var pivot = MeshKit.Pivot(j.fire, "Tongue" + i, trap.Across * t + along);
@@ -79,7 +71,7 @@ namespace Deepbound.World
         private void Update()
         {
             double t = Pendulum.Clock;
-            // Choked (DungeonDirector.Choke): dark for good, the vents a dead grey.
+
             bool choked = DungeonDirector.Instance != null && DungeonDirector.Instance.JetChoked(index);
             LocalChoke(choked);
             bool lit = !choked && Lit(phase, t), warn = !choked && Warning(phase, t);
@@ -89,14 +81,13 @@ namespace Deepbound.World
                     tongues[i].localScale = new Vector3(1f, 0.6f + 0.6f * Mathf.PerlinNoise(Time.time * 7f + i * 1.3f, phase), 1f);
             glow.intensity = lit ? 5f + Random.Range(-0.6f, 0.6f) : warn ? 1.2f : 0f;
             ArtLibrary.SetGlow(vents, choked ? new Color(0.06f, 0.05f, 0.05f) : lit ? new Color(0.9f, 0.25f, 0.05f) * 0.8f : warn ? new Color(1f, 0.3f, 0.1f) * (0.6f + 0.6f * Mathf.Sin(Time.time * 30f)) : new Color(0.3f, 0.08f, 0.02f));
-            // Heard as well as seen: the grates grind as they warn, then the roar. Sfx rolls off with distance by itself.
+
             if (warn && !wasWarn) Sfx.Play(Sound.Creak, transform.position + Vector3.up, 0.45f, 1.6f);
             if (lit && !wasLit) Sfx.Play(Sound.Fire, transform.position + Vector3.up, 0.9f, 0.7f);
             wasWarn = warn;
             wasLit = lit;
         }
 
-        /// <summary>Local: kneeling beside the grate with F held chokes the vent.</summary>
         private void LocalChoke(bool choked)
         {
             var me = Player.NetworkPlayer.Local;
@@ -112,6 +103,5 @@ namespace Deepbound.World
                 DungeonDirector.Instance.ChokeJetRpc(index, me.NetworkObject);
             }
         }
-
     }
 }

@@ -2,7 +2,6 @@ using UnityEngine;
 
 namespace Deepbound.World
 {
-    /// <summary>A hanging banner stirring in the draught: a slow, uneven swing about its rod. Local only.</summary>
     public class BannerSway : MonoBehaviour
     {
         private float seed;

@@ -9,12 +9,6 @@ using UnityEngine;
 
 namespace Deepbound.World
 {
-    /// <summary>
-    /// THE PANOPLY (2026-11-07, the user: "rare item room with special effect armor", guarded, every few floors). On
-    /// floors 2, 5 and 8 one side room is an armoury crypt: an armour stand at the back and its last owner, a named
-    /// armour-wraith (a heavy elite), standing guard. Kill it and the stand gives every player that floor's
-    /// Panoply piece (<see cref="Gear.PanoplyPieces"/>). This file also ticks the pieces' auras.
-    /// </summary>
     public partial class DungeonDirector
     {
         public const float PanoplyGuardHealth = 2.6f, PanoplyGuardDamage = 1.25f;
@@ -23,13 +17,10 @@ namespace Deepbound.World
         private static readonly string[] WraithNames = { "Ser Corvane", "Dame Ilsabet", "Ser Haldric", "Brother Oswin", "Ser Maudlin", "Dame Edra" };
         private float nextAuraTick, nextRime;
 
-        /// <summary>Is this depth one with a Panoply (floors 2, 5, 8)?</summary>
         public static bool PanoplyFloor(int depth) => depth % 3 == 1 && depth < 9;
 
-        /// <summary>Which piece the Panoply on a floor holds (from the floor's seed, so it is the same for everyone).</summary>
         public static GearId PanoplyPiece(int seed) => Gear.PanoplyPieces[Mathf.Abs(seed) % Gear.PanoplyPieces.Length];
 
-        /// <summary>Server: guard and stand for a Panoply room.</summary>
         private void SetupPanoply(DungeonLayout.Room room, DungeonLayout layout)
         {
             if (room.FeatureSpots.Count < 2) return;
@@ -62,7 +53,6 @@ namespace Deepbound.World
             Art.Sfx.Play(Art.Sound.Relic, at + Vector3.up, 1f, 0.8f);
         }
 
-        /// <summary>Server, every frame: the Rimecloak's frost and the Sunward Plate's halo.</summary>
         private void TickArmourAuras()
         {
             if (Time.time < nextAuraTick) return;

@@ -9,22 +9,14 @@ using UnityEngine;
 
 namespace Deepbound.Networking
 {
-    /// <summary>
-    /// Opening the host's port on their own router (2026-10-21, the user: "get multiplayer working for
-    /// testing" with a friend elsewhere). UPnP: an SSDP search on the LAN finds the router, a SOAP
-    /// AddPortMapping forwards the game's UDP port to this PC, and GetExternalIPAddress tells us the
-    /// address a friend types in. Nothing leaves the local network but the router's own answers; no
-    /// outside service is asked anything. Runs off the main thread; the UI reads <see cref="Line"/>.
-    /// The mapping is removed when hosting stops or the game quits.
-    /// </summary>
     public static class PortMapper
     {
         public enum State { Idle, Searching, Open, NoRouter, Refused }
 
         public static volatile State Current = State.Idle;
-        /// <summary>The router's public address, once known (may be shared by the ISP: see <see cref="SharedAddress"/>).</summary>
+
         public static volatile string ExternalIp;
-        /// <summary>This PC's address on the home network.</summary>
+
         public static volatile string LocalIp;
         public static volatile string Detail = "";
         public static ushort Port { get; private set; }
@@ -32,10 +24,8 @@ namespace Deepbound.Networking
         private static string controlUrl, serviceType;
         private static readonly HttpClient http = new HttpClient { Timeout = TimeSpan.FromSeconds(4) };
 
-        /// <summary>The router's "public" address is itself private: the ISP shares one address between homes (CGNAT), so port forwarding cannot work.</summary>
         public static bool SharedAddress => IsPrivate(ExternalIp);
 
-        /// <summary>What to tell the host, in one line.</summary>
         public static string Line
         {
             get
@@ -67,7 +57,6 @@ namespace Deepbound.Networking
             });
         }
 
-        /// <summary>Remove the mapping (short, blocking: called when hosting stops and on quit).</summary>
         public static void Close()
         {
             if (Current != State.Open || controlUrl == null) { Current = State.Idle; return; }
@@ -87,7 +76,7 @@ namespace Deepbound.Networking
             var baseUri = new Uri(location);
             LocalIp = GuessLocalIp(baseUri.Host);
             string xml = await http.GetStringAsync(location);
-            // The WAN connection service: IP for most routers, PPP for some DSL ones.
+
             var m = Regex.Match(xml, @"<serviceType>(urn:schemas-upnp-org:service:WAN(?:IP|PPP)Connection:\d)</serviceType>.*?<controlURL>([^<]+)</controlURL>", RegexOptions.Singleline);
             if (!m.Success) { Current = State.NoRouter; Detail = "no WAN service"; return; }
             serviceType = m.Groups[1].Value;
@@ -97,7 +86,7 @@ namespace Deepbound.Networking
                                       "<NewInternalPort>" + port + "</NewInternalPort><NewInternalClient>" + LocalIp + "</NewInternalClient><NewEnabled>1</NewEnabled>" +
                                       "<NewPortMappingDescription>Deepbound</NewPortMappingDescription><NewLeaseDuration>" + lease + "</NewLeaseDuration>";
             var (ok, body) = await Soap("AddPortMapping", args(7200));
-            // Some routers only take permanent leases (error 725): ask again without one.
+
             if (!ok && body.Contains("725")) (ok, body) = await Soap("AddPortMapping", args(0));
             var (ipOk, ipBody) = await Soap("GetExternalIPAddress", "");
             if (ipOk)
@@ -153,7 +142,6 @@ namespace Deepbound.Networking
             return (res.IsSuccessStatusCode, body);
         }
 
-        /// <summary>The address this PC uses to reach the router (no packet is sent: a UDP "connect" only picks a route).</summary>
         public static string GuessLocalIp(string toward)
         {
             try

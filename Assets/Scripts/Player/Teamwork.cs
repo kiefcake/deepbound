@@ -7,29 +7,11 @@ using UnityEngine;
 
 namespace Deepbound.Player
 {
-    /// <summary>
-    /// Playing together (2026-10-28, the user: "continue work on multiplayer fun"). Everything here only happens with
-    /// two or more players:
-    /// <list type="bullet">
-    /// <item><b>PINCER</b>: hit an enemy an ally struck in the last <see cref="PincerWindow"/> s from the other side
-    ///   (at least <see cref="PincerAngle"/> degrees apart around it) for x<see cref="PincerMultiplier"/>.</item>
-    /// <item><b>ASSIST</b>: when an enemy dies, everyone else who hurt it in the last <see cref="AssistWindow"/> s
-    ///   gets ultimate charge and an ASSIST tick.</item>
-    /// <item><b>LAST STAND</b>: the only one still standing while the rest are down hits x<see cref="LastStandDamage"/>
-    ///   and takes x<see cref="LastStandTaken"/>. Getting someone up from it is a CLUTCH: both get Brothers in Arms,
-    ///   the saviour a slice of ultimate, and the party hears about it.</item>
-    /// </list>
-    /// Kicking an ally (Kick.cs) shoves them, no harm done.
-    /// Second round (same day): SPECTATE while down (LMB cycles the standing allies, RMB back to your own eyes; a
-    /// soul watches someone on its own), VENGEANCE (whatever downs a player is Marked; kill it to AVENGE them - their
-    /// bleed-out clock winds back), FLOOR HONOURS (feed lines when a floor is cleared), and two revivers are faster
-    /// (PlayerLife).
-    /// </summary>
     [DefaultExecutionOrder(10000)]
     public class Teamwork : NetworkBehaviour
     {
         public const float PincerWindow = 2.5f, PincerAngle = 120f, PincerMultiplier = 1.15f, PincerReach = 25f;
-        // 2026-11-19 balance pass: AssistCharge 3 -> 1.1 (3 / 2.7). It predates the 2026-11-01 ~2.7x ult slowdown and in a four out-charged the damage itself (docs/BALANCE_2026-11.md).
+
         public const float AssistWindow = 6f, AssistCharge = 1.1f;
         public const float LastStandDamage = 1.25f, LastStandTaken = 0.8f, ClutchCharge = 15f;
         public const float VengeanceSeconds = 20f, AvengeBleedBack = 15f, AvengeCharge = 10f;
@@ -38,7 +20,6 @@ namespace Deepbound.Player
         private PlayerLife life;
         private bool wasLastStand;
 
-        /// <summary>For tests: assists and clutches this player was credited with (server).</summary>
         public int ServerAssists { get; private set; }
         public int ServerClutches { get; private set; }
 
@@ -51,7 +32,6 @@ namespace Deepbound.Player
             GetComponent<Health>().IncomingModifiers.Add((dealt, from) => InLastStand(life) ? dealt * LastStandTaken : dealt);
         }
 
-        /// <summary>Any peer: the last of a party of two or more still on their feet, with an ally down.</summary>
         public static bool InLastStand(PlayerLife me)
         {
             if (me == null || me.Downed.Value || me.Health == null || !me.Health.IsAlive || PlayerLife.All.Count < 2) return false;
@@ -65,23 +45,15 @@ namespace Deepbound.Player
             return anyDown;
         }
 
-        /// <summary>The local player's last stand (the overlay and status badges read it).</summary>
         public static bool LocalLastStand => NetworkPlayer.Local != null && InLastStand(NetworkPlayer.Local.GetComponent<PlayerLife>());
 
-        // ---- spectating (owner) ----
-
-        /// <summary>The ally the local player is watching while down, or null.</summary>
         public static PlayerLife Watching { get; private set; }
         private bool watchRefused;
         private Vector3 watchPos;
         private bool watchSnapped;
 
-        /// <summary>Allies on their feet, in a fixed order, for cycling.</summary>
-        /// <summary>Tests: watch <paramref name="who"/> as if LMB had picked them.</summary>
         public static void DebugWatch(PlayerLife who) { Watching = who; }
 
-        /// <summary>For tests: where the watching camera was last put (the camera itself is moved back to the body
-        /// in Update and over the ally again in LateUpdate, so mid-frame it reads wrong).</summary>
         public static Vector3 LastWatchCamera { get; private set; }
 
         private List<PlayerLife> Standing()
@@ -116,7 +88,7 @@ namespace Deepbound.Player
                 Watching = null;
                 watchRefused = true;
             }
-            // A soul has a long wait: it watches someone without being asked (RMB still looks away).
+
             if (Watching == null && life.Soul.Value && !watchRefused && standing.Count > 0)
             {
                 Watching = standing[0];
@@ -129,7 +101,7 @@ namespace Deepbound.Player
             if (!IsOwner || Watching == null) return;
             var cam = ViewCamera.Current;
             if (cam == null) return;
-            // Over the shoulder, pulled in where a wall would come between.
+
             var head = Watching.transform.position + Vector3.up * 1.7f;
             var back = -Watching.transform.forward * WatchBack + Vector3.up * WatchUp;
             float dist = back.magnitude;
@@ -156,8 +128,6 @@ namespace Deepbound.Player
             wasLastStand = now;
         }
 
-        // ---- server bookkeeping: who hit what, from where, when ----
-
         private struct Hit { public ulong Attacker; public float Time; }
         private static readonly Dictionary<ulong, List<Hit>> hits = new Dictionary<ulong, List<Hit>>();
         private static bool hooked;
@@ -169,7 +139,6 @@ namespace Deepbound.Player
             Health.ServerAnyDamaged += OnAnyDamaged;
         }
 
-        /// <summary>Server: the PINCER multiplier for this hit (and it records the hit). Called from the combo chain.</summary>
         public static float ServerPincer(Health target, PlayerProgress attacker)
         {
             if (target == null || attacker == null || PlayerLife.All.Count < 2) return 1f;
@@ -223,15 +192,11 @@ namespace Deepbound.Player
             }
         }
 
-        // ---- vengeance (server) ----
-
         private struct Grudge { public PlayerLife Fallen; public float Until; }
         private static readonly Dictionary<ulong, Grudge> grudges = new Dictionary<ulong, Grudge>();
 
-        /// <summary>For tests: players avenged so far (server).</summary>
         public static int ServerAvenged { get; private set; }
 
-        /// <summary>Server: <paramref name="fallen"/> just went down to <paramref name="byId"/>. Mark it for the others.</summary>
         public static void ServerVengeance(PlayerLife fallen, ulong byId)
         {
             if (fallen == null || PlayerLife.All.Count < 2) return;
@@ -264,8 +229,6 @@ namespace Deepbound.Player
         [Rpc(SendTo.ClientsAndHost)]
         private void AvengedRpc(Vector3 at) => UI.GameHud.ShowCombo(at, "AVENGED", new Color(1f, 0.55f, 0.4f));
 
-        // ---- floor honours (server) ----
-
         private struct Tally { public int Kills, Dealt, Taken, Revives, Downs, Assists; }
         private static readonly Dictionary<ulong, Tally> floorStart = new Dictionary<ulong, Tally>();
 
@@ -276,7 +239,6 @@ namespace Deepbound.Player
             return new Tally { Kills = pr.Kills.Value, Dealt = pr.DamageDealt.Value, Taken = pr.DamageTaken.Value, Revives = pr.Revives.Value, Downs = pr.Downs.Value, Assists = tw != null ? tw.ServerAssists : 0 };
         }
 
-        /// <summary>Server: a floor began; remember everyone's tallies.</summary>
         public static void ServerFloorStarted()
         {
             floorStart.Clear();
@@ -284,7 +246,6 @@ namespace Deepbound.Player
             foreach (var p in PlayerLife.All) if (p != null) floorStart[p.NetworkObjectId] = Now(p);
         }
 
-        /// <summary>Server: the floor's guardian fell; hand out the honours. Returns the lines (tests read them).</summary>
         public static List<string> ServerFloorHonours()
         {
             var lines = new List<string>();
@@ -321,7 +282,6 @@ namespace Deepbound.Player
         [Rpc(SendTo.Owner)]
         private void AssistRpc(Vector3 at) => UI.GameHud.ShowCombo(at, "ASSIST", new Color(0.6f, 0.85f, 1f));
 
-        /// <summary>Server: <paramref name="saviour"/> got <paramref name="saved"/> up from a last stand.</summary>
         public static void ServerClutch(PlayerLife saviour, PlayerLife saved)
         {
             if (saviour == null || saved == null) return;

@@ -5,24 +5,6 @@ using UnityEngine;
 
 namespace Deepbound.Player
 {
-    /// <summary>
-    /// The bad things the dead can do to you, beyond hurting you:
-    ///
-    /// <list type="bullet">
-    /// <item><b>Poisoned</b> (Plaguebearers): damage every half second. Stacks the timer, not the rate.</item>
-    /// <item><b>Frostbitten</b> (Frost Wights): 40% slower on your feet.</item>
-    /// <item><b>Cursed</b> (Hexers): you deal 30% less damage and heal half as well — until it
-    ///   wears off, or the Hexer that laid it dies.</item>
-    /// <item><b>Mania</b> (the Cathedral's choir, the Unsung): for a couple of seconds you sprint about
-    ///   wildly and cannot attack; you can still look around. A short grace follows, so it never chains.</item>
-    /// <item><b>Rooted</b> (the drowned and the frozen): ice locks your feet for a moment; you can still fight.</item>
-    /// <item><b>Silenced</b> (Tongueless Cantors, 2026-10-27): no Q, E or ultimate for a few seconds; attacks,
-    ///   blocks, dodges and potions still work. A grace follows so it never chains.</item>
-    /// <item><b>Dazed</b> (a Brute's pound, a Gargoyle's dive, 2026-10-27): your head rings - turning is sluggish
-    ///   for a moment. Nothing sways the camera; you just cannot whip round.</item>
-    /// </list>
-    /// Holy Water cleanses everything it splashes. Server-owned; synced as timestamps.
-    /// </summary>
     public class PlayerDebuffs : NetworkBehaviour
     {
         public readonly NetworkVariable<double> PoisonUntil = new NetworkVariable<double>();
@@ -33,16 +15,13 @@ namespace Deepbound.Player
         public readonly NetworkVariable<double> RootUntil = new NetworkVariable<double>();
         public readonly NetworkVariable<double> SilenceUntil = new NetworkVariable<double>();
         public readonly NetworkVariable<double> DazeUntil = new NetworkVariable<double>();
-        /// <summary>
-        /// 2026-11-13, the user: the Hexer's curse is now WEAKNESS (-40% damage; the fields keep the old name, Curse*), and
-        /// a new CURSE (the Withering Hag's evil eye) means you TAKE +40% damage, until the curse runs out or the hag dies.
-        /// </summary>
+
         public readonly NetworkVariable<double> HexUntil = new NetworkVariable<double>();
         public readonly NetworkVariable<ulong> HexSource = new NetworkVariable<ulong>(ulong.MaxValue);
-        /// <summary>BLINDED (the Ink Lamprey, 2026-11-13): ink over your eyes to a small clear hole; no map, no enemy bars.</summary>
+
         public readonly NetworkVariable<double> BlindUntil = new NetworkVariable<double>();
         public const float WeaknessDamage = 0.6f, CurseTaken = 1.4f;
-        /// <summary>An Entling holding you by the legs (its NetworkObjectId), until it dies. MaxValue: nobody.</summary>
+
         public readonly NetworkVariable<ulong> RootedBy = new NetworkVariable<ulong>(ulong.MaxValue);
         public bool Entangled => RootedBy.Value != ulong.MaxValue;
         private double maniaGraceUntil, rootGraceUntil, silenceGraceUntil, dazeGraceUntil, blindGraceUntil;
@@ -59,12 +38,12 @@ namespace Deepbound.Player
         public bool Manic => Now < ManiaUntil.Value;
         public bool Silenced => Now < SilenceUntil.Value;
         public bool Dazed => Now < DazeUntil.Value;
-        /// <summary>Anything a cleanse would take away.</summary>
+
         public bool AnyAffliction => Poisoned || Frostbitten || Cursed || Silenced || Dazed || Manic || Now < RootUntil.Value;
-        /// <summary>The Withering Hag's curse: +40% damage taken.</summary>
+
         public bool Accursed => Now < HexUntil.Value;
         public bool Blinded => Now < BlindUntil.Value;
-        /// <summary>The local player is blinded (the map and the dead's bars hide).</summary>
+
         public static bool LocalBlind
         {
             get
@@ -73,7 +52,7 @@ namespace Deepbound.Player
                 return me != null && me.TryGetComponent<PlayerDebuffs>(out var d) && d.Blinded;
             }
         }
-        /// <summary>How fast you can turn while dazed.</summary>
+
         public const float DazedTurn = 0.5f;
         public float TurnMultiplier => Dazed ? DazedTurn : 1f;
         public bool Rooted => Now < RootUntil.Value || Entangled;
@@ -81,22 +60,19 @@ namespace Deepbound.Player
         public float SpeedMultiplier => Rooted ? 0f : Frostbitten ? 0.6f : 1f;
         public float DamageMultiplier => (Cursed ? WeaknessDamage : 1f) * (1f + DrunkCourage * Drunk);
 
-        // ---- Mead (2026-11-01, the tavern at camp) ----
-        /// <summary>How much mead is in you: 1 Tipsy, 2 Merry, 3 Sloshed. Wears off a level at a time.</summary>
         public readonly NetworkVariable<byte> DrunkLevel = new NetworkVariable<byte>();
         public readonly NetworkVariable<double> DrunkUntil = new NetworkVariable<double>();
         public const int DrunkMax = 3;
-        /// <summary>Seconds each level of drink lasts before the next one wears off.</summary>
+
         public const float DrunkSecondsPerLevel = 75f;
-        /// <summary>Liquid courage: +4% damage a level. The world sways with it (the camera, and your body for others).</summary>
+
         public const float DrunkCourage = 0.04f;
         public int Drunk => DrunkLevel.Value > 0 && Now < DrunkUntil.Value ? DrunkLevel.Value : 0;
-        /// <summary>Sloshed (the third mead) is CONFUSED: your movement keys are scrambled, RotMG-style (<c>FirstPersonMotor.ConfuseInput</c>).</summary>
+
         public bool Confused => Drunk >= DrunkMax;
-        public const float ConfuseShuffle = 30f; // 2026-11-21, the user: the scramble holds 30 s, then swaps
+        public const float ConfuseShuffle = 30f;
         public static string DrunkName(int level) => level >= 3 ? "Sloshed" : level == 2 ? "Merry" : "Tipsy";
 
-        /// <summary>Server: down a mead. One more level (to <see cref="DrunkMax"/>); the clock starts over for the level.</summary>
         public void ServerDrink()
         {
             if (!IsServer) return;
@@ -104,7 +80,6 @@ namespace Deepbound.Player
             DrunkUntil.Value = Now + DrunkSecondsPerLevel;
         }
 
-        /// <summary>Server: Marta's milk - every level of drink gone at once.</summary>
         public void ServerSober()
         {
             if (!IsServer) return;
@@ -112,7 +87,6 @@ namespace Deepbound.Player
             DrunkUntil.Value = 0;
         }
 
-        /// <summary>Server: the drink wears off a level at a time.</summary>
         private void TickDrunk()
         {
             if (DrunkLevel.Value == 0 || Now < DrunkUntil.Value) return;
@@ -127,7 +101,6 @@ namespace Deepbound.Player
             life = GetComponent<PlayerLife>();
         }
 
-        /// <summary>Server time the Plague Mask's ward ends: no new afflictions until then.</summary>
         public readonly NetworkVariable<double> WardUntil = new NetworkVariable<double>();
         public bool Warded => Now < WardUntil.Value;
         public void ServerWard(float seconds) { if (IsServer) WardUntil.Value = System.Math.Max(WardUntil.Value, Now + seconds); }
@@ -140,7 +113,6 @@ namespace Deepbound.Player
             PoisonUntil.Value = System.Math.Max(PoisonUntil.Value, Now + seconds);
         }
 
-        /// <summary>Ironbark: nothing takes hold of you while it lasts.</summary>
         private bool Unshakable => TryGetComponent<Flasks>(out var f) && f.Ironbark;
 
         public void ServerFrostbite(float seconds)
@@ -157,7 +129,6 @@ namespace Deepbound.Player
             CurseSource.Value = source;
         }
 
-        /// <summary>Server: the Withering Hag's curse: +40% damage taken for <paramref name="seconds"/>, or until she dies.</summary>
         public bool ServerAccurse(float seconds, ulong source)
         {
             if (!IsServer || life.Downed.Value || Warded || Unshakable) return false;
@@ -168,10 +139,6 @@ namespace Deepbound.Player
             return true;
         }
 
-        /// <summary>
-        /// Server: ink in your eyes for <paramref name="seconds"/>. Already blind, it only lasts longer (an ink pool keeps it
-        /// up); once it lifts, a short grace before the next one takes.
-        /// </summary>
         public bool ServerBlind(float seconds)
         {
             if (!IsServer || life.Downed.Value || Warded || Unshakable) return false;
@@ -188,7 +155,6 @@ namespace Deepbound.Player
             return true;
         }
 
-        /// <summary>Server: madness takes you for <paramref name="seconds"/> (then a grace of twice as long).</summary>
         public void ServerMania(float seconds)
         {
             if (!IsServer || life.Downed.Value || Now < maniaGraceUntil || Warded || Unshakable) return;
@@ -198,11 +164,10 @@ namespace Deepbound.Player
             AfflictedRpc(0);
         }
 
-        /// <summary>Server: a Cantor's hush takes your abilities for <paramref name="seconds"/>. False if it did not take.</summary>
         public bool ServerSilence(float seconds)
         {
             if (!IsServer || life.Downed.Value || Now < silenceGraceUntil || Warded || Unshakable) return false;
-            // The Iron Psalter's hymn keeps a voice in you: half as long.
+
             if (TryGetComponent<Progression.PlayerProgress>(out var pp) && pp.HasRelic(Loot.Relic.IronPsalter)) seconds *= 0.5f;
             SilenceUntil.Value = Now + seconds;
             silenceGraceUntil = Now + seconds * 2.5f;
@@ -210,10 +175,8 @@ namespace Deepbound.Player
             return true;
         }
 
-        /// <summary>For tests: forget every grace, so the next affliction takes.</summary>
         public void ServerResetGrace() { maniaGraceUntil = rootGraceUntil = silenceGraceUntil = dazeGraceUntil = blindGraceUntil = 0; }
 
-        /// <summary>Server: a heavy blow rings your head for <paramref name="seconds"/>.</summary>
         public bool ServerDaze(float seconds)
         {
             if (!IsServer || life.Downed.Value || Now < dazeGraceUntil || Warded || Unshakable) return false;
@@ -226,13 +189,12 @@ namespace Deepbound.Player
         public override void OnNetworkSpawn()
         {
             base.OnNetworkSpawn();
-            // Silence is felt at the keys: Q, E and the ultimate do nothing while it lasts (every kit at once).
+
             if (IsOwner) UI.Binds.AbilityLock = () => this != null && Silenced;
-            // The curse: every blow lands harder while it holds.
+
             if (IsServer && health != null) health.IncomingModifiers.Add((d, from) => Accursed ? d * CurseTaken : d);
         }
 
-        /// <summary>Server: an Entling wraps your legs until it dies (or lets go).</summary>
         public void ServerHoldRoots(ulong entling)
         {
             if (!IsServer) return;
@@ -245,7 +207,6 @@ namespace Deepbound.Player
             RootedBy.Value = ulong.MaxValue;
         }
 
-        /// <summary>Server: ice locks your feet for <paramref name="seconds"/>.</summary>
         public void ServerRoot(float seconds)
         {
             if (!IsServer || life.Downed.Value || Now < rootGraceUntil || Warded || Unshakable) return;
@@ -291,7 +252,6 @@ namespace Deepbound.Player
             }
         }
 
-        /// <summary>Server: Holy Water, a fountain, a revive — wash it all away.</summary>
         public void ServerCleanse()
         {
             if (!IsServer) return;
@@ -320,12 +280,12 @@ namespace Deepbound.Player
                     nextTick = Time.time + 0.5f;
                     health.Tag("PlayerDebuffs").ServerDamage(poisonDps * 0.5f, transform.position);
                 }
-                // A curse ends with whoever laid it.
+
                 if (Cursed && CurseSource.Value != ulong.MaxValue &&
                     (!NetworkManager.SpawnManager.SpawnedObjects.TryGetValue(CurseSource.Value, out var src) ||
                      (src.TryGetComponent<Health>(out var sh) && !sh.IsAlive)))
                     ServerCleanseCurse();
-                // ...and the hag's curse with the hag.
+
                 if (Accursed && HexSource.Value != ulong.MaxValue &&
                     (!NetworkManager.SpawnManager.SpawnedObjects.TryGetValue(HexSource.Value, out var hag) ||
                      (hag.TryGetComponent<Health>(out var hh0) && !hh0.IsAlive)))
@@ -335,8 +295,7 @@ namespace Deepbound.Player
                     CurseLiftedRpc();
                 }
                 if (life.Downed.Value && (Poisoned || Frostbitten || Cursed || Manic || Rooted || Accursed || Blinded)) ServerCleanse();
-                // Whatever held you is gone, has been knocked away, or has held too long (a stunned Entling's own clock
-                // stops; 2026-10-27 autoplay: a Ranger stood rooted for nine minutes): the roots go with it.
+
                 if (Entangled)
                 {
                     if (rootedAt < 0f) rootedAt = Time.time;
@@ -348,9 +307,6 @@ namespace Deepbound.Player
                 else rootedAt = -1f;
             }
 
-            // Everyone: wisps around an afflicted player, so the party can see who needs help.
-            // Not on your own screen: there they spawned at the camera as big squares, and the overlay
-            // (UI/AfflictionOverlay) shows you instead.
             if (!IsOwner && Time.time >= nextWisp)
             {
                 nextWisp = Time.time + 0.2f;
@@ -359,7 +315,7 @@ namespace Deepbound.Player
                 if (Cursed) Vfx.Mote(transform.position, new Color(0.55f, 0.2f, 0.8f));
                 if (Manic) { Vfx.Mote(transform.position, new Color(0.9f, 0.4f, 1f)); Vfx.Mote(transform.position, new Color(1f, 0.5f, 0.9f)); }
                 if (Rooted) Vfx.Mote(transform.position + Vector3.down * 0.9f, new Color(0.7f, 0.95f, 1f));
-                // The newer two, for the party to see (2026-10-28): stars round a dazed head, grey haze off the silenced.
+
                 if (Dazed)
                     for (int i = 0; i < 3; i++)
                     {

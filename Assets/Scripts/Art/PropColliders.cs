@@ -2,12 +2,6 @@ using UnityEngine;
 
 namespace Deepbound.Art
 {
-    /// <summary>
-    /// Gives the level's standalone props (stalls, braziers, tent walls, crates built as parts,
-    /// statues) a box collider each, so players stop walking through them. Batched geometry
-    /// already has mesh colliders. Left alone: anything flat (rugs, puddles), tiny (candles),
-    /// hanging well above the floor (chandeliers, banners), or made of light, water or smoke.
-    /// </summary>
     public static class PropColliders
     {
         private static readonly string[] SkipMaterials = { "Glow", "Flame", "Telegraph", "Water", "Smoke" };
@@ -21,7 +15,7 @@ namespace Deepbound.Art
             foreach (var r in root.GetComponentsInChildren<MeshRenderer>(true))
             {
                 if (r.GetComponentInParent<Collider>() != null) continue;
-                // Doors swing aside for anyone; a box on them would wall off the navmesh (the dead could not follow).
+
                 if (r.GetComponentInParent<World.SwingDoor>() != null) continue;
                 var mf = r.GetComponent<MeshFilter>();
                 if (mf == null || mf.sharedMesh == null) continue;
@@ -33,10 +27,10 @@ namespace Deepbound.Art
 
                 var world = r.bounds;
                 float height = world.size.y, foot = Mathf.Max(world.size.x, world.size.z), thin = Mathf.Min(world.size.x, world.size.z);
-                if (height < 0.3f) continue;                          // flat
-                if (foot < 0.25f && height < 1.5f) continue;          // small clutter
-                if (thin < 0.08f && height < 1.5f) continue;          // thin sheets, unless they are walls
-                // Hanging high above the floor below it: chandeliers, signs, lanterns.
+                if (height < 0.3f) continue;
+                if (foot < 0.25f && height < 1.5f) continue;
+                if (thin < 0.08f && height < 1.5f) continue;
+
                 if (Physics.Raycast(world.center, Vector3.down, out var hit, 30f, ~0, QueryTriggerInteraction.Ignore) && world.min.y - hit.point.y > 1.3f) continue;
 
                 var box = r.gameObject.AddComponent<BoxCollider>();

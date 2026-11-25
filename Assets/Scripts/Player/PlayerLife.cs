@@ -10,19 +10,6 @@ using UnityEngine.InputSystem;
 
 namespace Deepbound.Player
 {
-    /// <summary>
-    /// Downed and revive, R.E.P.O.-style (design doc Q11, decided 2026-10-13).
-    ///
-    /// <para>
-    /// At zero health a player is not dead — they are downed: kneeling, unable to move or
-    /// fight, waiting for a teammate. A teammate holding F nearby for
-    /// <see cref="ReviveSeconds"/> brings them back at partial health. If every player is
-    /// downed at once, the party has wiped and the run ends (see DungeonDirector).
-    /// </para>
-    ///
-    /// Server-authoritative: the reviver only reports "I am holding F on this person"; the
-    /// server checks distance and owns the progress bar.
-    /// </summary>
     [RequireComponent(typeof(Health))]
     public class PlayerLife : NetworkBehaviour
     {
@@ -30,13 +17,10 @@ namespace Deepbound.Player
         public const float ReviveRange = 2.6f;
         private const float ReviveHealthFraction = 0.35f;
 
-        /// <summary>Every player on this peer, for wipe checks, revive targeting and AI.</summary>
         public static readonly List<PlayerLife> All = new List<PlayerLife>();
 
         public readonly NetworkVariable<bool> Downed = new NetworkVariable<bool>();
 
-        /// <summary>Owner: came down <paramref name="drop"/> metres (<see cref="FirstPersonMotor.SafeDrop"/>). The share is of max
-        /// health with DEF added back (armour does not soften the ground); a dodge's i-frames and shields still count.</summary>
         [Rpc(SendTo.Server)]
         public void FallRpc(float drop)
         {
@@ -48,44 +32,33 @@ namespace Deepbound.Player
             h.Tag("fall").ServerDamage(h.Max.Value * share + h.Defense * Health.DefenseWeight, transform.position + Vector3.up * 2f);
         }
 
-        /// <summary>Downed and unrevived this long (while an ally still stands) and you bleed out.</summary>
         public const float BleedOutSeconds = 40f;
 
-        /// <summary>Seconds bled so far while downed (server-written, for the HUD).</summary>
         public readonly NetworkVariable<float> Bleed = new NetworkVariable<float>();
 
-        /// <summary>Bled out: only your Soul Skull, carried to the waystone, brings you back.</summary>
         public readonly NetworkVariable<bool> Soul = new NetworkVariable<bool>();
 
-        /// <summary>Seconds left before a downed player bleeds out.</summary>
         public float BleedLeft => Mathf.Max(0f, BleedOutSeconds - Bleed.Value);
 
-        /// <summary>
-        /// Hidden from enemies (the Rogue's Smoke Bomb): no enemy will pick, keep, or be
-        /// pulled onto this player. Server-written; teammates see a faint marker instead.
-        /// </summary>
         public readonly NetworkVariable<bool> Hidden = new NetworkVariable<bool>();
 
-        /// <summary>True if enemies may target this player right now.</summary>
         public bool Targetable => !Downed.Value && !Hidden.Value && Health.IsAlive && Time.time >= VeiledUntil;
 
-        /// <summary>Server: inside a Rogue's smoke cloud (Smoke Screen) — enemies cannot pick you.</summary>
         public float VeiledUntil { get; set; }
 
-        /// <summary>Whether an enemy may target this health: players must be <see cref="Targetable"/>.</summary>
         public static bool CanTarget(Health h) => h != null && h.IsAlive && (!h.TryGetComponent<PlayerLife>(out var p) || p.Targetable);
         public readonly NetworkVariable<float> ReviveProgress = new NetworkVariable<float>();
         private float reviveServer;
         private PlayerLife helper;
         private float lastHelperPing = -10f;
-        /// <summary>Two revivers at once: x1.5.</summary>
+
         public const float TwoHandsRate = 1.5f;
-        /// <summary>Server: a second reviver is helping right now (tests read it).</summary>
+
         public bool TwoHands { get; private set; }
 
         public Health Health { get; private set; }
 
-        private PlayerLife reviver; // server: who is currently holding F on us
+        private PlayerLife reviver;
         private float lastReviverPing;
         private float reviveSendAt;
         private float lastDamagedAt;
@@ -93,23 +66,15 @@ namespace Deepbound.Player
         private PlayerProgress progress;
         private FirstPersonMotor motor;
 
-        // Dodge: owner-side cooldown, server-side invulnerability window.
         public const float DodgeCooldown = 1.2f, DodgeInvulnerable = 0.35f, DodgeSpeed = 15f;
         public float DodgeReadyAt { get; private set; }
         public float DodgeCooldownNow => progress != null && progress.HasRelic(Loot.Relic.GhostLantern) ? DodgeCooldown * 0.5f : DodgeCooldown;
         private float invulnerableUntil;
-        /// <summary>
-        /// PERFECT DODGE (2026-11-23, gameplay): a blow that lands inside a real dodge's i-frames (not other invulnerability)
-        /// refunds the dodge at once and readies a counter: your next hit within <see cref="PlayerProgress.PerfectStrikeSeconds"/> s
-        /// deals x<see cref="PlayerProgress.PerfectStrikeMultiplier"/>. Once per dodge. Shown on the body (a silver flash and a
-        /// glint that rides you while the counter is ready), never as words.
-        /// </summary>
+
         private bool dodgeFrames, perfectThisDodge;
 
-        /// <summary>Server, tests: take no damage for a while (a stray blow resets a delivery).</summary>
         public void ServerDebugInvulnerable(float seconds) { invulnerableUntil = Time.time + seconds; dodgeFrames = false; }
 
-        /// <summary>Tests: a dodge's i-frames, as the server sees them.</summary>
         public void ServerDebugDodge() { invulnerableUntil = Time.time + DodgeInvulnerable; dodgeFrames = true; perfectThisDodge = false; }
 
         private void ServerPerfectDodge()
@@ -119,13 +84,12 @@ namespace Deepbound.Player
             PerfectDodgeRpc();
         }
 
-        /// <summary>Server, for tests.</summary>
         public int PerfectDodges { get; private set; }
 
         [Rpc(SendTo.ClientsAndHost)]
         private void PerfectDodgeRpc()
         {
-            if (IsOwner) DodgeReadyAt = Time.time; // the dodge comes straight back
+            if (IsOwner) DodgeReadyAt = Time.time;
             Sfx.Play(Sound.Graze, transform.position + Vector3.up, 0.9f, 0.8f);
             Sfx.Play(Sound.Dodge, transform.position + Vector3.up, 0.6f, 1.6f);
             Art.ClassFx.PerfectDodge(transform, PlayerProgress.PerfectStrikeSeconds);
@@ -147,23 +111,23 @@ namespace Deepbound.Player
             {
                 Health.Died += HandleDied;
                 Health.DamagedServer += (lost, from) => { lastDamagedAt = Time.time; ServerRecordHit(lost, from); };
-                // Registered first, so a dodged hit is gone before blocks or relics see it.
+
                 Health.IncomingModifiers.Insert(0, (dmg, from) =>
                 {
                     if (Time.time >= invulnerableUntil) return dmg;
                     if (dodgeFrames && !perfectThisDodge && dmg > 0f) { perfectThisDodge = true; ServerPerfectDodge(); }
                     return 0f;
                 });
-                // The cat's whisker: a one-in-a-hundred chance to slip a hit entirely.
+
                 Health.IncomingModifiers.Insert(1, (dmg, from) =>
                 {
                     if (progress == null || !progress.CatWhisker.Value || dmg <= 0f || Random.value >= PlayerProgress.WhiskerEvade) return dmg;
                     EvadedRpc();
                     return 0f;
                 });
-                // Behind a blocking Knight's shield, blows from the front land at half strength.
+
                 Health.IncomingModifiers.Add((dmg, from) => dmg > 0f && KnightKit.ShelterFor(this, from) ? dmg * KnightKit.ShelterScale : dmg);
-                // Ysolde's ability options that guard allies: Bastion, Sanctuary, Thorned Aegis, Sheltering Rain.
+
                 Health.IncomingModifiers.Add((dmg, from) => Classes.AbilityKit.AllyIncoming(this, dmg, from));
             }
             Downed.OnValueChanged += HandleDownedChanged;
@@ -182,24 +146,18 @@ namespace Deepbound.Player
             base.OnDestroy();
         }
 
-        // Seated on Corwin's carriage, your hands stay in your lap (2026-11-01: players were cutting at Corwin from the bench).
         public bool CanAct => !Downed.Value && !HandsFull && !IsDragging(NetworkObjectId) && !Reviving && Seat.Value < 0 && !(debuffs != null && debuffs.Manic) && !(pouch != null && pouch.InStasis);
 
-        /// <summary>Owner: kneeling over a downed ally with F held: no swinging or casting meanwhile (play-test 2026-11-01).</summary>
         public bool Reviving => IsOwner && Time.time < revivingUntil;
         private float revivingUntil, usePressAt = -10f;
         private bool useTapPending;
-        /// <summary>With talk / drag on the use key: a tap shorter than this drags, a longer hold revives.</summary>
+
         public const float TapSeconds = 0.3f;
 
-        /// <summary>
-        /// Owner: does the use key have something in the world to do right now (under the crosshair, a downed ally,
-        /// the carriage bench)? Then a stall or anvil it also stands by does not open on the same press.
-        /// </summary>
         public bool UseHasWorldTarget()
         {
             if (DownedNear(transform.position, this) != null || IsDragging(NetworkObjectId)) return true;
-            if (UI.Dialogue.Aimed != null || UI.Dialogue.Open) return true; // F talks to the person you look at
+            if (UI.Dialogue.Aimed != null || UI.Dialogue.Open) return true;
             var ride = World.CarriageRide.Instance;
             if (ride != null && DungeonDirector.InLobby && !ride.Riding && (Seat.Value >= 0 || NearestFreeSeat(ride) >= 0)) return true;
             var cam = GetComponent<NetworkPlayer>();
@@ -207,31 +165,25 @@ namespace Deepbound.Player
             return aimed != null && !(ShiftHeld && (aimed is Loot.GearDrop || aimed is World.CampCat));
         }
 
-        /// <summary>Shift + F: take gear into the pack (not wear it), pick the cat up (not pet it).</summary>
         public static bool ShiftHeld => Keyboard.current != null && Keyboard.current.shiftKey.isPressed;
         private Flasks pouch => cachedPouch != null ? cachedPouch : (cachedPouch = GetComponent<Flasks>());
         private Flasks cachedPouch;
 
-        /// <summary>Carrying something in both hands (Lamplighter's Oil lets a torch-bearer fight).</summary>
         private bool HandsFull
         {
             get
             {
                 if (!World.Carryable.IsCarrying(NetworkObjectId)) return false;
-                // Lamplighter's Oil: a sure grip on whatever you carry, and a hand free to fight.
+
                 return progress == null || !progress.HasRelic(Loot.Relic.LamplightersOil);
             }
         }
 
-        // ---- Dragging a downed ally to safety (2026-10-20, Dark and Darker / R.E.P.O.) ----
-
         public const float DragSpeed = 0.55f, DragGap = 1.15f, DragBreak = 4f;
 
-        /// <summary>Who is hauling this downed player along by the collar (MaxValue: nobody). Server-written.</summary>
         public readonly NetworkVariable<ulong> DraggedBy = new NetworkVariable<ulong>(ulong.MaxValue);
         public bool BeingDragged => DraggedBy.Value != ulong.MaxValue;
 
-        /// <summary>The downed player this one is dragging, or null.</summary>
         public static PlayerLife DraggedByPlayer(ulong id)
         {
             foreach (var p in All) if (p != null && p.DraggedBy.Value == id) return p;
@@ -240,8 +192,7 @@ namespace Deepbound.Player
 
         public static bool IsDragging(ulong id) => DraggedByPlayer(id) != null;
 
-        /// <summary>Any player → server, on the downed one: take hold (G), or let go if already holding.</summary>
-        [Rpc(SendTo.Server, RequireOwnership = false)]
+        [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
         public void DragRpc(NetworkObjectReference whoRef)
         {
             if (!whoRef.TryGet(out var o) || !o.TryGetComponent<PlayerLife>(out var r)) return;
@@ -261,7 +212,6 @@ namespace Deepbound.Player
             return o.GetComponent<PlayerLife>();
         }
 
-        /// <summary>Server: let go when the dragger falls, wanders off or this player gets up.</summary>
         private void ServerTickDrag()
         {
             if (!BeingDragged) return;
@@ -272,7 +222,6 @@ namespace Deepbound.Player
 
         private bool wasDragged;
 
-        /// <summary>Owner of the downed body: follow a step behind the dragger, feet first.</summary>
         private void OwnerDragged()
         {
             var d = Dragger();
@@ -293,13 +242,9 @@ namespace Deepbound.Player
 
         private PlayerDebuffs debuffs;
 
-        // ---- The carriage: sit on its tailgate to say you are ready ----
-
-        /// <summary>Which carriage seat this player sits in (-1: on their feet).</summary>
         public readonly NetworkVariable<sbyte> Seat = new NetworkVariable<sbyte>(-1);
         private bool wasSeated;
 
-        /// <summary>Owner → server: sit in a carriage seat (at camp, before the carriage goes).</summary>
         [Rpc(SendTo.Server)]
         public void SitRpc(int seat)
         {
@@ -310,7 +255,6 @@ namespace Deepbound.Player
             Seat.Value = (sbyte)seat;
         }
 
-        /// <summary>Owner → server: get back down (not once the carriage is moving).</summary>
         [Rpc(SendTo.Server)]
         public void StandRpc()
         {
@@ -319,7 +263,6 @@ namespace Deepbound.Player
             Seat.Value = -1;
         }
 
-        /// <summary>Owner: F at the back of the carriage sits you down (or stands you up); seated, you ride with it.</summary>
         private void OwnerSeat()
         {
             var ride = World.CarriageRide.Instance;
@@ -346,7 +289,6 @@ namespace Deepbound.Player
 
         private int lastSeat;
 
-        /// <summary>The closest unclaimed seat within reach of the back of the carriage, or -1.</summary>
         public int NearestFreeSeat(World.CarriageRide ride)
         {
             int best = -1;
@@ -362,7 +304,6 @@ namespace Deepbound.Player
             return best;
         }
 
-        /// <summary>Server: this player's ground velocity, smoothed (shooters use it to lead their shots).</summary>
         public Vector3 ServerVelocity { get; private set; }
         private Vector3 velocitySampleAt;
         private float nextVelocitySample;
@@ -375,11 +316,10 @@ namespace Deepbound.Player
             var p = transform.position;
             var raw = (p - velocitySampleAt) / dt;
             velocitySampleAt = p;
-            if (raw.sqrMagnitude > 400f) raw = Vector3.zero; // a teleport, not a run
+            if (raw.sqrMagnitude > 400f) raw = Vector3.zero;
             ServerVelocity = Vector3.Lerp(ServerVelocity, raw, 0.5f);
         }
 
-        // ---- Death recap: the last hits before going down (League's death recap). ----
         private struct HitRecord { public string Who; public float Amount, Time; }
         private readonly List<HitRecord> recentHits = new List<HitRecord>();
 
@@ -390,7 +330,6 @@ namespace Deepbound.Player
             if (recentHits.Count > 12) recentHits.RemoveAt(0);
         }
 
-        /// <summary>Owner: what put you down, newest last, and the killing blow's source.</summary>
         public static event System.Action<string, string> DownedRecap;
 
         [Rpc(SendTo.Owner)]
@@ -398,7 +337,6 @@ namespace Deepbound.Player
 
         private void ServerSendRecap()
         {
-            // Sum by source over the last 10 seconds, the biggest first.
             var totals = new Dictionary<string, (float sum, int n)>();
             foreach (var r in recentHits)
             {
@@ -437,7 +375,6 @@ namespace Deepbound.Player
             ServerSendRecap();
         }
 
-        /// <summary>Server: the bleed-out ran its course. Leave a Soul Skull for the others to carry.</summary>
         public void ServerBleedOut()
         {
             if (!IsServer || !Downed.Value || Soul.Value) return;
@@ -460,7 +397,7 @@ namespace Deepbound.Player
         private void HandleDownedChanged(bool was, bool now)
         {
             if (was && !now) Sfx.Play(Sound.Revive, transform.position);
-            // Going down was silent: an ally falling out of sight could only be seen on the HUD.
+
             if (!was && now)
             {
                 Sfx.Play(Sound.Toll, transform.position + Vector3.up, 0.8f, 1.25f);
@@ -468,15 +405,6 @@ namespace Deepbound.Player
             }
         }
 
-        // ------------------------------------------------------------------
-        // Reviving
-        // ------------------------------------------------------------------
-
-        /// <summary>
-        /// Sent by the reviving player's client every ~0.2s while F is held. Progress decays
-        /// if the pings stop, so letting go — or getting knocked away — loses it gradually
-        /// rather than instantly.
-        /// </summary>
         [Rpc(SendTo.Server)]
         public void ReviveHoldRpc(NetworkObjectReference reviverRef)
         {
@@ -485,7 +413,6 @@ namespace Deepbound.Player
             if (r == null || r == this || r.Downed.Value) return;
             if (Vector3.Distance(r.transform.position, transform.position) > ReviveRange + 0.5f) return;
 
-            // A second pair of hands speeds it up.
             if (reviver != null && reviver != r && Time.time - lastReviverPing < 0.35f && !reviver.Downed.Value)
             {
                 helper = r;
@@ -515,7 +442,7 @@ namespace Deepbound.Player
             }
 
             if (Soul.Value) return;
-            // Smelling salts: a sharp breath and you are back on your feet.
+
             if (this.progress != null && this.progress.Salts.Value && Time.time - downedAt >= SaltsSeconds)
             {
                 this.progress.Salts.Value = false;
@@ -526,33 +453,29 @@ namespace Deepbound.Player
             bool beingRevived = reviver != null && Time.time - lastReviverPing < 0.35f && !reviver.Downed.Value &&
                                 Vector3.Distance(reviver.transform.position, transform.position) <= ReviveRange + 0.5f;
 
-            // Bleeding out: only while someone is still standing to save you, and not while they try.
             if (!beingRevived && !DungeonDirector.TestMode && AnyAllyStanding())
             {
-                // Dragged to safety, the bleeding slows to half.
                 bleedCarry += Time.deltaTime * (BeingDragged ? 0.5f : 1f);
                 if (Bleed.Value + bleedCarry >= BleedOutSeconds) { bleedCarry = 0f; ServerBleedOut(); return; }
-                // Synced in quarter-second steps, not every frame.
+
                 if (bleedCarry >= 0.25f) { Bleed.Value += bleedCarry; bleedCarry = 0f; }
             }
 
-            // The Cleric's passive, Grace: revives twice as fast.
             float rate = beingRevived && reviver.progress != null && reviver.progress.ClassId.Value == Classes.ClassId.Cleric ? 2f : 1f;
             bool helped = beingRevived && helper != null && Time.time - lastHelperPing < 0.35f && !helper.Downed.Value &&
                           Vector3.Distance(helper.transform.position, transform.position) <= ReviveRange + 0.5f;
             if (helped) rate *= TwoHandsRate;
-            // Light Sleeper (Legacy): you get allies up 15% faster.
+
             if (beingRevived && Legacy.Has(reviver, Boon.LightSleeper)) rate *= Legacy.LightSleeperRate;
             TwoHands = helped;
-            // Kept on the server at full precision (2026-10-28): it used to read back the synced value, which is only
-            // written in 0.01 steps, so above ~100 fps a frame's progress was always too small and a revive never moved.
+
             float progress = Mathf.Clamp(reviveServer + (beingRevived ? Time.deltaTime * rate : -Time.deltaTime * 0.5f), 0f, ReviveSeconds);
             reviveServer = progress;
 
             if (progress >= ReviveSeconds)
             {
                 if (reviver != null && reviver.progress != null) reviver.progress.Revives.Value++;
-                // Got up by the last one standing: a CLUTCH.
+
                 var saviour = Teamwork.InLastStand(reviver) ? reviver : null;
                 ServerRevive(ReviveHealthFraction);
                 if (saviour != null) Teamwork.ServerClutch(saviour, this);
@@ -562,11 +485,6 @@ namespace Deepbound.Player
             if (Mathf.Abs(progress - ReviveProgress.Value) > 0.01f || progress == 0f) ReviveProgress.Value = progress;
         }
 
-        /// <summary>
-        /// Owner: Left Ctrl (or C) dashes in the direction you are moving — backwards if you
-        /// are not — with a brief window in which nothing can hurt you. Every class has it;
-        /// it is the universal answer to a telegraph you read too late.
-        /// </summary>
         private void OwnerDodgeInput()
         {
             var keyboard = Keyboard.current;
@@ -574,8 +492,7 @@ namespace Deepbound.Player
             if (!UI.Binds.Down(UI.Bind.Dodge) && !UI.Binds.Down(UI.Bind.Slide)) return;
 
             var input = motor.MoveInput;
-            // Dodging while sprinting forward is a slide instead: low and fast, and a kick
-            // during it is a slide kick. Same i-frames, same cooldown.
+
             if (!(input.y > 0.5f && Mathf.Abs(input.x) < 0.5f && motor.TryStartSlide()))
             {
                 var dir = input.sqrMagnitude > 0.01f ? transform.right * input.x + transform.forward * input.y : -transform.forward;
@@ -599,7 +516,6 @@ namespace Deepbound.Player
         [Rpc(SendTo.ClientsAndHost)]
         private void DodgeFxRpc() => Sfx.Play(Sound.Dodge, transform.position + Vector3.up, 0.7f);
 
-        /// <summary>Owner: hold F next to a downed teammate. Every class can revive.</summary>
         private void OwnerReviveInput()
         {
             var keyboard = Keyboard.current;
@@ -609,7 +525,6 @@ namespace Deepbound.Player
             bool merged = UI.Binds.Merged;
             bool free = !UI.GameHud.MenuOpen && motor != null && motor.HasControl;
 
-            // Taking hold of a downed teammate's collar, or letting go: its own key, or a TAP of the shared F.
             if (!merged && UI.Binds.Down(UI.Bind.Interact) && free) ToggleDrag(target, dragging);
             if (merged && (target != null || dragging != null))
             {
@@ -624,16 +539,15 @@ namespace Deepbound.Player
                 useTapPending = false;
             }
 
-            // F is contextual: a downed teammate takes priority over a chest or altar.
             if (target == null)
             {
                 if (UI.Binds.Down(UI.Bind.Use) && free)
                 {
                     if (UI.Dialogue.TryBegin()) return;
-                    if (merged && World.CampStations.LocalAimed != null) return; // the HUD uses the workstation (CampStations)
+                    if (merged && World.CampStations.LocalAimed != null) return;
                     var cam = GetComponent<NetworkPlayer>();
                     var use = World.Interactable.Nearest(cam.AimOrigin, cam.AimForward, progress);
-                    // Shift + F on gear or the cat is the pack / the lift (GameHud), not wear / pet.
+
                     if (use != null && merged && ShiftHeld && (use is Loot.GearDrop || use is World.CampCat)) return;
                     if (use != null) use.UseRpc(NetworkObject);
                     else if (progress != null && progress.CanUseRope) progress.UseRopeRpc();
@@ -654,17 +568,10 @@ namespace Deepbound.Player
             else if (target != null && !World.Carryable.IsCarrying(NetworkObjectId)) target.DragRpc(NetworkObject);
         }
 
-        /// <summary>
-        /// VIT mends you, slowly (2026-11-13, the user: "vit currently does nothing ... melees get more, and ranged get less"):
-        /// <see cref="VitRegen"/> health a second = VIT x <see cref="VitRegenPerPoint"/> x the class's share
-        /// (<see cref="VitShare"/>), halved for <see cref="VitHurtPause"/> s after a hit. The Thornhide Jerkin still adds its
-        /// own fast mend when badly hurt.
-        /// </summary>
         public const float VitRegenPerPoint = 0.02f, VitHurtPause = 4f, VitInCombat = 0.5f;
-        /// <summary>Smoke test only: let VIT mend in TestMode.</summary>
+
         public static bool VitRegenInTests;
 
-        /// <summary>Melee classes stand in the blows and mend more; ranged ones less.</summary>
         public static float VitShare(Classes.ClassId c)
         {
             switch (c)
@@ -672,23 +579,22 @@ namespace Deepbound.Player
                 case Classes.ClassId.Knight: case Classes.ClassId.Flagellant: return 1.3f;
                 case Classes.ClassId.Rogue: return 1.05f;
                 case Classes.ClassId.Cleric: return 0.85f;
-                default: return 0.65f; // Mage, Ranger, Plague Doctor
+                default: return 0.65f;
             }
         }
 
-        /// <summary>Health a second from VIT right now, out of a fight.</summary>
         public static float VitRegen(float vit, Classes.ClassId c) => Mathf.Max(0f, vit) * VitRegenPerPoint * VitShare(c);
 
         private void ServerRegen()
         {
             if (progress == null || progress.Stats == null || !Health.IsAlive) return;
             if (Health.Current.Value >= Health.Max.Value) { regenCarry = 0f; return; }
-            // Tests measure exact health; only the regeneration check turns it on there.
+
             if (World.DungeonDirector.TestMode && !VitRegenInTests && !progress.DesperateRegen) return;
             float rate = VitRegen(progress.Value(StatType.VIT), progress.ClassId.Value);
             rate *= progress.BuildRegenScale;
             if (Time.time - Health.LastHurtTime < VitHurtPause) rate *= VitInCombat;
-            // Thornhide Jerkin: below 40% you mend fast, even mid-fight.
+
             if (progress.DesperateRegen) rate += (2f + progress.Value(StatType.VIT) * 0.12f) * 3f;
             regenCarry += rate * Time.deltaTime;
             if (regenCarry >= 1f)
@@ -703,7 +609,6 @@ namespace Deepbound.Player
         private float downedAt;
         public const float SaltsSeconds = 5f;
 
-        /// <summary>A downed player with smelling salts is about to get up: not a wipe yet.</summary>
         public bool GettingUp => Downed.Value && !Soul.Value && progress != null && progress.Salts.Value;
 
         [Rpc(SendTo.ClientsAndHost)]
@@ -732,7 +637,7 @@ namespace Deepbound.Player
             ReviveProgress.Value = 0f;
             reviveServer = 0f;
             reviver = null;
-            // The Rallying Bell: the strongest bell within 15 m of whoever got up rallies everyone near.
+
             float bell = 0f;
             foreach (var p in All)
                 if (p != null && p.progress != null && p.progress.HasRelic(Loot.Relic.RallyingBell) && Vector3.Distance(p.transform.position, transform.position) < 15f)
@@ -742,7 +647,6 @@ namespace Deepbound.Player
                     if (p != null && p.progress != null && Vector3.Distance(p.transform.position, transform.position) < 15f) p.progress.ServerRally(5f, bell);
         }
 
-        /// <summary>The nearest downed teammate within revive range of <paramref name="from"/>, or null.</summary>
         public static PlayerLife DownedNear(Vector3 from, PlayerLife exclude)
         {
             PlayerLife best = null;

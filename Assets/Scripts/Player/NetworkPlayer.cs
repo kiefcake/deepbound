@@ -10,68 +10,45 @@ using UnityEngine.Rendering;
 
 namespace Deepbound.Player
 {
-    /// <summary>
-    /// Decides, per peer, what a spawned player object is: the local player you control,
-    /// or someone else's avatar you only see. Also owns the player's visuals.
-    ///
-    /// <para>
-    /// Every peer builds the full model of every player's chosen class, and rebuilds it if
-    /// they switch class in the lobby. On the owner the model only casts shadows (you see
-    /// your shadow, not the inside of your own helmet) and a separate first-person view
-    /// model — sword and shield, or staff and casting hand — is attached to the camera.
-    /// </para>
-    ///
-    /// <para>
-    /// Movement is owner-authoritative: the client moves itself and the server accepts it.
-    /// That is the right call for co-op — it feels instant with no prediction code — and
-    /// everything that matters for fairness (damage, loot, potions) stays on the server.
-    /// </para>
-    /// </summary>
     public class NetworkPlayer : NetworkBehaviour
     {
         [SerializeField] private Camera playerCamera;
         [SerializeField] private AudioListener audioListener;
         [SerializeField] private FirstPersonMotor motor;
 
-        /// <summary>One colour per player slot, carried on tabard, plume and shield.</summary>
         public static readonly Color[] SlotColors =
         {
-            new Color(0.75f, 0.12f, 0.1f),  // crimson
-            new Color(0.12f, 0.3f, 0.8f),   // royal blue
-            new Color(0.15f, 0.55f, 0.2f),  // forest green
-            new Color(0.85f, 0.65f, 0.1f),  // gold
+            new Color(0.75f, 0.12f, 0.1f),
+            new Color(0.12f, 0.3f, 0.8f),
+            new Color(0.15f, 0.55f, 0.2f),
+            new Color(0.85f, 0.65f, 0.1f),
         };
 
-        /// <summary>Display names by slot, matching the slot colours.</summary>
         public static readonly string[] SlotNames = { "Crimson", "Azure", "Verdant", "Gilded" };
 
-        /// <summary>The player this machine controls, or null before spawning.</summary>
         public static NetworkPlayer Local { get; private set; }
 
         public HumanoidRig Rig { get; private set; }
 
-        /// <summary>The cloak dye this player wears (<see cref="Cosmetics.Dyes"/>); the owner sets it from its saved wardrobe.</summary>
         public readonly NetworkVariable<byte> CloakDye = new NetworkVariable<byte>(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
-        /// <summary>The owner's Steam name (2026-10-26; empty without Steam, which keeps the colour names).</summary>
+
         public readonly NetworkVariable<Unity.Collections.FixedString64Bytes> SteamName = new NetworkVariable<Unity.Collections.FixedString64Bytes>(default, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
 
-        /// <summary>The aura this player wears (<see cref="Cosmetics.Auras"/>): motes drifting up around them.</summary>
         public readonly NetworkVariable<byte> Aura = new NetworkVariable<byte>(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
-        /// <summary>Heraldry: the colour that replaces the party colour on your tabard, plume, sash... (cosmetic, owner-written).</summary>
+
         public readonly NetworkVariable<byte> Heraldry = new NetworkVariable<byte>(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
-        /// <summary>The pattern sewn on your cloak (<see cref="Cosmetics.Patterns"/>; cosmetic, owner-written).</summary>
+
         public readonly NetworkVariable<byte> Pattern = new NetworkVariable<byte>(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
-        /// <summary>Weapon glow (<see cref="Cosmetics.WeaponGlows"/>) and title (<see cref="Cosmetics.Titles"/>), owner-written.</summary>
+
         public readonly NetworkVariable<byte> WeaponGlowCos = new NetworkVariable<byte>(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
         public readonly NetworkVariable<byte> TitleCos = new NetworkVariable<byte>(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
-        /// <summary>The companion at your heel (<see cref="PetCompanion.Kind"/>), chosen at the tailor; 0 = none.</summary>
+
         public readonly NetworkVariable<byte> PetKind = new NetworkVariable<byte>(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
-        /// <summary>The Legacy boons this player owns (<see cref="Progression.Legacy"/>, bit per <see cref="Progression.Boon"/>), owner-written.</summary>
+
         public readonly NetworkVariable<ushort> LegacyBits = new NetworkVariable<ushort>(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
-        /// <summary>Owner: publish the boons this machine owns.</summary>
+
         public void RefreshLegacy() { if (IsOwner && IsSpawned) LegacyBits.Value = Legacy.Bits; }
-        /// <summary>"Crimson the Grim" (or just the name).</summary>
-        /// <summary>A Steam name cut to fit 64 UTF-8 bytes (and 24 characters, for nameplates).</summary>
+
         private static Unity.Collections.FixedString64Bytes SafeName(string n)
         {
             n = (n ?? "").Trim();
@@ -82,32 +59,25 @@ namespace Deepbound.Player
 
         public string NameWithTitle => Cosmetics.TitleOf(TitleCos.Value) is string t ? name + " " + t : name;
 
-        /// <summary>A swing trail's colour: the worn weapon glow, else the class's own.</summary>
         public Color TrailColor(Color own) => Cosmetics.WeaponGlowColor(WeaponGlowCos.Value) is Color g ? g * 1.15f : own;
 
-        /// <summary>The colour your body and hands are dressed in: your heraldry, else your party colour.</summary>
         public Color DressColor => Cosmetics.HeraldryColor(Heraldry.Value) ?? SlotColor;
         private float nextMote;
         public Color SlotColor => SlotColors[(int)(OwnerClientId % (ulong)SlotColors.Length)];
         public Camera Camera => playerCamera;
 
         public Vector3 AimOrigin => playerCamera.transform.position;
-        /// <summary>Where an ability leaves the hand, for effects: low in front of the view for the owner, at the body's hand for others.</summary>
+
         public Vector3 FxHand => IsOwner && playerCamera != null ? AimOrigin + AimForward * 1.1f - Vector3.up * 0.3f + playerCamera.transform.right * 0.2f : transform.position + Vector3.up * 1.35f + transform.forward * 0.45f;
-        /// <summary>Hand flares are drawn smaller in your own view (they sit a metre from the eye).</summary>
+
         public float FxHandScale => IsOwner ? 0.4f : 1f;
         public Vector3 AimForward => playerCamera.transform.forward;
         private bool selfShown;
         private HumanoidRig selfShownRig;
         private PlayerDebuffs debuffsRef;
-        /// <summary>Mead in this player (0-3).</summary>
+
         public int Drunk => (debuffsRef != null ? debuffsRef : (debuffsRef = GetComponent<PlayerDebuffs>())) is PlayerDebuffs d ? d.Drunk : 0;
 
-        /// <summary>
-        /// What the crosshair is on, up to <paramref name="range"/> m, looking past your own body (play-test 2026-11-01:
-        /// "E abilities are sometimes let off directly under you": aiming down, the ray clipped the top of your own
-        /// capsule and dropped the spell at your feet), the first-person hands and every trigger.
-        /// </summary>
         public bool AimRay(float range, out RaycastHit hit)
         {
             hit = default;
@@ -123,24 +93,20 @@ namespace Deepbound.Player
             return found;
         }
 
-        /// <summary>The floor under the crosshair (within <paramref name="range"/>; past it, under the end of the reach).</summary>
         public bool TryAimFloor(float range, out Vector3 spot)
         {
             spot = default;
             var dir = AimForward;
             var point = AimRay(range, out var hit) ? hit.point : AimOrigin + dir * range;
-            // Drop to the floor beneath wherever the crosshair landed (a wall, an enemy, the ceiling). Start a little back
-            // toward you and no higher than the hit (2026-11-20, the user: meteors "can land in the air"): from half a metre
-            // above a ceiling hit the drop found the ceiling's top and the strike landed up there.
+
             var from = point - dir * 0.35f + Vector3.up * 0.05f;
             foreach (var h in Physics.RaycastAll(from, Vector3.down, 40f, ~(1 << ViewModelLayerIndex), QueryTriggerInteraction.Ignore))
             {
-                // The floor itself: not the top of whoever stands there, nor the slope of a wall or a beam's edge.
                 if (h.collider.transform.IsChildOf(transform) || h.collider.GetComponentInParent<Health>() != null || h.normal.y < 0.6f) continue;
                 if (spot == default || h.point.y > spot.y) spot = h.point;
             }
             if (spot == default) return false;
-            // Never more than a storey above you (a ledge you cannot see the top of is not where it lands).
+
             if (spot.y > transform.position.y + 5f) return false;
             return true;
         }
@@ -164,7 +130,6 @@ namespace Deepbound.Player
             kits = GetComponents<IClassKit>();
         }
 
-        /// <summary>The kit for the player's current class.</summary>
         public IClassKit ActiveKit
         {
             get
@@ -179,7 +144,7 @@ namespace Deepbound.Player
             int slot = (int)(OwnerClientId % (ulong)SlotNames.Length);
             name = SlotNames[slot] + (OwnerClientId >= (ulong)SlotNames.Length ? " " + (OwnerClientId / (ulong)SlotNames.Length + 1) : "");
             if (SteamName.Value.Length > 0) name = SteamName.Value.ToString();
-            // A friend arriving or dropping used to pass unannounced. Those already here when you joined are not news.
+
             if (IsOwner) localSpawnedAt = Time.time;
             else if (Local != null && Time.time - localSpawnedAt > 3f) UI.GameHud.Feed("A friend joined the party.", new Color(0.7f, 0.9f, 0.7f));
             SteamName.OnValueChanged += (_, now) => { if (now.Length > 0) name = now.ToString(); };
@@ -240,7 +205,6 @@ namespace Deepbound.Player
             }
         }
 
-        /// <summary>(Re)builds the body and, on the owner, the view model for the current class.</summary>
         private void BuildVisuals()
         {
             if (Rig != null) Destroy(Rig.gameObject);
@@ -301,15 +265,9 @@ namespace Deepbound.Player
             ViewModelLayer(viewModel.Root);
         }
 
-        /// <summary>The layer only the view-model camera draws (so walls and bodies never cut into your hands).</summary>
         public const int ViewModelLayerIndex = 8;
         private Camera viewModelCamera;
 
-        /// <summary>
-        /// Owner: put the hands on their own layer, drawn by an overlay camera after the world with a
-        /// cleared depth buffer. Swings, casts and draws then stay whole even pressed into a wall or an
-        /// enemy, and a fixed field of view keeps them framed whatever FOV the player picks.
-        /// </summary>
         private void ViewModelLayer(Transform root)
         {
             if (root == null || playerCamera == null) return;
@@ -332,11 +290,8 @@ namespace Deepbound.Player
             if (!baseData.cameraStack.Contains(viewModelCamera)) baseData.cameraStack.Add(viewModelCamera);
         }
 
-        /// <summary>Shots only: draw your own body (for a camera standing outside it).</summary>
         public static bool DebugShowSelf;
 
-
-        /// <summary>A class's third-person body, in a cloak dye (also used by the tailor's mannequin).</summary>
         public static HumanoidRig BuildBody(ClassId cls, Transform root, Color slot, int dye, int pattern = 0)
         {
             var d = Cosmetics.Get(dye);
@@ -361,13 +316,8 @@ namespace Deepbound.Player
             }
         }
 
-        /// <summary>
-        /// The tempered weapon shows it: a light on the main hand that brightens with each
-        /// anvil level and takes the colour of the first socketed rune (ember-orange without).
-        /// </summary>
         private void RefreshWeaponGlow()
         {
-            // The owner sees it on the view model; everyone else on the body's weapon hand.
             var hand = viewModel != null && viewModel.SwordPivot != null ? viewModel.SwordPivot : Rig != null ? Rig.ArmR : null;
             if (hand == null) return;
             var old = hand.Find("WeaponGlow");
@@ -392,10 +342,6 @@ namespace Deepbound.Player
             glow.shadows = LightShadows.None;
         }
 
-        /// <summary>
-        /// The worn weapon glow: a burning line along the blade (from the view model's edge mark to its tip when it has
-        /// them), or a glowing core in the weapon hand.
-        /// </summary>
         private void BuildCosmeticEdge(Transform hand, Color c, bool firstPerson)
         {
             var root = MeshKit.Pivot(hand, "CosmeticEdge", Vector3.zero);
@@ -412,9 +358,6 @@ namespace Deepbound.Player
             }
             else if (!firstPerson)
             {
-                // 2026-11-22 (the user: "fix the weapon glow ball being visible"): weapons with no blade edge (staves,
-                // flails, flasks, bows) used to get a solid glowing ball in the hand. Now: faint sparks rising off the
-                // weapon hand for everyone else to see; in your own view only the coloured light.
                 root.gameObject.AddComponent<WeaponMotes>().Color = c;
             }
             foreach (var r in root.GetComponentsInChildren<Renderer>()) r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
@@ -432,16 +375,13 @@ namespace Deepbound.Player
 
         private void HandleArenaBuilt(int arenaId)
         {
-            // Every new arena — a floor, or the lobby — moves everyone to its spawn. The
-            // owner places itself; NetworkTransform carries that to everyone else.
             if (teleportedForArena == arenaId) return;
             teleportedForArena = arenaId;
 
             var spawn = DungeonDirector.SpawnFor(OwnerClientId);
             var away = spawn - DungeonDirector.SpawnLookTarget;
             away.y = 0f;
-            // Face outward from the start room's centre (toward the doors), but toward the
-            // fire in the lobby.
+
             var facing = DungeonDirector.InLobby ? -away : away;
             motor.Teleport(spawn, facing.sqrMagnitude > 0.01f ? Quaternion.LookRotation(facing) : Quaternion.identity);
         }
@@ -449,30 +389,25 @@ namespace Deepbound.Player
         private Vector3 lastStepPos;
         private float stepDistance;
 
-        /// <summary>Your own footsteps: a step every ~1.6m walking, splashing on flooded floors.</summary>
         private void Footsteps()
         {
             var p = transform.position;
             var d = p - lastStepPos;
             lastStepPos = p;
             d.y = 0f;
-            if (d.magnitude > 2f || life.Downed.Value) return; // teleport
+            if (d.magnitude > 2f || life.Downed.Value) return;
             stepDistance += d.magnitude;
             float stride = motor.IsSprinting ? 2.1f : 1.6f;
             if (stepDistance < stride) return;
             stepDistance = 0f;
             bool wet = DungeonDirector.Layout != null && !DungeonDirector.InLobby && (DungeonTheme.ForDepth(DungeonDirector.Layout.Depth).WaterDepth > 0f || DungeonDirector.InWater(p));
-            // Camp is earth and grass underfoot (the castle cat's road, the forest track); below it is stone.
+
             Sfx.Play(wet ? Sound.Splash : DungeonDirector.InLobby ? Sound.StepSoft : Sound.Step, p, wet ? 0.35f : 0.25f);
         }
 
-        /// <summary>Server → everyone: this player's pet did its trick (PetPerks).</summary>
         [Rpc(SendTo.ClientsAndHost)]
         public void PetCueRpc(byte cue, Vector3 at) { if (TryGetComponent<PetPerks>(out var pp)) pp.Show((PetPerks.Cue)cue, at); }
 
-        /// <summary>UNSTUCK (2026-11-22, the user: "add a destuck button in menu"): pause menu → server picks the nearest
-        /// walkable floor in your room (out of the props, off the walls), else the nearest navmesh, else the start; in camp,
-        /// your spawn spot. Not while downed; once per <see cref="UnstuckCooldown"/> s.</summary>
         public const float UnstuckCooldown = 8f;
         private float unstuckAt = -99f;
 
@@ -497,11 +432,9 @@ namespace Deepbound.Player
             return true;
         }
 
-        /// <summary>Server → owner: a gate fell on you; you are through it, here (no words: the gate says it).</summary>
         [Rpc(SendTo.Owner)]
         public void ShoveRpc(Vector3 at) => motor.Teleport(at, transform.rotation);
 
-        /// <summary>Server → owner: you fell; climb out here.</summary>
         [Rpc(SendTo.Owner)]
         public void RescueRpc(Vector3 at)
         {
@@ -517,17 +450,9 @@ namespace Deepbound.Player
 
         private void Update()
         {
-            // Draw no further than the fog lets anyone see: beyond ~2.6/density (exp-squared fog) it is solid,
-            // and with no occlusion culling everything past the walls would otherwise still be drawn.
-            // The hands are put away for the carriage ride.
-            // Hidden in cutscenes, and while watching an ally from down on the floor (Teamwork spectating).
-            bool hideHands = GameHud.Cinematic || GameHud.PhotoMode || Teamwork.Watching != null || Emotes.LocalShowing || World.BlackjackTable.LocalOpen || World.PokerDiceTable.LocalSeated || CampSeat.SeatedLocal; // seated at the cards or by the fire: hands away
+            bool hideHands = GameHud.Cinematic || GameHud.PhotoMode || Teamwork.Watching != null || Emotes.LocalShowing || World.BlackjackTable.LocalOpen || World.PokerDiceTable.LocalSeated || CampSeat.SeatedLocal;
             if (IsOwner && viewModel != null && viewModel.Root.gameObject.activeSelf == hideHands) viewModel.Root.gameObject.SetActive(!hideHands);
-            // Watching an ally from the floor, your own body is in the shot (play-test 2026-11-01: dragged while
-            // spectating, you could not see yourself being dragged). Otherwise it only casts a shadow.
-            // Emoting, the camera swings out to show you (Emotes). In first person your LEGS are drawn (2026-11-20, the user:
-            // "players see their model when they look down"); the rest of you only casts a shadow, so the head and arms
-            // never fill the view.
+
             bool showSelf = Teamwork.Watching != null || DebugShowSelf || Emotes.LocalShowing;
             if (IsOwner && Rig != null && (showSelf != selfShown || Rig != selfShownRig))
             {
@@ -545,7 +470,6 @@ namespace Deepbound.Player
                 Rig.Downed = life != null && life.Downed.Value;
             }
 
-            // A cosmetic aura; not while hidden in smoke, and sparser on your own screen.
             var aura = Cosmetics.AuraColor(Aura.Value);
             if (aura.HasValue && Time.time >= nextMote && life != null && !life.Hidden.Value && !life.Downed.Value)
             {
@@ -562,26 +486,21 @@ namespace Deepbound.Player
             viewAnim?.SetCharge(ActiveKit.Charge);
             viewAnim?.Update(knight.Blocking.Value, life.Downed.Value, motor.IsSprinting);
 
-            // Damage shake: a brief, decaying jitter on the camera — felt more than seen.
             shake = Mathf.MoveTowards(shake, 0f, Time.deltaTime * 2.5f);
             var cam = playerCamera.transform;
             var shakeOffset = shake > 0f ? Random.insideUnitSphere * shake * 0.06f * Settings.ShakeScale : Vector3.zero;
             cam.localPosition = shakeOffset + FirstPersonFeel(cam);
         }
 
-        // ---- First-person feel: walk bob, weapon lag on turns, landing dip, slide lean. ----
         private Vector3 vmRestPos;
         private Quaternion vmRestRot = Quaternion.identity;
         private bool vmRestKnown, wasGrounded = true;
         private float walkPhase, landDip, lastVy, lastYaw, lastPitch, slideLean, downRoll, downTilt, drunkSway;
         private Vector2 sway, swayVel;
-        // 2026-10-28 (the user: "better POV hand and weapon animation"): the view model's weight. A spring on the turn
-        // lag (it overshoots and settles), a roll into strafes, a lift in the air, a carry pose at a sprint, the
-        // weapon raised into view after every rebuild, and a punch back on a connecting hit.
+
         private float strafeRoll, airLift, sprintPose, vmRaisedAt = -10f, punch;
         private const float RaiseSeconds = 0.5f;
 
-        /// <summary>Owner: animate the view model and return the camera's bob offset.</summary>
         private Vector3 FirstPersonFeel(Transform cam)
         {
             float dt = Time.deltaTime;
@@ -597,14 +516,12 @@ namespace Deepbound.Player
             if (grounded && !sliding) walkPhase += dt * speed * 1.7f;
             float amp = Mathf.Clamp01(speed / 5f) * (grounded && !sliding ? 1f : 0f);
 
-            // The weapon trails a fast turn and settles back.
             float yaw = transform.eulerAngles.y, pitch = cam.parent != null ? cam.parent.localEulerAngles.x : 0f;
             float dYaw = Mathf.DeltaAngle(lastYaw, yaw), dPitch = Mathf.DeltaAngle(lastPitch, pitch);
             lastYaw = yaw;
             lastPitch = pitch;
             var want = new Vector2(Mathf.Clamp(dPitch * 0.5f, -5f, 5f), Mathf.Clamp(-dYaw * 0.5f, -6f, 6f));
-            // A spring, not a lerp: a hard turn swings the weapon past and lets it settle back.
-            // Stepped in small fixed slices (a long frame - a hitch, a screenshot - must not fling it).
+
             for (float left = Mathf.Min(dt, 0.1f); left > 0f; left -= 1f / 120f)
             {
                 float h = Mathf.Min(left, 1f / 120f);
@@ -612,7 +529,7 @@ namespace Deepbound.Player
                 sway += swayVel * h;
             }
             sway = Vector2.ClampMagnitude(sway, 9f);
-            // Strafing rolls it into the step; in the air it lags up on the way up and down on the way down.
+
             var localVel = transform.InverseTransformDirection(vel);
             strafeRoll = Mathf.Lerp(strafeRoll, Mathf.Clamp(-localVel.x * 1.1f, -5f, 5f), dt * 8f);
             airLift = Mathf.Lerp(airLift, grounded ? 0f : Mathf.Clamp(-vel.y * 0.006f, -0.05f, 0.05f), dt * 10f);
@@ -623,10 +540,10 @@ namespace Deepbound.Player
             {
                 if (!vmRestKnown) { vmRestPos = viewModel.Root.localPosition; vmRestRot = viewModel.Root.localRotation; vmRestKnown = true; }
                 var bob = new Vector3(Mathf.Sin(walkPhase) * 0.011f, -Mathf.Abs(Mathf.Cos(walkPhase)) * 0.013f, 0f) * amp;
-                // Standing still the hands breathe: a slow rise and a faint drift.
+
                 float still = 1f - amp, tb = Time.time;
                 bob += new Vector3(Mathf.Sin(tb * 0.7f) * 0.003f, Mathf.Sin(tb * 1.5f) * 0.004f, Mathf.Sin(tb * 1.5f + 0.6f) * 0.002f) * still;
-                // Raised into view after a rebuild (a spawn, a class change), like drawing a weapon.
+
                 float raise = Mathf.Clamp01((Time.time - vmRaisedAt) / RaiseSeconds);
                 raise = 1f - (1f - raise) * (1f - raise) * (1f - raise);
                 var lag = new Vector3(-sway.y * 0.0022f, sway.x * 0.0018f, 0f);
@@ -636,13 +553,12 @@ namespace Deepbound.Player
                 viewModel.Root.localRotation = vmRestRot * Quaternion.Euler(sway.x + 10f * sprintPose + 30f * (1f - raise) - 3f * punch, sway.y - 12f * sprintPose, sway.y * 0.6f + strafeRoll + 8f * sprintPose);
             }
 
-            // A slide leans the view; walking nods it a little (scaled with the shake option).
             slideLean = Mathf.MoveTowards(slideLean, sliding ? 7f : 0f, dt * 40f);
-            // Downed: you crumple — the view rolls onto its side and tips up at whatever stands over you.
+
             bool down = life != null && life.Downed.Value;
             downRoll = Mathf.MoveTowards(downRoll, down ? 24f : 0f, dt * (down ? 60f : 90f));
             downTilt = Mathf.MoveTowards(downTilt, down ? 18f : 0f, dt * (down ? 40f : 80f));
-            // Mead: the room tilts and swims, more with every cup (scaled by the shake option, never below a third).
+
             float drunk = Mathf.MoveTowards(drunkSway, Drunk, dt * 0.5f);
             drunkSway = drunk;
             float dk = drunk * Mathf.Max(0.35f, Settings.ShakeScale), tt = Time.time;
@@ -653,16 +569,10 @@ namespace Deepbound.Player
             return (Vector3.up * Mathf.Sin(walkPhase * 2f) * 0.022f * amp + Vector3.down * 0.12f * landDip) * Settings.ShakeScale;
         }
 
-        // ------------------------------------------------------------------
-        // View model hooks, called by the kit on the owner
-        // ------------------------------------------------------------------
-
         public void ViewModelSwing(float windup, float rest, float side) => viewAnim?.Swing(windup, rest, side);
 
-        // ---- Text chat (UI/ChatBox) ----
         private float nextChatAt;
 
-        /// <summary>Owner → server: say something to the party.</summary>
         [Rpc(SendTo.Server)]
         public void ChatRpc(string text)
         {
@@ -677,24 +587,18 @@ namespace Deepbound.Player
         private void ChatShowRpc(string who, string text) => ChatBox.Add(who, SlotColor, text);
         public void ViewModelBash() => viewAnim?.Bash();
 
-        /// <summary>Owner: shake the camera (explosions, breaking walls, meteor strikes).</summary>
         public void AddShake(float amount) => shake = Mathf.Min(1f, shake + amount);
         public void ViewModelBlockImpact() { viewAnim?.BlockImpact(); shake = Mathf.Min(1f, shake + 0.3f); }
         public void ViewModelCast(bool frost) => viewAnim?.Cast(frost);
 
-        /// <summary>
-        /// Owner: your hit connected. A tiny camera kick sells the impact without
-        /// touching time scale (which, on a host, would slow the whole server).
-        /// </summary>
         public void ConfirmHit(float strength)
         {
             shake = Mathf.Min(1f, shake + 0.12f * strength);
-            // The hands feel it: a hitch in the swing (the view model only, never time) and a punch back.
+
             viewAnim?.HitPause(0.045f + 0.035f * Mathf.Clamp01(strength));
             punch = Mathf.Min(1f, punch + 0.6f * Mathf.Clamp01(strength + 0.3f));
         }
 
-        /// <summary>One first-person animator per class; the kit calls whichever hooks apply.</summary>
         private interface IViewAnim
         {
             void Update(bool blocking, bool downed, bool sprinting);
@@ -703,14 +607,10 @@ namespace Deepbound.Player
             void BlockImpact();
             void Cast(bool frost);
             void SetCharge(float charge);
-            /// <summary>A connecting hit: hold the swing a few hundredths of a second (local, cosmetic).</summary>
+
             void HitPause(float seconds) { }
         }
 
-        /// <summary>
-        /// The Ranger's hands: the draw hand pulls back to the cheek as the bow charges,
-        /// snapping forward on release; a full draw makes the bow tremble.
-        /// </summary>
         private class BowViewAnimator : IViewAnim
         {
             private readonly CharacterArt.ViewModel vm;
@@ -740,7 +640,6 @@ namespace Deepbound.Player
                 float snap = Time.time - release < 0.15f ? 1f - (Time.time - release) / 0.15f : 0f;
                 float tremble = charge >= 1f ? Mathf.Sin(Time.time * 60f) * 0.003f : 0f;
 
-                // Raised to aim while drawing, lowered at rest.
                 var aimLift = new Vector3(0.12f, 0.1f, 0f) * Mathf.Clamp01(charge * 3f);
                 vm.ShieldPivot.localPosition = bowRest + run + down + aimLift + new Vector3(tremble, tremble, -0.03f * snap);
                 vm.ShieldPivot.localRotation = bowRot;
@@ -748,9 +647,6 @@ namespace Deepbound.Player
             }
         }
 
-        /// <summary>
-        /// The Rogue's hands: alternate quick forward stabs, a flick for thrown knives.
-        /// </summary>
         private class DaggerViewAnimator : IViewAnim
         {
             private readonly CharacterArt.ViewModel vm;
@@ -786,7 +682,7 @@ namespace Deepbound.Player
             {
                 clock += clock < pauseUntil ? Time.deltaTime * 0.08f : Time.deltaTime;
                 if (sprinting || downed || clock - rStab < 0.6f || clock - lStab < 0.6f || clock - throwAt < 0.6f) idleSince = clock;
-                // Idle a while: flip the right dagger end over end and catch it.
+
                 float flipT = clock - idleSince - 6f;
                 float flip = 0f, toss = 0f;
                 if (flipT > 0f && flipT < 0.7f) { float k = flipT / 0.7f; flip = k * k * (3f - 2f * k) * 360f; toss = Mathf.Sin(k * Mathf.PI) * 0.09f; }
@@ -798,8 +694,6 @@ namespace Deepbound.Player
                 float t = clock - throwAt;
                 float flick = t < 0.25f ? Mathf.Sin(t / 0.25f * Mathf.PI) : 0f;
 
-                // Each hand: a short cock back and twist, then a fast slashing thrust across and in,
-                // a hair of follow-through, and a quick recovery.
                 var (rp, re) = Cut(clock - rStab, 1f);
                 var (lp, le) = Cut(clock - lStab, -1f);
                 vm.SwordPivot.localPosition = rRest + run + down + rp + new Vector3(0f, 0.12f, 0.1f) * flick;
@@ -832,10 +726,6 @@ namespace Deepbound.Player
             private static float Ease(float t) { t = Mathf.Clamp01(t); return t * t * (3f - 2f * t); }
         }
 
-        /// <summary>
-        /// The Mage's hands: the staff sways and dips; the casting hand thrusts forward on
-        /// each spell, its palm flaring orange for fire or blue for frost.
-        /// </summary>
         private class MageViewAnimator : IViewAnim
         {
             private readonly CharacterArt.ViewModel vm;
@@ -844,7 +734,6 @@ namespace Deepbound.Player
             private float castStart = -10f, impactStart = -10f, bob, idle;
             private bool lastFrost;
 
-            // Primary and secondary spell colours: fire and frost for the Mage, gold and white for the Cleric.
             private readonly Color Fire, Frost;
 
             public MageViewAnimator(CharacterArt.ViewModel vm, Color primary, Color secondary)
@@ -886,7 +775,7 @@ namespace Deepbound.Player
                 vm.SwordPivot.localRotation = staffRot * Quaternion.Euler(-10f * thrust, 0f, 0f);
 
                 vm.ShieldPivot.localPosition = handRest + run + down + new Vector3(0.12f, 0.06f, 0.22f) * thrust - sway;
-                // Every so often the casting hand turns its palm up and the flame swells, then settles.
+
                 float flexT = Mathf.Repeat(idle, 9f) - 7.5f;
                 float flex = flexT > 0f ? Mathf.Sin(flexT / 1.5f * Mathf.PI) : 0f;
                 vm.ShieldPivot.localRotation = handRot * Quaternion.Euler(-35f * thrust, 0f, 40f * flex);
@@ -896,7 +785,7 @@ namespace Deepbound.Player
                 if (vm.SpellGlow != null)
                 {
                     var color = lastFrost ? Frost : Fire;
-                    // Kept under ~2x HDR so bloom tints it instead of whiting it out.
+
                     float flick = Mathf.PerlinNoise(idle * 5f, 0.3f) * 0.3f;
                     ArtLibrary.SetGlow(vm.SpellGlow, color * (0.8f + 0.9f * thrust + flick));
                     vm.SpellGlow.transform.localScale = Vector3.one * (0.9f + flick * 0.5f + thrust * 0.5f);
@@ -910,10 +799,6 @@ namespace Deepbound.Player
             }
         }
 
-        /// <summary>
-        /// Procedural animation for the first-person sword and shield. Plain class driven
-        /// from <see cref="Update"/>; it only exists on the owner.
-        /// </summary>
         private class ViewModelAnimator : IViewAnim
         {
             private readonly CharacterArt.ViewModel vm;
@@ -925,7 +810,7 @@ namespace Deepbound.Player
             private float block, bob;
             private readonly BladeTrail trail;
             private float armedFor = -1f;
-            // Its own clock, so a connecting hit can hold the swing for an instant without touching time.
+
             private float clock, pauseUntil = -1f, idleSince;
             public void HitPause(float seconds) => pauseUntil = Mathf.Max(pauseUntil, clock + seconds);
 
@@ -941,34 +826,28 @@ namespace Deepbound.Player
 
             public void Swing(float windup, float rest, float side)
             {
-                // A chain of quick swings: forehand, backhand, then an overhead chop (the look only; the hit is the same).
                 chain = clock - swingStart < swingWindup + swingRest + 0.5f ? chain + 1 : 0;
                 overhead = chain % 3 == 2;
                 swingStart = clock; swingWindup = windup; swingRest = rest; swingSide = side;
             }
             private int chain;
             private bool overhead;
-            // The overhead chop: raised high with the tip back over the head, brought straight down the middle.
+
             private static readonly Vector3 CoilOP = new Vector3(-0.08f, 0.32f, -0.12f), CoilOE = new Vector3(-70f, 0f, 20f);
             private static readonly Vector3 MidOP = new Vector3(-0.12f, 0.08f, 0.3f), MidOE = new Vector3(20f, 0f, 25f);
             private static readonly Vector3 EndOP = new Vector3(-0.14f, -0.34f, 0.3f), EndOE = new Vector3(88f, 0f, 22f);
 
-            // The cut, as keys (offsets from the rest pose): coiled high over the shoulder, a fast
-            // diagonal stroke down and across the middle of the view, an overshoot, then home.
-            // (A blade runs along local +Y: +X pitch tips it forward, -Z roll tips it right, +Z roll left.)
             private static readonly Vector3 CoilP = new Vector3(0.12f, 0.2f, -0.08f), CoilE = new Vector3(-35f, 10f, -30f);
             private static readonly Vector3 MidP = new Vector3(-0.05f, 0.0f, 0.26f), MidE = new Vector3(35f, -20f, 30f);
             private static readonly Vector3 EndP = new Vector3(-0.34f, -0.3f, 0.26f), EndE = new Vector3(70f, -40f, 75f);
-            // The backhand rises the other way: drawn low across to the left, cut up and out to the right.
+
             private static readonly Vector3 CoilBP = new Vector3(-0.22f, -0.12f, 0f), CoilBE = new Vector3(30f, 25f, 70f);
             private static readonly Vector3 MidBP = new Vector3(-0.02f, 0.06f, 0.26f), MidBE = new Vector3(-10f, 20f, 10f);
             private static readonly Vector3 EndBP = new Vector3(0.22f, 0.22f, 0.2f), EndBE = new Vector3(-45f, 30f, -55f);
             private const float CutTime = 0.13f, FollowTime = 0.07f;
 
             private static Vector3 Mirror(Vector3 v, float side) => new Vector3(v.x * side, v.y, v.z * (side > 0f ? 1f : 0.9f));
-            private static Vector3 MirrorE(Vector3 e, float side) => new Vector3(e.x, e.y * side, e.z * side);
 
-            /// <summary>Quadratic Bezier through the mid key: the stroke curves, it does not go in a straight line.</summary>
             private static Vector3 Bez(Vector3 a, Vector3 m, Vector3 b, float t)
             {
                 var c = 2f * m - 0.5f * (a + b);
@@ -988,7 +867,6 @@ namespace Deepbound.Player
                 block = Mathf.MoveTowards(block, blocking ? 1f : 0f, dt * 8f);
                 bob += dt * (sprinting ? 11f : 0f);
 
-                // --- Sword ---
                 Vector3 pos = swordRestPos;
                 Quaternion rot = swordRestRot;
                 float t = clock - swingStart;
@@ -1001,7 +879,6 @@ namespace Deepbound.Player
                 Vector3 off = Vector3.zero, eul = Vector3.zero;
                 if (t >= 0f && t < swingWindup)
                 {
-                    // Coil: up and back over the shoulder, settling with a little tremble of held weight.
                     float k = Smooth(t / swingWindup);
                     float k2 = 1f - (1f - k) * (1f - k);
                     off = coilP * k2;
@@ -1013,7 +890,6 @@ namespace Deepbound.Player
                     if (armedFor != swingStart) { armedFor = swingStart; trail?.Arm(CutTime + 0.01f); }
                     if (s < CutTime)
                     {
-                        // The stroke: fast out of the coil, through the middle of the view, down and across.
                         float k = s / CutTime;
                         k = 1f - (1f - k) * (1f - k) * (1f - k);
                         off = Bez(coilP, midP, endP, k);
@@ -1021,27 +897,25 @@ namespace Deepbound.Player
                     }
                     else if (s < CutTime + FollowTime)
                     {
-                        // Follow-through: carried a little past by its own weight.
                         float k = Mathf.Sin((s - CutTime) / FollowTime * Mathf.PI * 0.5f);
                         off = Vector3.Lerp(endP, endP * 1.12f, k);
                         eul = Vector3.Lerp(endE, endE * 1.1f, k);
                     }
                     else
                     {
-                        // Recover to guard, with a soft settle.
                         float k = Smooth((s - CutTime - FollowTime) / Mathf.Max(0.05f, swingRest - CutTime - FollowTime));
                         float settle = Mathf.Sin(k * Mathf.PI) * 0.12f;
                         off = Vector3.Lerp(endP * 1.12f, Vector3.zero, k) + new Vector3(0f, settle * 0.1f, 0f);
                         eul = Vector3.Lerp(endE * 1.1f, Vector3.zero, k);
                     }
                 }
-                // Idle a while: turn the blade up to look along it, then back to guard.
+
                 float idleT = clock - idleSince - 7f;
                 if (idleT > 0f && idleT < 2.4f)
                 {
                     float k = Mathf.Sin(Mathf.Clamp01(idleT / 2.4f) * Mathf.PI);
                     k = k * k * (3f - 2f * k);
-                    // A turn of the wrist about the blade's own axis (local +Y) shows its flat; a small lift brings it up to the eye.
+
                     off += new Vector3(-0.05f, 0.07f, 0.01f) * k;
                     eul += new Vector3(-8f, 80f, 6f) * k + new Vector3(0f, Mathf.Sin(idleT * 3f) * 5f * k, 0f);
                 }
@@ -1054,7 +928,6 @@ namespace Deepbound.Player
                 vm.SwordPivot.localRotation = rot;
                 trail?.Update();
 
-                // --- Shield ---
                 Vector3 spos = shieldRestPos + new Vector3(0.3f, 0.14f, -0.05f) * block;
                 Quaternion srot = shieldRestRot * Quaternion.Euler(0f, -18f * block, 0f);
 

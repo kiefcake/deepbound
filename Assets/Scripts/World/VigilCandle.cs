@@ -8,20 +8,12 @@ using UnityEngine;
 
 namespace Deepbound.World
 {
-    /// <summary>
-    /// VIGIL CANDLES (2026-11-08, dungeon interactables: "light all the candles in a room for a short blessing; enemies
-    /// try to snuff them"). Four tall candles stand on iron prickets round a combat room, cold. F lights one. Light all four
-    /// of a vigil and it is KEPT: every player in the room is mended a quarter, and each one without a shrine blessing
-    /// gets one for this floor (else embers). The dead hate the light: any of them within <see cref="SnuffRange"/> of a
-    /// lit candle of an unkept vigil puts it out. A ring under each lit candle shows which are burning.
-    /// </summary>
     public class VigilCandle : Interactable
     {
-        public static readonly List<VigilCandle> All = new List<VigilCandle>();
+        public static new readonly List<VigilCandle> All = new List<VigilCandle>();
         public const float SnuffRange = 1.6f, KeptRadius = 22f;
         public const int PerVigil = 4;
 
-        /// <summary>Which vigil this belongs to (the floor's candles are grouped four at a time).</summary>
         public readonly NetworkVariable<byte> Vigil = new NetworkVariable<byte>();
         public readonly NetworkVariable<bool> Lit = new NetworkVariable<bool>();
         public readonly NetworkVariable<bool> Kept = new NetworkVariable<bool>();
@@ -50,7 +42,7 @@ namespace Deepbound.World
             var vigil = new List<VigilCandle>();
             foreach (var c in All) if (c != null && c.Vigil.Value == Vigil.Value) { vigil.Add(c); if (c.Lit.Value) lit++; }
             if (lit < PerVigil || vigil.Count < PerVigil) return;
-            // Kept: the party in the room is mended and blessed.
+
             foreach (var c in vigil) c.Kept.Value = true;
             var centre = Vector3.zero;
             foreach (var c in vigil) centre += c.transform.position;
@@ -119,7 +111,7 @@ namespace Deepbound.World
         {
             base.OnNetworkSpawn();
             All.Add(this);
-            // A tall iron pricket with a fat church candle; a ring of wax drips at its foot.
+
             MeshKit.Part(transform, "Foot", MeshKit.Cylinder(0.22f, 0.26f, 0.06f, 8), Mat.Steel, Vector3.zero);
             MeshKit.Part(transform, "Stem", MeshKit.Cylinder(0.03f, 0.03f, 1.05f, 6), Mat.Steel, Vector3.up * 0.05f);
             MeshKit.Part(transform, "Pan", MeshKit.Cylinder(0.14f, 0.1f, 0.05f, 8), Mat.Steel, Vector3.up * 1.08f);

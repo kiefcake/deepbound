@@ -3,13 +3,6 @@ using UnityEngine;
 
 namespace Deepbound.Art
 {
-    /// <summary>
-    /// Where a boss's bullet pattern is coming from (2026-10-21, the user: "be more discernable where
-    /// they are shooting from"): a burning core with a spoke for every arm, turned to the arms' current
-    /// angle so you can read the spin, a pale line down to a mark on the floor so you can find it from
-    /// anywhere in the arena, and a swell of the core on every volley. Local to each peer, driven by the volley RPCs
-    /// (which carry the emitter's position): it glides between volleys and fades when they stop.
-    /// </summary>
     public class PatternEmitter : MonoBehaviour
     {
         private static readonly Dictionary<(Object, byte), PatternEmitter> live = new Dictionary<(Object, byte), PatternEmitter>();
@@ -41,7 +34,6 @@ namespace Deepbound.Art
             e.angle = angle;
             if (e.arms != arms) e.BuildSpokes(Mathf.Clamp(arms, 1, 16));
             e.floorY = Vfx.Floor(at).y;
-            // No light per volley (patterns fire many a second): the core swells instead (Update).
         }
 
         private void Build(Color c)
@@ -53,7 +45,7 @@ namespace Deepbound.Art
             var halo = MeshKit.Part(transform, "Halo", MeshKit.Ball(0.55f, 12, 8), Mat.Smoke, Vector3.zero);
             ArtLibrary.Tint(halo.GetComponent<Renderer>(), new Color(c.r, c.g, c.b, 0.16f));
             spokes = MeshKit.Pivot(transform, "Spokes", Vector3.zero);
-            // A thin column of light down to the floor, and a ring there.
+
             line = MeshKit.Part(transform, "Line", MeshKit.Cylinder(0.025f, 0.025f, 1f, 6), Mat.Glow, Vector3.zero).transform;
             lineR = line.GetComponent<Renderer>();
             ArtLibrary.SetGlow(lineR, c * 0.7f);
@@ -86,7 +78,7 @@ namespace Deepbound.Art
         private void Update()
         {
             float since = Time.time - lastVolley;
-            // Glide on toward where the next volley will likely be (emitters orbit and walk).
+
             var want = target + velocity * Mathf.Min(since, 1f);
             transform.position = Vector3.Lerp(transform.position, want, 1f - Mathf.Exp(-Time.deltaTime * 14f));
             shownAngle = Mathf.LerpAngle(shownAngle, angle, 1f - Mathf.Exp(-Time.deltaTime * 20f));

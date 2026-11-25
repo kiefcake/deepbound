@@ -6,14 +6,6 @@ using UnityEngine;
 
 namespace Deepbound.World
 {
-    /// <summary>
-    /// THE LOCKSMITH'S COFFER, in the gambling tent (reworked 2026-11-08, the user: "work on every casino game except
-    /// blackjack"). Pay the price and the coffer is yours to crack: three padlocks hang on it. F picks the next lock -
-    /// each one opened makes the prize better, each pick is riskier (85% / 70% / 55%), and a snapped pick jams the coffer
-    /// and you get NOTHING. Step back from it (or wait) and you take what the locks you opened are worth:
-    /// none = a handful of embers, one = a rune or gear, two = a Sigil or FINE gear, all three = a RELIC.
-    /// One player at a time; everyone sees the locks fall.
-    /// </summary>
     public class MysteryCoffer : Interactable
     {
         public const ulong NoOne = ulong.MaxValue;
@@ -69,7 +61,6 @@ namespace Deepbound.World
             else ServerPicked(who, false);
         }
 
-        /// <summary>Server: a pick lands (or snaps). Public for tests (forced outcome).</summary>
         public void ServerPicked(PlayerProgress who, bool opened)
         {
             if (opened)
@@ -87,7 +78,6 @@ namespace Deepbound.World
             }
         }
 
-        /// <summary>Server: the opener takes what the opened locks are worth; the coffer is free again.</summary>
         public void ServerTake(PlayerProgress who)
         {
             int locks = Locks.Value;
@@ -140,7 +130,7 @@ namespace Deepbound.World
             {
                 if (padlocks[i] == null) continue;
                 bool open = Opener.Value != NoOne && i < Locks.Value;
-                // An opened lock hangs from its hasp, swung down; a closed one sits straight.
+
                 padlocks[i].localRotation = Quaternion.Slerp(padlocks[i].localRotation, Quaternion.Euler(open ? 70f : 0f, 0f, open ? 25f : 0f), Time.deltaTime * 10f);
             }
         }
@@ -189,7 +179,7 @@ namespace Deepbound.World
         public override void OnNetworkSpawn()
         {
             base.OnNetworkSpawn();
-            // An iron-bound black coffer on a little plinth, three padlocks on the front, a violet glow.
+
             MeshKit.Part(transform, "Plinth", MeshKit.Box(new Vector3(1.2f, 0.25f, 0.8f)), Mat.StoneWall, Vector3.up * 0.125f);
             MeshKit.Part(transform, "Body", MeshKit.Box(new Vector3(1f, 0.55f, 0.6f)), Mat.Dark, Vector3.up * 0.53f);
             foreach (float x in new[] { -0.35f, 0.35f })
@@ -200,7 +190,6 @@ namespace Deepbound.World
             ArtLibrary.SetGlow(gem.GetComponent<Renderer>(), new Color(0.75f, 0.45f, 1f) * 1.6f);
             for (int i = 0; i < 3; i++)
             {
-                // Hasp on the body, the lock hanging from a pivot at its top.
                 float x = (i - 1) * 0.26f;
                 MeshKit.Part(transform, "Hasp" + i, MeshKit.Box(new Vector3(0.05f, 0.08f, 0.03f)), Mat.Steel, new Vector3(x, 0.74f, 0.31f));
                 var pl = MeshKit.Pivot(transform, "Padlock" + i, new Vector3(x, 0.72f, 0.33f));

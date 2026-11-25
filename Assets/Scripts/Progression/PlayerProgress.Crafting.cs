@@ -5,11 +5,6 @@ using UnityEngine;
 
 namespace Deepbound.Progression
 {
-    /// <summary>
-    /// Crafting state and RPCs (2026-11-07, see <see cref="Crafting"/>). <see cref="Parts"/> packs, 16 bits each: bone (0),
-    /// cloth (16), iron (32); then crafted upgrades, 2 bits each: lining (48), edge (50), boots (52); the readied tool (54,
-    /// 0 none / 1 caltrops / 2 rattle); caltrops held (56, 4 bits) and rattles held (60, 4 bits). Cleared with the run.
-    /// </summary>
     public partial class PlayerProgress
     {
         public readonly NetworkVariable<ulong> Parts = new NetworkVariable<ulong>();
@@ -31,14 +26,12 @@ namespace Deepbound.Progression
         private int UpgradeShift(CraftKind k) => k == CraftKind.Lining ? 48 : k == CraftKind.Edge ? 50 : 52;
         private int ToolShift(CraftKind k) => k == CraftKind.Caltrops ? 56 : 60;
 
-        /// <summary>Server: add (or with a negative amount, take) parts, capped.</summary>
         public void ServerAddPart(Part p, int amount)
         {
             if (!IsServer || amount == 0) return;
             Parts.Value = WithField(Parts.Value, 16 * (int)p, 16, Mathf.Clamp(PartCount(p) + amount, 0, Crafting.PartCap));
         }
 
-        /// <summary>Why this recipe cannot be made now, or null.</summary>
         public string CannotCraftReason(int index)
         {
             if (index < 0 || index >= Crafting.Recipes.Length) return "Unknown";
@@ -83,7 +76,7 @@ namespace Deepbound.Progression
                 {
                     int sh = ToolShift(r.Kind);
                     Parts.Value = WithField(Parts.Value, sh, 4, Field(Parts.Value, sh, 4) + 1);
-                    // The first tool made is the one readied.
+
                     if (ReadiedTool == null) Parts.Value = WithField(Parts.Value, 54, 2, r.Kind == CraftKind.Caltrops ? 1 : 2);
                     made = true;
                     break;
@@ -103,7 +96,6 @@ namespace Deepbound.Progression
             UI.GameHud.Pickup("craft" + index, 1, " " + Crafting.Recipes[index].Name + " (crafted)", new Color(0.85f, 0.8f, 0.65f));
         }
 
-        /// <summary>Owner: ready a tool for the Z key.</summary>
         [Rpc(SendTo.Server)]
         public void ReadyToolRpc(byte kind)
         {
@@ -112,7 +104,6 @@ namespace Deepbound.Progression
             Parts.Value = WithField(Parts.Value, 54, 2, k == CraftKind.Caltrops ? 1 : 2);
         }
 
-        /// <summary>Owner: throw the readied tool at a floor point. The server checks range and stock.</summary>
         [Rpc(SendTo.Server)]
         public void UseToolRpc(Vector3 at)
         {
@@ -123,7 +114,7 @@ namespace Deepbound.Progression
             if (Vector3.Distance(transform.position, at) > Crafting.ToolRange + 1f) at = transform.position + Vector3.ClampMagnitude(at - transform.position, Crafting.ToolRange);
             int sh = ToolShift(tool.Value);
             Parts.Value = WithField(Parts.Value, sh, 4, Field(Parts.Value, sh, 4) - 1);
-            // Out of that one: ready the other if any are left.
+
             if (ToolCount(tool.Value) == 0)
             {
                 var other = tool.Value == CraftKind.Caltrops ? CraftKind.Rattle : CraftKind.Caltrops;
@@ -142,7 +133,6 @@ namespace Deepbound.Progression
             if (belt != null) belt.ShowTool((CraftKind)kind, at);
         }
 
-        /// <summary>Server: the dead within reach of the rattle stop hunting and go to the noise.</summary>
         private void ServerRattle(Vector3 at)
         {
             foreach (var e in EnemyBrain.All)

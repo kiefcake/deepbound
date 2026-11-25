@@ -6,34 +6,19 @@ using UnityEngine;
 
 namespace Deepbound.Enemies
 {
-    /// <summary>
-    /// The Mourner (R.E.P.O.'s monster-with-one-rule): a weeping stone figure that moves only while
-    /// nobody is looking at it. Watched, it is a statue — frozen mid-step, weeping into its hands,
-    /// or reaching for you if it got close. Unwatched, it glides fast and strikes. The tell is sound:
-    /// stone scraping behind you. The answer is eyes: keep someone facing it, back away while you
-    /// look, and break it while it cannot move.
-    ///
-    /// Server-authoritative: "watched" is any player (downed ones too) facing it within
-    /// <see cref="WatchAngle"/> with a clear line of sight.
-    /// </summary>
     public class MournerBrain : EnemyBrain
     {
         public const float WatchAngle = 60f, WatchRange = 45f;
 
-        /// <summary>Synced: someone is looking at it, so it is stone.</summary>
         public readonly NetworkVariable<bool> Seen = new NetworkVariable<bool>(true);
 
         private float nextScrape;
 
-        /// <summary>
-        /// READABILITY (2026-11-19): it only strikes while nobody watches it, so its wind-up can never be SEEN - it has to be
-        /// HEARD. A grinding sob before every blow, and long enough to turn and look (looking stops it cold): 0.45 s, was 0.3.
-        /// </summary>
-        public const float MinWindup = 0.45f;
+        public const float StatueMinWindup = 0.45f;
 
         protected override void BeginAttack()
         {
-            windup = Mathf.Max(windup, MinWindup);
+            windup = Mathf.Max(windup, StatueMinWindup);
             base.BeginAttack();
             if (WindingUp) GrindRpc();
         }
@@ -54,13 +39,12 @@ namespace Deepbound.Enemies
             ApplyPose(Seen.Value);
         }
 
-        /// <summary>Server: is anyone watching <paramref name="self"/> right now?</summary>
         public static bool Watched(Health self)
         {
             foreach (var p in PlayerLife.All)
             {
                 if (p == null || !p.Health.IsAlive && !p.Downed.Value) continue;
-                if (p.Soul.Value) continue; // the dead do not hold it
+                if (p.Soul.Value) continue;
                 var eye = p.transform.position + Vector3.up * 1.6f;
                 var to = self.Center - eye;
                 if (to.magnitude > WatchRange) continue;
@@ -77,7 +61,6 @@ namespace Deepbound.Enemies
             if (HeldByStun()) return;
             if (Rig != null && IsDead && !Rig.enabled) Rig.enabled = true;
 
-            // Everyone: the grinding of stone while it moves unseen.
             if (!IsDead && !Seen.Value)
             {
                 float moved = (transform.position - lastPos).magnitude;
@@ -102,13 +85,12 @@ namespace Deepbound.Enemies
             base.Update();
         }
 
-        /// <summary>Every peer: watched, the statue holds a pose; unwatched, the rig animates (no one sees it).</summary>
         private void ApplyPose(bool seen)
         {
             if (Rig == null || IsDead) return;
             Rig.enabled = !seen;
             if (!seen || Rig.ArmL == null || Rig.ArmR == null) return;
-            // Close to the watcher: caught reaching. Far: weeping into its hands.
+
             var local = NetworkPlayer.Local;
             bool close = local != null && Vector3.Distance(local.transform.position, transform.position) < 5f;
             if (close)

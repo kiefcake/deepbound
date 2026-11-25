@@ -6,10 +6,6 @@ using UnityEngine;
 
 namespace Deepbound.Progression
 {
-    /// <summary>
-    /// Shared effects for Ysolde's ability options (2026-11-20 rework): one set of RPCs every kit can call through
-    /// <see cref="Classes.AbilityKit"/>, so the many small choices do not each need their own.
-    /// </summary>
     public partial class PlayerProgress
     {
         public enum FxKind : byte { Fire, Frost, Holy, Poison, Shadow, Earth, Storm, Blood, Water, Steel }
@@ -28,7 +24,6 @@ namespace Deepbound.Progression
             _ => new Color(0.9f, 0.9f, 0.95f),
         };
 
-        /// <summary>A burst of <paramref name="kind"/> at <paramref name="at"/>, <paramref name="radius"/> wide.</summary>
         [Rpc(SendTo.ClientsAndHost)]
         public void AbilityBurstRpc(Vector3 at, float radius, FxKind kind)
         {
@@ -41,7 +36,7 @@ namespace Deepbound.Progression
             {
                 case FxKind.Fire: Vfx.Fireball(at + Vector3.up * 0.5f, Mathf.Max(0.8f, radius * 0.5f), c); Sfx.Play(Sound.Fire, at, 0.8f, 0.9f); break;
                 case FxKind.Frost: Vfx.IceSpikes(floor, Mathf.Max(1f, radius * 0.7f), 10); Sfx.Play(Sound.Frost, at, 0.8f, 0.9f); break;
-                // 2026-11-21 (distinct abilities): each kind in its own shape, the same language as the class kits (Art/ClassFx).
+
                 case FxKind.Earth:
                     Vfx.Smoke(floor, 3, radius * 0.4f, 1.4f); Sfx.Play(Sound.Slam, at, 0.8f, 0.9f);
                     ClassFx.Cracks(floor, radius, 7, c, 3f); ClassFx.Rubble(floor, 8, 3.5f); ClassFx.Shock(floor, radius, c, 0.7f, 0.35f);
@@ -72,7 +67,6 @@ namespace Deepbound.Progression
             }
         }
 
-        /// <summary>A warning circle the party can read, then (optionally) the strike lands where it said.</summary>
         [Rpc(SendTo.ClientsAndHost)]
         public void AbilityCircleRpc(Vector3 at, float radius, float seconds, FxKind kind)
         {
@@ -80,7 +74,6 @@ namespace Deepbound.Progression
             Telegraph.Show(at, radius, seconds, null, new Color(c.r, c.g, c.b, 0.24f));
         }
 
-        /// <summary>A lane on the floor from <paramref name="origin"/> along <paramref name="dir"/>.</summary>
         [Rpc(SendTo.ClientsAndHost)]
         public void AbilityLaneRpc(Vector3 origin, Vector3 dir, float length, float width, float seconds, FxKind kind)
         {
@@ -88,24 +81,21 @@ namespace Deepbound.Progression
             Telegraph.ShowLine(origin, dir, length, width, seconds, null, new Color(c.r, c.g, c.b, 0.24f));
         }
 
-        /// <summary>A streak of light from one point to another (a chain, a leap, a thrown shield).</summary>
         [Rpc(SendTo.ClientsAndHost)]
         public void AbilityLinkRpc(Vector3 from, Vector3 to, FxKind kind)
         {
             var c = FxColor(kind);
             int n = Mathf.Clamp(Mathf.RoundToInt(Vector3.Distance(from, to) * 0.8f), 2, 12);
             for (int i = 0; i <= n; i++) Vfx.Embers(Vector3.Lerp(from, to, i / (float)n), 1, c, 0.8f, 0.07f, 0.5f);
-            // A band of the kind's light along it (2026-11-21), and a glint where it lands.
+
             ClassFx.Tether(from, to, new Color(c.r * 2.2f, c.g * 2.2f, c.b * 2.2f, 0.85f), 0.16f, 0.4f);
             ClassFx.Glint(to, c, 0.8f, 0.18f, 30f);
             if (kind == FxKind.Storm) LightningBolt.Spawn(from, new[] { to });
         }
 
-        /// <summary>The Wardweaver's shards (2026-11-20): each swallows one blow (up to <see cref="Classes.PathTriads.ShardSoak"/> of max health).</summary>
         public readonly NetworkVariable<byte> WardShards = new NetworkVariable<byte>();
         private float nextShardFx;
 
-        /// <summary>Everyone: the shards circle the delver (a few glints a frame, cheap).</summary>
         private void TickWardShardFx()
         {
             int n = WardShards.Value;
@@ -121,7 +111,6 @@ namespace Deepbound.Progression
             }
         }
 
-        /// <summary>A word over something (FROZEN, SWITCH, ECHO...).</summary>
         [Rpc(SendTo.ClientsAndHost)]
         public void AbilityTextRpc(Vector3 at, FixedString32Bytes text, FxKind kind) => UI.GameHud.ShowCombo(at, text.ToString(), FxColor(kind));
     }

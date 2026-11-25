@@ -4,11 +4,6 @@ using UnityEngine;
 
 namespace Deepbound.Art
 {
-    /// <summary>
-    /// Places the small life of a level (see <see cref="Critter"/>): rats along the walls of rooms,
-    /// bats under the high ceilings, ravens on the camp's walls and road. Local and deterministic per
-    /// floor seed so a party sees roughly the same creatures.
-    /// </summary>
     public static class AmbientLife
     {
         public static void Populate(Transform parent, DungeonLayout layout)
@@ -27,7 +22,7 @@ namespace Deepbound.Art
                     c.Bounds = rect;
                     c.Floor = room.Center.y + 0.01f;
                 }
-                // The Drowned Vaults leak (and the Ossuary, a little).
+
                 int act = World.DungeonDirector.Act(layout.Depth);
                 int leaks = act == 1 ? 3 : act == 0 ? 1 : 0;
                 for (int i = 0; i < leaks; i++)
@@ -52,7 +47,6 @@ namespace Deepbound.Art
             }
         }
 
-        /// <summary>Ravens of Castle Ravenhold: on the battlements and pecking about the road.</summary>
         public static void Ravens(Transform parent, Vector3 origin, float wallRadius, float wallHeight)
         {
             var perches = new List<Vector3>();
@@ -61,7 +55,7 @@ namespace Deepbound.Art
                 float a = i * Mathf.PI * 2f / 14f + 0.13f;
                 perches.Add(origin + new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)) * (wallRadius - 0.5f) + Vector3.up * wallHeight);
             }
-            // Down on the cobbles of the road, wherever there is nothing in the way (never in a brazier).
+
             foreach (var g in new[] { new Vector3(0.3f, 0f, 2.6f), new Vector3(-0.4f, 0f, 8.8f), new Vector3(0.5f, 0f, -10.5f), new Vector3(-0.6f, 0f, -4.2f), new Vector3(1.1f, 0f, 11.5f) })
             {
                 var p = origin + g;

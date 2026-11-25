@@ -3,13 +3,6 @@ using UnityEngine;
 
 namespace Deepbound.Art
 {
-    /// <summary>
-    /// The presence light (2026-10-31): a faint warm glow that rides with the view camera, the lantern-light of every
-    /// dungeon crawler, so the dead in front of you are a face and not a black cut-out against the torches behind them.
-    /// Short reach: far rooms keep their dark. It hangs <see cref="Ahead"/> m in front of the eye (pulled in before a
-    /// wall): Forward+ ignores a light's culling mask, so at the eye it flooded the first-person hands white. It goes
-    /// out in a Lightless Hall, where the carried torch is the point. Local only; booted on load.
-    /// </summary>
     public class PresenceLight : MonoBehaviour
     {
         public const float Range = 8f, Intensity = 1.1f, Ahead = 3f;
@@ -45,7 +38,6 @@ namespace Deepbound.Art
             float want = 0f;
             if (cam != null && Player.NetworkPlayer.Local != null)
             {
-                // Ahead of the eye and a little up, short of any wall: on faces and the floor in front, never on the hands.
                 var eye = cam.transform.position;
                 var fwd = cam.transform.forward;
                 float d = Ahead;
@@ -56,7 +48,7 @@ namespace Deepbound.Art
                 var layout = DungeonDirector.Layout;
                 var room = layout != null && !DungeonDirector.InLobby ? layout.RoomAt(cam.transform.position) : null;
                 if (room != null && room.Feature == RoomFeature.Lightless) want = 0f;
-                // Camp has its own lamps and the moon.
+
                 if (DungeonDirector.InLobby) want = 0.5f;
             }
             level = Mathf.MoveTowards(level, want, Time.deltaTime * 1.5f);

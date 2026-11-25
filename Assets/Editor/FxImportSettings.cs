@@ -3,11 +3,6 @@ using UnityEngine;
 
 namespace Deepbound.EditorTools
 {
-    /// <summary>
-    /// Kenney's CC0 Particle Pack sprites (2026-10-28, Assets/Textures/Fx, see docs/CREDITS.md) are greyscale, some
-    /// white on black with no alpha: their brightness becomes their alpha, so every one can be tinted and blended
-    /// the same way. Clamped, mipmapped, 256 px is plenty for a puff.
-    /// </summary>
     public class FxImportSettings : AssetPostprocessor
     {
         private void OnPreprocessTexture()

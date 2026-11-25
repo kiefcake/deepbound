@@ -4,13 +4,8 @@ using UnityEngine;
 
 namespace Deepbound.World
 {
-    /// <summary>Append only: synced.</summary>
     public enum Omen : byte { None, BloodMoon, Famine, RestlessDead, GlassBones, QuickenedDead, HushedBells, Avarice }
 
-    /// <summary>
-    /// Run omens, set at the camp's Omen Stone before a run: each makes the descent harder
-    /// in one way and gives something back, and every omen raises the Renown the run earns.
-    /// </summary>
     public partial class DungeonDirector
     {
         public const int OmenCount = 8;
@@ -37,18 +32,16 @@ namespace Deepbound.World
             : o == Omen.QuickenedDead ? new Color(1f, 0.55f, 0.2f) : o == Omen.HushedBells ? new Color(0.78f, 0.78f, 1f) : o == Omen.Avarice ? new Color(1f, 0.85f, 0.3f)
             : new Color(0.6f, 0.62f, 0.7f);
 
-        /// <summary>Renown multiplier for the run's omen.</summary>
         public static float OmenRenown(Omen o) => o == Omen.None ? 1f : 1.35f;
 
-        // Effects, read on the server where the systems run.
         public static Omen Current => Instance != null ? Instance.RunOmen : Omen.None;
         public static float OmenGold => Current == Omen.BloodMoon ? 1.5f : Current == Omen.RestlessDead ? 1.5f : Current == Omen.Avarice ? 2f : 1f;
-        /// <summary>Avarice: every camp price.</summary>
+
         public static float OmenPrices => Current == Omen.Avarice ? 1.5f : 1f;
-        /// <summary>Quickened Dead: enemy wind-ups and recoveries (x0.83 = 20% faster) and their feet.</summary>
+
         public static float OmenPace => Current == Omen.QuickenedDead && !InLobby ? 0.83f : 1f;
         public static float OmenSpeed => Current == Omen.QuickenedDead && !InLobby ? 1.2f : 1f;
-        /// <summary>Hushed Bells: ability cooldowns, and ultimate charge.</summary>
+
         public static float OmenCooldown => Current == Omen.HushedBells && !InLobby ? 1.4f : 1f;
         public static float OmenUltCharge => Current == Omen.HushedBells ? 1.5f : 1f;
         public static float OmenElites => Current == Omen.BloodMoon ? 1.8f : 1f;
@@ -61,7 +54,6 @@ namespace Deepbound.World
             OmenValue.Value = (byte)o;
         }
 
-        /// <summary>Server: push the omen's global numbers into combat for this floor (or clear them at camp).</summary>
         private void ApplyOmen(bool onFloor)
         {
             var o = onFloor ? RunOmen : Omen.None;

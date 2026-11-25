@@ -2,11 +2,6 @@ using UnityEngine;
 
 namespace Deepbound.Art
 {
-    /// <summary>
-    /// A spell bolt in flight: the core pulses and turns, and it sheds a trail (embers for fire,
-    /// glittering motes for frost) when the viewer is close enough to see it. A shared per-frame budget
-    /// keeps boss bullet patterns cheap. <see cref="Burst"/> is the little pop where a bolt ends.
-    /// </summary>
     public class BoltFx : MonoBehaviour
     {
         public Color Color;
@@ -40,7 +35,6 @@ namespace Deepbound.Art
                 Vfx.Embers(transform.position + back * 0.12f + Random.insideUnitSphere * 0.05f, 1, Color, 0.9f, 0.04f, 0.4f);
         }
 
-        /// <summary>The pop where a bolt ends: a quick flash and a spray of sparks in its colour.</summary>
         public static void Burst(Vector3 at, Color color)
         {
             var cam = ViewCamera.Current;

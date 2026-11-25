@@ -7,29 +7,12 @@ using UnityEngine;
 
 namespace Deepbound.Player
 {
-    /// <summary>
-    /// A companion (2026-11-07, the user's batch 2: "pets / companions (earned at camp, follow you down, fetch loot, help a
-    /// little)"). Chosen at Mistress Vey's (<see cref="Cosmetics.Kind.Pet"/>), synced as <see cref="NetworkPlayer.PetKind"/>,
-    /// and built and moved LOCALLY on every peer from its owner's position: it has no health, nobody can hit it, and it
-    /// costs no bandwidth. What it does:
-    /// <list type="bullet">
-    /// <item>FETCH: gold and embers lying within <see cref="FetchRadius"/> of you (in sight) are brought to you after
-    /// <see cref="FetchDelay"/> (server side in <see cref="LootDrop"/>; here the pet runs out to them). It never adds loot.</item>
-    /// <item>WARN: a hidden spike plate within <see cref="WarnRadius"/> makes it run over, sit on it and call out.</item>
-    /// <item>TRICKS (2026-11-08, the user's list: "pets do things at camp"), driven by your emotes so everyone sees them:
-    /// POINT = it runs out to where you point and brings back a stick (dropped at your feet); BECKON = it comes and sits
-    /// before you; DANCE / CLAP / CHEER = it spins and hops. At camp it now and then CHASES the castle cat for a few
-    /// seconds, and when you sit by the fire a while it curls up ASLEEP beside you (<see cref="SleepAfter"/>).</item>
-    /// </list>
-    /// </summary>
     public class PetCompanion : MonoBehaviour
     {
         public const float FetchRadius = 8f, FetchDelay = 0.9f, WarnRadius = 4.5f;
 
-        /// <summary>This owner's fetch radius: <see cref="Legacy"/>'s Keen Companion stretches it.</summary>
         public static float FetchRadiusOf(NetworkPlayer owner) => Legacy.Has(owner, Boon.KeenCompanion) ? Legacy.KeenFetchRadius : FetchRadius;
 
-        /// <summary>Index into <see cref="Cosmetics.Pets"/>; append only.</summary>
         public enum Kind { None, Raven, Rat, BoneHound, Kitten, Wisp, Bat, Toad, CandleImp, Moth, Salamander, MimicPup }
 
         private NetworkPlayer owner;
@@ -41,20 +24,18 @@ namespace Deepbound.Player
         private bool sitOnArrival;
         private Vector3? errand;
         private float errandUntil;
-        /// <summary>Where it waits by you: a spot in the WORLD, kept until you walk off from it (it used to hang a fixed
-        /// offset behind your view, so turning to look at it swung it behind you again).</summary>
+
         private Vector3? perch;
         private Vector3 lastOwner;
         private bool ownerSits;
-        /// <summary>Pets read better a size up (the user: "barely visible").</summary>
+
         public const float Size = 1.35f;
         private readonly HashSet<SpikeTrap> warned = new HashSet<SpikeTrap>();
 
         private bool Flies => kind == Kind.Raven || kind == Kind.Wisp || kind == Kind.Bat || kind == Kind.Moth;
-        /// <summary>Wings on <see cref="legs"/> that flap like the raven's (the bat's and the moth's).</summary>
+
         private bool Flaps => kind == Kind.Raven || kind == Kind.Bat || kind == Kind.Moth;
 
-        // Tricks.
         public enum Trick { None, Fetch, Chase, Spin, Come }
         public const float SleepAfter = 7f, FetchReach = 6f, ChaseSeconds = 3.5f, SpinSeconds = 1.2f;
         public Trick Doing { get; private set; }
@@ -66,7 +47,6 @@ namespace Deepbound.Player
         private Emote lastEmote;
         private World.CampCat cat;
 
-        /// <summary>Any peer: run out to <paramref name="at"/> for a moment (a pet perk's cue: the hound's snap, the moth over a chest).</summary>
         public void Visit(Vector3 at, float seconds)
         {
             if (body == null || errand.HasValue) return;
@@ -114,7 +94,7 @@ namespace Deepbound.Player
                 case Kind.Salamander: BuildSalamander(root); break;
                 case Kind.MimicPup: BuildMimicPup(root); break;
             }
-            // A size up, a shadow under it, and (your own pet) a faint warm glow so it is never a dark lump at your feet.
+
             root.localScale = Vector3.one * Size;
             foreach (var r in root.GetComponentsInChildren<Renderer>()) r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
             if (owner.IsOwner && k != Kind.Wisp)
@@ -131,8 +111,6 @@ namespace Deepbound.Player
             perch = null;
         }
 
-        // ---------------------------------------------------------------- looks
-
         private static void Tint(GameObject go, Color c) => ArtLibrary.Tint(go.GetComponent<Renderer>(), c);
 
         private Transform Pivot(Transform parent, string name, Vector3 at)
@@ -143,7 +121,6 @@ namespace Deepbound.Player
             return t;
         }
 
-        /// <summary>Four legs on hip pivots (swung by the gait), a body, a head pivot and a tail pivot.</summary>
         private void Quadruped(Transform root, string mat, Color c, float len, float hip, float legLen, float legW)
         {
             var torso = MeshKit.Part(root, "Torso", MeshKit.Ball(0.5f, 8, 6), mat, Vector3.up * hip, default, new Vector3(len * 0.5f, len * 0.42f, len));
@@ -192,7 +169,7 @@ namespace Deepbound.Player
         private void BuildHound(Transform root)
         {
             var bone = new Color(0.86f, 0.82f, 0.72f);
-            // Ribs and a spine rather than a hide: the Ossuary's own dog.
+
             Quadruped(root, Mat.Bone, bone, 0.75f, 0.45f, 0.42f, 0.05f);
             var torso = root.Find("Torso");
             if (torso != null) torso.localScale = new Vector3(0.12f, 0.12f, 0.75f);
@@ -212,7 +189,6 @@ namespace Deepbound.Player
 
         private void BuildKitten(Transform root)
         {
-            // The castle cat's litter: the same tabby grey, much smaller.
             var fur = new Color(0.42f, 0.38f, 0.34f);
             Quadruped(root, Mat.Cloth, fur, 0.36f, 0.14f, 0.14f, 0.035f);
             Tint(MeshKit.Part(head, "Skull", MeshKit.Ball(0.075f, 8, 6), Mat.Cloth, Vector3.zero), fur);
@@ -242,7 +218,6 @@ namespace Deepbound.Player
 
         private void BuildBat(Transform root)
         {
-            // A grave bat: a furred body, big ears, membrane wings with finger bones, two red pin eyes.
             var fur = new Color(0.2f, 0.16f, 0.18f);
             var skin = new Color(0.32f, 0.22f, 0.24f);
             Tint(MeshKit.Part(root, "Body", MeshKit.Ball(0.1f, 8, 6), Mat.Cloth, Vector3.up * 0.22f, default, new Vector3(0.9f, 1.1f, 1f)), fur);
@@ -265,7 +240,6 @@ namespace Deepbound.Player
 
         private void BuildToad(Transform root)
         {
-            // A plague toad: squat and warty, a pale throat, gold eyes on top of its head; it hops on short legs.
             var hide = new Color(0.4f, 0.52f, 0.22f);
             Quadruped(root, Mat.Cloth, hide, 0.34f, 0.07f, 0.07f, 0.04f);
             var torso = root.Find("Torso");
@@ -285,9 +259,7 @@ namespace Deepbound.Player
 
         private void BuildSalamander(Transform root)
         {
-            // An ember salamander (2026-11-22): long, low and soot-black, with a line of glowing orange spots down its back,
-            // a flat head with ember eyes and a long tapering tail.
-            var soot = new Color(0.32f, 0.13f, 0.08f); // charcoal-red: soot black vanished on a night floor
+            var soot = new Color(0.32f, 0.13f, 0.08f);
             var ember = new Color(1f, 0.45f, 0.12f);
             Quadruped(root, Mat.Cloth, soot, 0.42f, 0.06f, 0.06f, 0.03f);
             var torso = root.Find("Torso");
@@ -310,8 +282,6 @@ namespace Deepbound.Player
 
         private void BuildMimicPup(Transform root)
         {
-            // A mimic pup (2026-11-22): a little iron-banded chest on four stubby legs, its lid the head - it opens on a
-            // pink tongue and a row of teeth, with gold eyes in the dark inside.
             var wood = new Color(0.45f, 0.28f, 0.14f);
             Quadruped(root, Mat.Wood, wood, 0.3f, 0.1f, 0.1f, 0.035f);
             var torso = root.Find("Torso");
@@ -321,7 +291,7 @@ namespace Deepbound.Player
                 MeshKit.Part(root, "Band", MeshKit.Box(new Vector3(0.25f, 0.15f, 0.025f)), Mat.Gold, new Vector3(0f, 0.15f, z));
             if (head != null)
             {
-                head.localPosition = new Vector3(0f, 0.22f, -0.14f); // the lid hinges at the back
+                head.localPosition = new Vector3(0f, 0.22f, -0.14f);
                 Tint(MeshKit.Part(head, "Lid", MeshKit.Box(new Vector3(0.24f, 0.07f, 0.3f)), Mat.Wood, new Vector3(0f, 0.03f, 0.15f)), wood);
                 MeshKit.Part(head, "Lock", MeshKit.Box(new Vector3(0.04f, 0.05f, 0.02f)), Mat.Gold, new Vector3(0f, 0.0f, 0.3f));
                 for (int i = -2; i <= 2; i++)
@@ -337,7 +307,6 @@ namespace Deepbound.Player
 
         private void BuildImp(Transform root)
         {
-            // A candle imp: a small crouched wax-red creature with a lit candle stub on its head (a real little light).
             var wax = new Color(0.55f, 0.3f, 0.22f);
             Quadruped(root, Mat.Cloth, wax, 0.3f, 0.12f, 0.12f, 0.035f);
             var torso = root.Find("Torso");
@@ -366,7 +335,6 @@ namespace Deepbound.Player
 
         private void BuildMoth(Transform root)
         {
-            // A mourning moth: a furred body, feathered antennae, four dusty wings with dark eye-spots.
             var dust = new Color(0.85f, 0.8f, 0.65f);
             Tint(MeshKit.Part(root, "Body", MeshKit.Ball(0.05f, 8, 6), Mat.Cloth, Vector3.up * 0.2f, default, new Vector3(1f, 1f, 2.2f)), dust * 0.8f);
             head = Pivot(root, "Head", new Vector3(0f, 0.21f, 0.1f));
@@ -383,9 +351,6 @@ namespace Deepbound.Player
             tail = Pivot(root, "Tail", new Vector3(0f, 0.2f, -0.1f));
         }
 
-        // ---------------------------------------------------------------- moves
-
-        /// <summary>Where the pet's body is (tests and shots), or null with no pet.</summary>
         public Vector3? BodyAt => body != null ? body.position : (Vector3?)null;
 
         private void Update()
@@ -401,22 +366,19 @@ namespace Deepbound.Player
             if (t >= nextScan) { nextScan = t + 0.3f; Scan(o); }
             if (errand.HasValue && (t > errandUntil || (owner.transform.position - errand.Value).sqrMagnitude > 18f * 18f)) errand = null;
 
-            // How the owner moves (local position change: works for everyone's pets).
             var ownerVel = dt > 0f ? (o - lastOwner) / dt : Vector3.zero; ownerVel.y = 0f;
             lastOwner = o;
             bool moving = ownerVel.magnitude > 1.2f;
             ownerSits = owner.Rig != null && owner.Rig.EmoteNow == Art.Emote.Sit;
-            // Keep to the side it is already on, so it does not cross in front of you every time.
+
             var fromOwner = pos - o; fromOwner.y = 0f;
             float side = Vector3.Dot(fromOwner, right) >= 0f ? 1f : -1f;
             if (ownerSits)
             {
-                // Sit beside you: on your side of the log, facing the way you face.
                 perch = o + right * side * 0.75f + fwd * 0.15f;
             }
             else if (moving)
             {
-                // Trot alongside, a little ahead, where you can see it.
                 var dir = ownerVel.normalized;
                 var r2 = Vector3.Cross(Vector3.up, dir);
                 var ahead = o + dir * 1.4f + r2 * side * 1.0f;
@@ -424,8 +386,6 @@ namespace Deepbound.Player
             }
             else if (perch == null || Flat(perch.Value - o) > 3.4f || Flat(perch.Value - o) < 0.6f)
             {
-                // Standing: settle in front and to the side - in view - and stay there however you turn.
-                // Not on a table or a counter: try the other side, then closer in at your side.
                 perch = o + fwd * 1.3f + right * side * 1.1f;
                 if (!Flies && Raised(perch.Value, o.y)) perch = o + fwd * 1.3f - right * side * 1.1f;
                 if (!Flies && Raised(perch.Value, o.y)) perch = o + right * side * 0.8f - fwd * 0.2f;
@@ -434,7 +394,6 @@ namespace Deepbound.Player
             Vector3 want = errand ?? perch.Value;
             if (Flies) want += Vector3.up * (errand.HasValue ? 0.6f : ownerSits ? (kind == Kind.Wisp ? 0.5f : 0f) : 1.5f + Mathf.Sin(t * 1.7f) * 0.15f);
 
-            // Far behind (a lift, a fall, a new floor): it is simply there again.
             if ((pos - o).sqrMagnitude > 16f * 16f) { pos = want; vel = Vector3.zero; }
 
             var to = want - pos; to.y = Flies ? to.y : 0f;
@@ -448,7 +407,6 @@ namespace Deepbound.Player
             pos += vel * dt;
             if (!Flies)
             {
-                // Feet on the floor (props and steps included).
                 if (Physics.Raycast(pos + Vector3.up * 1.2f, Vector3.down, out var hit, 4f, ~0, QueryTriggerInteraction.Ignore) && hit.collider.GetComponentInParent<NetworkPlayer>() == null
                     && hit.point.y < o.y + 0.55f)
                     pos.y = Mathf.Lerp(pos.y, hit.point.y, 1f - Mathf.Exp(-14f * dt));
@@ -462,7 +420,6 @@ namespace Deepbound.Player
             if (face.sqrMagnitude > 0.001f) body.rotation = Quaternion.Slerp(body.rotation, Quaternion.LookRotation(face), 1f - Mathf.Exp(-8f * dt));
             if (Doing == Trick.Spin)
             {
-                // Two turns and a little hop on each.
                 float k = Mathf.Clamp01((t - trickStart) / SpinSeconds);
                 body.rotation *= Quaternion.Euler(0f, k * 720f, 0f);
                 body.position = pos + Vector3.up * Mathf.Abs(Mathf.Sin(k * Mathf.PI * 2f)) * 0.18f * Size;
@@ -470,8 +427,6 @@ namespace Deepbound.Player
             if (Sleeping && !Flies) body.position = pos + Vector3.down * 0.05f * Size;
             Animate(flat.magnitude, sitting || Sleeping, t, dt);
         }
-
-        // ---------------------------------------------------------------- tricks
 
         private void StartTrick(Trick k, float seconds)
         {
@@ -491,7 +446,6 @@ namespace Deepbound.Player
             errand = null;
         }
 
-        /// <summary>Emotes start tricks; at camp it chases the cat now and then; sitting a while, it sleeps.</summary>
         private void TickTricks(float t, Vector3 o, Vector3 fwd, bool moving)
         {
             var emote = owner.Rig != null ? owner.Rig.EmoteNow : Emote.None;
@@ -523,7 +477,6 @@ namespace Deepbound.Player
                             fetchStage = 1;
                             if (kind != Kind.Wisp && head != null)
                             {
-                                // A stick in its mouth (the raven in its beak).
                                 stick = MeshKit.Part(head, "Stick", MeshKit.Box(new Vector3(0.36f, 0.035f, 0.035f)), Mat.Wood, new Vector3(0f, -0.02f, 0.14f), new Vector3(0f, 8f, 4f)).transform;
                                 ArtLibrary.Tint(stick.GetComponent<Renderer>(), new Color(0.45f, 0.32f, 0.18f));
                             }
@@ -537,7 +490,6 @@ namespace Deepbound.Player
                         {
                             if (stick != null)
                             {
-                                // Dropped at your feet; it lies there a while.
                                 stick.SetParent(null, true);
                                 stick.position = new Vector3(pos.x, o.y + 0.03f, pos.z) + fwd * 0.2f;
                                 stick.rotation = Quaternion.Euler(0f, Random.Range(0f, 180f), 90f);
@@ -561,7 +513,7 @@ namespace Deepbound.Player
                     errand = c + (off.sqrMagnitude > 0.01f ? off.normalized : -fwd) * 0.7f; errandUntil = trickUntil;
                     break;
             }
-            // The castle cat: a pet near it (and its owner standing about) goes after it now and then.
+
             if (Doing == Trick.None && DungeonDirector.InLobby && !ownerSits && !moving && t >= nextChase && kind != Kind.Wisp)
             {
                 nextChase = t + Random.Range(35f, 60f);
@@ -574,7 +526,6 @@ namespace Deepbound.Player
             }
         }
 
-        /// <summary>Shots: start a chase now if the cat is near.</summary>
         public void DebugChase()
         {
             if (cat == null) cat = FindFirstObjectByType<World.CampCat>();
@@ -583,7 +534,6 @@ namespace Deepbound.Player
 
         private static float Flat(Vector3 v) { v.y = 0f; return v.magnitude; }
 
-        /// <summary>The ground at <paramref name="at"/> is a table top or a counter (well above the owner's feet).</summary>
         private static bool Raised(Vector3 at, float feet) =>
             Physics.Raycast(new Vector3(at.x, feet + 1.6f, at.z), Vector3.down, out var hit, 2.2f, ~0, QueryTriggerInteraction.Ignore)
             && hit.collider.GetComponentInParent<NetworkPlayer>() == null && hit.point.y > feet + 0.4f;
@@ -624,7 +574,6 @@ namespace Deepbound.Player
             if (tail != null) tail.localRotation = Quaternion.Euler(kind == Kind.BoneHound ? 20f : 0f, Mathf.Sin(t * (kind == Kind.BoneHound ? 9f : 3f)) * (kind == Kind.BoneHound ? 30f : 18f), 0f);
         }
 
-        /// <summary>Fetch or warn: loot to bring back first, then a hidden plate to sit on.</summary>
         private void Scan(Vector3 o)
         {
             if (errand.HasValue) return;

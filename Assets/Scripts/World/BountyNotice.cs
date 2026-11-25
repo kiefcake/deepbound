@@ -5,13 +5,8 @@ using UnityEngine;
 
 namespace Deepbound.World
 {
-    /// <summary>
-    /// One notice pinned to the camp's quest board: one camp person's work for the next floor - the same quest they
-    /// offer in conversation (<see cref="DungeonDirector.OfferOf"/>). Any player can take it for the party.
-    /// </summary>
     public class BountyNotice : Interactable
     {
-        /// <summary>Whose work this notice is (a <see cref="FolkId"/>).</summary>
         public readonly NetworkVariable<byte> Kind = new NetworkVariable<byte>();
         private Renderer seal;
         public override float Range => 2.4f;
@@ -31,7 +26,7 @@ namespace Deepbound.World
         public override void OnNetworkSpawn()
         {
             base.OnNetworkSpawn();
-            // Parchment pinned at eye height, a wax seal coloured by difficulty.
+
             var paper = MeshKit.Part(transform, "Paper", MeshKit.Box(new Vector3(0.62f, 0.8f, 0.02f)), Mat.Cloth, new Vector3(0f, 1.6f, 0f));
             ArtLibrary.Tint(paper.GetComponent<Renderer>(), new Color(0.86f, 0.8f, 0.64f));
             for (int i = 0; i < 5; i++)

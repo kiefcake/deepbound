@@ -2,10 +2,6 @@ using UnityEngine;
 
 namespace Deepbound.Art
 {
-    /// <summary>
-    /// A leak in the vault roof: every few seconds a drop falls from the ceiling and lands in a
-    /// tiny ring (and a plink, if you are close). Local only, asleep when the viewer is far.
-    /// </summary>
     public class Drip : MonoBehaviour
     {
         public float Floor;

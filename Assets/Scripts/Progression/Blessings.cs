@@ -2,13 +2,8 @@ using UnityEngine;
 
 namespace Deepbound.Progression
 {
-    /// <summary>APPEND ONLY: synced as a byte. 0 = none.</summary>
     public enum Blessing : byte { None = 0, Wrath = 1, Bulwark = 2, Swiftness = 3, Fortune = 4, Vigor = 5 }
 
-    /// <summary>
-    /// The shrine at camp sells one blessing per visit, chosen for each player. It lasts the
-    /// next floor only, then fades — a little edge bought with gold you would otherwise sit on.
-    /// </summary>
     public static class Blessings
     {
         public const int Count = 5;
@@ -51,10 +46,8 @@ namespace Deepbound.Progression
             }
         }
 
-        /// <summary>The blessing on offer to one player this visit (seeded by the camp's seed).</summary>
         public static Blessing OfferFor(ulong clientId, int campSeed) => OffersFor(clientId, campSeed)[0];
 
-        /// <summary>The two blessings on offer to one player this visit (2026-10-23: one random one was rarely the one you needed).</summary>
         public static Blessing[] OffersFor(ulong clientId, int campSeed)
         {
             var rng = new System.Random(campSeed * 17 + (int)clientId * 131);

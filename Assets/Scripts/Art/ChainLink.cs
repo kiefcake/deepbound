@@ -2,20 +2,18 @@ using UnityEngine;
 
 namespace Deepbound.Art
 {
-    /// <summary>A thrown chain between two points (the Flagellant's Chains of Penance): links that snap taut, then drop away.</summary>
     public class ChainLink : MonoBehaviour
     {
         private float born, life;
         private Transform[] links;
         private Vector3 from, to;
-        // 2026-11-20: the chain follows its two ends while the target is hauled in (it used to warp).
+
         private Transform fromT, toT;
         private Vector3 fromOff, toOff;
         public const float ReachSeconds = 0.15f;
 
         public static void Spawn(Vector3 from, Vector3 to, float life) => Spawn(from, to, life, null, null);
 
-        /// <summary>A chain whose ends ride on <paramref name="fromFollow"/> and <paramref name="toFollow"/> (either may be null).</summary>
         public static void Spawn(Vector3 from, Vector3 to, float life, Transform fromFollow, Transform toFollow)
         {
             var go = new GameObject("ChainLink");
@@ -45,7 +43,7 @@ namespace Deepbound.Art
             if (t >= 1.6f) { Destroy(gameObject); return; }
             if (fromT != null) from = fromT.position + fromOff;
             if (toT != null) to = toT.position + toOff;
-            // Out to the target fast, taut while it is hauled, then it sags and drops away.
+
             float reach = Mathf.Clamp01((Time.time - born) / ReachSeconds);
             float sag = t > 1f ? (t - 1f) * 2.5f : 0f;
             var dir = to - from;

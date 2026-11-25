@@ -9,32 +9,17 @@ using UnityEngine.AI;
 
 namespace Deepbound.Enemies
 {
-    /// <summary>
-    /// Melee enemy AI. Runs only on the server; clients see the result through
-    /// NetworkTransform and the animation RPCs.
-    ///
-    /// <para>
-    /// The loop is deliberately readable — this is a Dark-and-Darker-style fight where
-    /// the player's skill is reading tells. Every attack has a wind-up the player can see
-    /// (weapon drawn back, eyes flaring), and the wind-up's length on screen comes from the
-    /// same number the server waits on. Shield Bash interrupts a wind-up outright.
-    /// </para>
-    ///
-    /// Aggro is shared: when one skeleton notices you, every skeleton in its room does —
-    /// a room is a fight, not a queue of one-on-ones.
-    /// </summary>
     [RequireComponent(typeof(Health), typeof(NavMeshAgent))]
     public partial class EnemyBrain : NetworkBehaviour, ICrowdControl
     {
         [Header("Stats (scaled by depth and party size at spawn)")]
         [SerializeField] protected float maxHealth = 75f;
 
-        /// <summary>Unscaled stats, for the balance report.</summary>
         public float BaseHealth => maxHealth;
         public float BaseDamage => damage;
-        /// <summary>Server: hit harder or softer (a Panoply guard).</summary>
+
         public void ServerScaleDamage(float k) { if (IsServer) damage *= k; }
-        /// <summary>Chance a fallen champion leaves a Sigil for each player.</summary>
+
         public const float ChampionSigilChance = 0.75f;
         public float BaseDefense => defense;
         public float AttackCycle => windup + recovery;
@@ -52,7 +37,6 @@ namespace Deepbound.Enemies
         [SerializeField] protected CharacterArt.SkeletonKind visualKind = CharacterArt.SkeletonKind.Warrior;
         [SerializeField] private NetworkObject lootPrefab;
 
-        /// <summary>Server: boss summons drop nothing, or the boss becomes a gold farm.</summary>
         public bool NoLoot { get; set; }
         protected virtual LootTable Loot => LootTable.Skeleton;
         protected int depthForLoot;
@@ -75,38 +59,29 @@ namespace Deepbound.Enemies
 
         public bool IsDead { get; private set; }
 
-        /// <summary>
-        /// Elite: tougher, harder-hitting, bigger, gilded — and with a real chance at a
-        /// relic. Synced so every peer draws the gold.
-        /// </summary>
         public readonly NetworkVariable<bool> Elite = new NetworkVariable<bool>();
 
-        /// <summary>A named champion's title ("Grimbold the Unburied"); empty for everyone else.</summary>
         public readonly NetworkVariable<Unity.Collections.FixedString64Bytes> Title = new NetworkVariable<Unity.Collections.FixedString64Bytes>();
         public bool IsChampion => Title.Value.Length > 0;
 
-        /// <summary>Server: when this elite next sings in the Bone Choir (a floor event).</summary>
         [System.NonSerialized] public float ChoirReadyAt;
         private bool championAnnounced;
 
-        private static readonly string[] ChampionNames = { "Grimbold", "Morwen", "Garrick", "Hesk", "Vorn", "Ilsa", /* not Aldric or Ysolde: those are camp folk */ "Bram", "Cael", "Odo", "Sabine", "Tormund", "Wenna" };
-        /// <summary>Append only: each is also a trait (Enemies/ChampionTraits).</summary>
+        private static readonly string[] ChampionNames = { "Grimbold", "Morwen", "Garrick", "Hesk", "Vorn", "Ilsa",  "Bram", "Cael", "Odo", "Sabine", "Tormund", "Wenna" };
+
         public static readonly string[] Epithets = { "the Unburied", "Gravefist", "the Hollow", "Bonegnawer", "the Patient", "Ashenhand", "the Tithe-Taker", "Oathbreaker", "the Pale", "Marrowgrin" };
 
-        /// <summary>Server: make this the floor's champion — an elite with a name, more of everything, and a hoard.</summary>
         public void ServerMakeChampion()
         {
             if (IsBoss) return;
             if (!Elite.Value) ServerMakeElite();
-            // The first floor's champion is a new party's first real wall: it hits a little softer there (its 60+ blows
-            // took a fresh Cleric or Plague Doctor near death a dozen times in the autoplay runs).
+
             damage *= depthForLoot == 0 ? 0.9f : 1.15f;
             health.ServerSetMax(health.Max.Value * 1.6f, refill: true);
             health.Defense += 2f;
             SetChampionTitle(Pick(ChampionNames, usedNames), Pick(Epithets, usedEpithets));
         }
 
-        /// <summary>Which of <see cref="ChampionTraits"/> this champion carries (server); -1 for everyone else.</summary>
         public int ChampionTrait { get; private set; } = -1;
         public int Depth => depthForLoot;
         private bool championRose, oathCalled;
@@ -122,7 +97,6 @@ namespace Deepbound.Enemies
             if (ChampionTrait == ChampionTraits.Unburied)
                 health.IncomingModifiers.Add((dmg, from) =>
                 {
-                    // Getting up, it cannot be finished (the whole point of the Unburied); a killing blow still is one.
                     if (Time.time < risingUntil && dmg < BossBrain.KillDamage) return 0f;
                     if (championRose || IsDead || dmg < health.Current.Value || dmg >= BossBrain.KillDamage) return dmg;
                     championRose = true;
@@ -131,7 +105,6 @@ namespace Deepbound.Enemies
                 });
         }
 
-        /// <summary>For tests: make this a champion carrying a given trait.</summary>
         public void ServerDebugChampion(int trait)
         {
             if (IsBoss) return;
@@ -139,7 +112,6 @@ namespace Deepbound.Enemies
             SetChampionTitle("Test", Epithets[Mathf.Clamp(trait, 0, Epithets.Length - 1)]);
         }
 
-        /// <summary>The Unburied: it falls, and gets up.</summary>
         private float risingUntil;
 
         private System.Collections.IEnumerator ChampionRise()
@@ -159,7 +131,6 @@ namespace Deepbound.Enemies
             Vfx.Ring(Vfx.Floor(transform.position) + Vector3.up * 0.05f, 2f, new Color(1f, 0.75f, 0.3f), 0.6f);
         }
 
-        /// <summary>Oathbreaker: wounded to half, it calls two of the dead (once).</summary>
         public void ServerOathbreak()
         {
             if (oathCalled || IsDead || health.Fraction >= 0.5f) return;
@@ -176,14 +147,12 @@ namespace Deepbound.Enemies
             Sfx.Play(Sound.WarCry, transform.position + Vector3.up * 1.5f, 1f, 0.8f);
         }
 
-        /// <summary>The Tithe-Taker pockets what it stole; it all spills back, and half again, when it falls.</summary>
         public void ServerTithe(int gold, Vector3 at)
         {
             tithe += gold;
             TitheRpc(gold, at);
         }
 
-        /// <summary>For tests: gold it carries.</summary>
         public int Tithe => tithe;
 
         [Rpc(SendTo.ClientsAndHost)]
@@ -193,8 +162,6 @@ namespace Deepbound.Enemies
             Sfx.Play(Sound.Coins, at, 0.7f, 0.8f);
         }
 
-        // A run's champions never share a name or an epithet (an autoplay run met three Osrics, 2026-10-24); the
-        // pools refill once spent, and on a new run.
         private static readonly HashSet<string> usedNames = new HashSet<string>(), usedEpithets = new HashSet<string>();
         private static double namesRun = -1;
 
@@ -210,7 +177,6 @@ namespace Deepbound.Enemies
             return pick;
         }
 
-        /// <summary>Server: shoved off a ledge — land below, a little the worse for it.</summary>
         public void ServerFallTo(Vector3 ground, float damageFraction, ulong by)
         {
             if (IsDead || !agent.enabled) return;
@@ -220,16 +186,10 @@ namespace Deepbound.Enemies
             health.ServerDamage(health.Max.Value * Mathf.Clamp(damageFraction, 0.05f, 0.4f), ground + Vector3.up * 3f, by);
         }
 
-        // ------------------------------------------------------------------
-        // LEAPING DOWN (2026-11-14, verticality): up on a deck, a ledge or a balcony with its quarry below and the stair the
-        // long way round, it crouches (a "!" and a circle where it will land) and jumps, striking whoever it lands on.
-        // ------------------------------------------------------------------
-
         public const float LeapMinDrop = 1.6f, LeapMaxDrop = 11f, LeapReach = 11f, LeapCrouch = 0.45f, LeapFlight = 0.6f, LeapHitRadius = 1.8f, LeapDamage = 0.9f;
         private float nextLeapCheck;
         public int LeapsTaken { get; private set; }
 
-        /// <summary>Things that fly, float, stand as stone or guard an arena keep to their own ways down.</summary>
         protected bool CanLeapDown => !(this is BossBrain) && !(this is GargoyleBrain) && !(this is MournerBrain) && !(this is WraithBrain)
             && !(this is MimicBrain) && !(this is AbyssEyeBrain) && !Patrolling.Value;
 
@@ -240,7 +200,7 @@ namespace Deepbound.Enemies
             var at = target.transform.position;
             float drop = transform.position.y - at.y;
             if (drop < LeapMinDrop || drop > LeapMaxDrop || dist > LeapReach) return false;
-            // Only when walking down is the long way round (an unknown remaining distance counts as long).
+
             if (agent.pathPending || (agent.hasPath && agent.remainingDistance < dist * 1.6f + 3f)) return false;
             var back = transform.position - at; back.y = 0f;
             var want = at + (back.sqrMagnitude > 0.01f ? back.normalized * 1.4f : Vector3.zero);
@@ -288,7 +248,7 @@ namespace Deepbound.Enemies
         private void LeapTellRpc(Vector3 at, float seconds)
         {
             Telegraph.Show(at, LeapHitRadius, seconds, null, new Color(1f, 0.35f, 0.2f, 0.4f));
-            // Heard too (readability audit 2026-11-19): a crouching rattle overhead before it drops.
+
             Sfx.Play(Sound.Rattle, transform.position + Vector3.up * 1.2f, 0.7f, 0.75f);
         }
 
@@ -299,10 +259,8 @@ namespace Deepbound.Enemies
             Sfx.Play(Sound.Step, at, 0.9f, 0.6f);
         }
 
-        /// <summary>Tests: jump down to <paramref name="land"/> now.</summary>
         public void ServerDebugLeap(Vector3 land) { if (IsServer && !IsDead) StartCoroutine(LeapDown(land)); }
 
-        /// <summary>Server: shoved into a chasm. It does not climb back out.</summary>
         public void ServerFallIntoAbyss(Vector3 at, ulong by)
         {
             if (IsDead) return;
@@ -325,20 +283,16 @@ namespace Deepbound.Enemies
             }
         }
 
-        /// <summary>The elite's affix (see <see cref="EliteAffix"/>). Synced for the status tags.</summary>
         public readonly NetworkVariable<byte> Affix = new NetworkVariable<byte>();
         public EliteAffix AffixKind => (EliteAffix)Affix.Value;
         private bool wardUp;
 
-        /// <summary>Bosses opt out of poise breaks and backstabs; they have their own answers.</summary>
         protected virtual bool IsBoss => false;
 
-        /// <summary>Heavy enemies cannot be shoved around by a bash.</summary>
         protected virtual bool Heavy => false;
 
         protected int scaledPlayersBase = 1;
 
-        /// <summary>How much more health the party's size gave this enemy than it would have against one player.</summary>
         public float PartyHealthScale => Difficulty.PartyHealth(scaledPlayersBase, IsBoss, depthForLoot) / Difficulty.PartyHealth(1, IsBoss, depthForLoot);
         private float surroundAngle;
 
@@ -349,16 +303,13 @@ namespace Deepbound.Enemies
             agent.enabled = false;
         }
 
-        /// <summary>Extra size for the body (a Warden is a giant of its kind).</summary>
         protected virtual float VisualScale => 1f;
-        /// <summary>Every peer, once the body is built and before it is merged: add a creature's own dressing.</summary>
+
         protected virtual void DressRig(HumanoidRig rig) { }
 
-        /// <summary>Walking dead climb out of the floor when they appear; spirits, statues and mimics do not.</summary>
         private static bool RisesFromGround(CharacterArt.SkeletonKind k) =>
             k != CharacterArt.SkeletonKind.Wraith && k != CharacterArt.SkeletonKind.Mimic && k != CharacterArt.SkeletonKind.Gargoyle && k != CharacterArt.SkeletonKind.Mourner && k != CharacterArt.SkeletonKind.Unsung;
 
-        /// <summary>Every live enemy (any peer), for the Bestiary and other look-ups.</summary>
         public static readonly List<EnemyBrain> All = new List<EnemyBrain>();
         private float nextAcquire;
 
@@ -385,7 +336,7 @@ namespace Deepbound.Enemies
             {
                 if (VisualScale != 1f) Rig.transform.localScale *= VisualScale;
                 DressRig(Rig);
-                // The Cinder Pit's dead are charred, with ember eyes (2026-11-14).
+
                 if (World.DungeonDirector.InPit && !IsBoss)
                 {
                     foreach (var r in Rig.GetComponentsInChildren<Renderer>())
@@ -393,15 +344,14 @@ namespace Deepbound.Enemies
                     Rig.GlowColor = new Color(1f, 0.45f, 0.12f);
                 }
             }
-            // Fewer, bigger meshes: same look, a fraction of the draw calls.
+
             MeshKit.MergeRig(Rig);
             if (Rig != null) Rig.WatchViewer = true;
-            // Champions stand larger (applied after the rig exists, so late joiners see it too).
-            // (Multiplied, once: it used to SET 1.22 and threw away a brute's own size and the elite growth.)
+
             ApplySize();
             Title.OnValueChanged += (_, t) => { if (t.Length > 0) ScaleAsChampion(); };
             if (Title.Value.Length > 0) ScaleAsChampion();
-            StartEntrance(); // a way in (wall, floor, rift) or the old rise (EnemyBrain.Entrance)
+            StartEntrance();
             if (Rig != null && (IsBoss || Heavy || Rig.transform.lossyScale.y >= 1.12f)) FitBodyToRig();
             health.Hurt += OnHurtVisual;
             if (GetComponent<EnemyStatusFx>() == null) gameObject.AddComponent<EnemyStatusFx>();
@@ -414,12 +364,11 @@ namespace Deepbound.Enemies
             health.Defense = defense;
             health.Died += OnDied;
             health.DamagedServer += OnDamagedServer;
-            // From behind hurts more - bosses too, if someone holds their rage so another can get round them.
+
             health.IncomingModifiers.Add(BackstabModifier);
             health.IncomingModifiers.Add(UnawareModifier);
             health.IncomingModifiers.Add((d, from) => Enraged ? d * EnrageTaken : d);
-            // Each enemy takes its own place around whoever it is fighting, so a pack
-            // surrounds you instead of queueing in a line.
+
             surroundAngle = (NetworkObjectId * 137.508f) % 360f;
 
             agent.enabled = true;
@@ -431,7 +380,6 @@ namespace Deepbound.Enemies
             if (NavMesh.SamplePosition(transform.position, out var hit, 3f, NavMesh.AllAreas)) agent.Warp(hit.position);
         }
 
-        /// <summary>Server: scale for party size and dungeon depth, then fill health. Call right after Spawn.</summary>
         public void ServerScale(int players, int depth)
         {
             scaledPlayersBase = players;
@@ -442,10 +390,6 @@ namespace Deepbound.Enemies
             health.ServerSetMax(maxHealth * hpScale, refill: true);
         }
 
-        /// <summary>
-        /// Server: the party grew or shrank mid-floor (a friend joined, or dropped out): rescale this one's health and
-        /// bite to the new size, keeping how hurt it is. A two-player room no longer stays four-player tough after two leave.
-        /// </summary>
         public void ServerRescaleParty(int players)
         {
             players = Mathf.Max(1, players);
@@ -459,27 +403,17 @@ namespace Deepbound.Enemies
             if (this is BossBrain bossBrain) bossBrain.SyncScaledPlayers(players);
         }
 
-        /// <summary>
-        /// Frenzied (2026-10-20): below half health it attacks far faster (wind-ups and recoveries x0.6), and
-        /// says so once. Burst it down from high, or stun it when it turns.
-        /// </summary>
         public const float FrenzyPace = 0.6f;
-        /// <summary>The shortest wind-up any move may have, whatever speeds it up.</summary>
+
         public const float MinWindup = 0.3f;
         private bool frenzyAnnounced;
         public bool Frenzied => AffixKind == EliteAffix.Frenzied && health != null && health.Fraction < 0.5f;
 
-        /// <summary>Synced looks for the status visuals: bit 0 the ward is up, bit 1 enraged, bit 2 a soulbound twin lies severed.</summary>
         public readonly NetworkVariable<byte> FxFlags = new NetworkVariable<byte>();
         public bool WardedNow => (FxFlags.Value & 1) != 0;
         public bool Enraged => (FxFlags.Value & 2) != 0;
         private float enragedUntil;
 
-        /// <summary>
-        /// Weak point rage (2026-10-24, the user: "maybe a certain mob gets enraged when you hit them there"): the
-        /// beasts with a weak point you can strike - brutes, ghouls, gargoyles, frost wights, plaguebearers, mimics -
-        /// go berserk for a while when it bursts: faster on their feet and in their swings, but they take 15% more.
-        /// </summary>
         public bool EnragesOnWeakHit => visualKind == CharacterArt.SkeletonKind.Brute || visualKind == CharacterArt.SkeletonKind.Ghoul
             || visualKind == CharacterArt.SkeletonKind.Gargoyle || visualKind == CharacterArt.SkeletonKind.FrostWight
             || visualKind == CharacterArt.SkeletonKind.Plaguebearer || visualKind == CharacterArt.SkeletonKind.Mimic;
@@ -518,7 +452,6 @@ namespace Deepbound.Enemies
             Vfx.Ring(transform.position + Vector3.up * 0.05f, 1.6f, new Color(1f, 0.3f, 0.22f), 0.5f);
         }
 
-        /// <summary>Server: promote to elite. Call after <see cref="ServerScale"/>.</summary>
         public void ServerMakeElite(EliteAffix forced = EliteAffix.None)
         {
             if (IsBoss) return;
@@ -528,7 +461,6 @@ namespace Deepbound.Enemies
             health.ServerSetMax(health.Max.Value * 2.2f, refill: true);
             health.Defense += 3f;
 
-            // The Ember March: every elite trails fire.
             var affix = forced != EliteAffix.None ? forced : World.DungeonDirector.CurrentEvent == World.FloorEvent.EmberMarch ? EliteAffix.Emberbound : EliteAffixes.Roll();
             Affix.Value = (byte)affix;
             if (affix == EliteAffix.Warded)
@@ -544,7 +476,6 @@ namespace Deepbound.Enemies
 
         private static bool afflictHooked;
 
-        /// <summary>Hushing: its blows SILENCE you (2.5 s). Concussive: its blows DAZE you (1.5 s). Both have their grace.</summary>
         private static void EnsureAfflictHook()
         {
             if (afflictHooked) return;
@@ -562,7 +493,6 @@ namespace Deepbound.Enemies
 
         private static bool thornHooked;
 
-        /// <summary>Thorned: a fifth of what you deal in melee range comes back to you. Fight it from range.</summary>
         private static void EnsureThornHook()
         {
             if (thornHooked) return;
@@ -583,7 +513,6 @@ namespace Deepbound.Enemies
         [Rpc(SendTo.ClientsAndHost)]
         private void ThornFxRpc(Vector3 at) => Vfx.Embers(at, 4, new Color(0.5f, 0.75f, 0.3f), 2.5f, 0.04f, 0.3f);
 
-        /// <summary>Warded: most damage turned aside until a stun or a chill breaks the ward.</summary>
         private float WardModifier(float dealt, Vector3 attackerPosition)
         {
             if (!wardUp) return dealt;
@@ -615,7 +544,7 @@ namespace Deepbound.Enemies
                 var net = NetworkManager.Singleton;
                 if (net == null || !net.SpawnManager.SpawnedObjects.TryGetValue(attackerId, out var obj)) return;
                 if (!obj.TryGetComponent<EnemyBrain>(out var brain) || brain.IsDead || brain.AffixKind != EliteAffix.Vampiric) return;
-                // A Mark cuts the drain: the Ranger's answer to a Vampiric elite.
+
                 if (!brain.health.Marked.Value) brain.health.ServerHeal(dealt * 0.35f);
             };
         }
@@ -629,30 +558,20 @@ namespace Deepbound.Enemies
             return dealt * (IsBoss ? Difficulty.BossBackstabMultiplier : Difficulty.BackstabMultiplier);
         }
 
-        // ------------------------------------------------------------------
-        // ENEMY AI ROUND (2026-11-18): swing turns and losing track.
-        // SWING TURNS: at most MaxSwingers rank-and-file melee foes wind up on one player at once; the rest circle a step
-        // out (TurnRing) and wait for a gap, so a pack reads as a fight rather than a blender.
-        // LOSING TRACK: one that has not seen its target for LoseSightSeconds (and is not right on it) loses it: it
-        // stops following by rage alone (BlindSeconds, until it sees you, hears you or you hit it) and searches where you
-        // were last seen (ServerInvestigate, the grey ?). A Rogue who slips into hiding mid-fight is searched for the same way.
-        // ------------------------------------------------------------------
-
         public const int MaxSwingers = 3;
         public const float TurnRing = 1.3f, LoseSightSeconds = 6f, LoseSightNear = 6f, BlindSeconds = 12f, SearchSeconds = 8f;
 
         private float swingUntil, circleDir, nextSightCheck, lastSeenTime, blindUntil;
         private Vector3 lastSeenAt;
         private Health lastSeenOf, blindTo;
-        /// <summary>Winding up or recovering from a blow it took its turn for.</summary>
+
         public bool Swinging => attacking || Time.time < swingUntil;
-        /// <summary>Server, tests: times it held off for a turn / lost its target.</summary>
+
         public int TurnsWaited { get; private set; }
         public int LostTrack { get; private set; }
 
-        /// <summary>Rank-and-file melee take turns; bosses, casters and archers do not.</summary>
         protected virtual bool TakesTurns => !IsBoss && attackRange <= 3.5f;
-        /// <summary>Ones that hunt by sight (statues, mimics and mourners keep their own rules).</summary>
+
         private bool Searcher => !IsBoss && agent != null && agent.enabled && visualKind != CharacterArt.SkeletonKind.Mourner
             && visualKind != CharacterArt.SkeletonKind.Mimic && visualKind != CharacterArt.SkeletonKind.Gargoyle;
         private bool LostTo(Health h) => h != null && h == blindTo && Time.time < blindUntil;
@@ -665,7 +584,7 @@ namespace Deepbound.Enemies
                 if (e != null && e != this && !e.IsDead && e.target == target && e.TakesTurns && e.Swinging) busy++;
             int max = MaxSwingers + (Difficulty.Level == Difficulty.Settings[Difficulty.TormentIndex] ? 1 : 0);
             if (busy < max) return false;
-            // Full: pace round them a step out, facing in, until a gap opens.
+
             TurnsWaited++;
             if (circleDir == 0f) circleDir = NetworkObjectId % 2 == 0 ? 1f : -1f;
             surroundAngle += circleDir * 35f * Time.deltaTime;
@@ -708,7 +627,6 @@ namespace Deepbound.Enemies
             ServerInvestigate(at, SearchSeconds);
         }
 
-        /// <summary>Tests: lose the current target now, as if it had been out of sight too long.</summary>
         public void ServerDebugLoseTrack()
         {
             if (target == null) return;
@@ -718,7 +636,6 @@ namespace Deepbound.Enemies
             SearchFor(was);
         }
 
-        /// <summary>Server, tests: openers that caught this one unaware.</summary>
         public int Openers { get; private set; }
 
         private float UnawareModifier(float dealt, Vector3 attackerPosition)
@@ -733,7 +650,6 @@ namespace Deepbound.Enemies
         [Rpc(SendTo.ClientsAndHost)]
         private void UnawareRpc()
         {
-            // Caught it unaware: a pale gold mark over the head and a heavier thud (show, don't tell).
             float top = Rig != null ? Rig.transform.lossyScale.y * 2.1f : 2.1f;
             UI.GameHud.ShowCombo(transform.position + Vector3.up * top, "UNAWARE", new Color(0.95f, 0.85f, 0.55f));
             Sfx.Play(Sound.Hit, transform.position + Vector3.up * 1.2f, 0.9f, 0.6f);
@@ -741,7 +657,6 @@ namespace Deepbound.Enemies
 
         private bool eliteGrown;
 
-        /// <summary>A gilded enemy: bigger, gold-eyed, wreathed in a slow gold ring.</summary>
         private void ApplyEliteVisual(bool elite)
         {
             if (!elite || Rig == null || eliteGrown) return;
@@ -764,14 +679,6 @@ namespace Deepbound.Enemies
             light.intensity = 2f;
         }
 
-        // ------------------------------------------------------------------
-        // Server loop
-        // ------------------------------------------------------------------
-
-        /// <summary>
-        /// Big creatures: size the hit capsule to the model itself (shoulders, shields, robes),
-        /// so what you see is what you hit. Weapons and glow are left out.
-        /// </summary>
         private void FitBodyToRig()
         {
             var capsule = GetComponent<CapsuleCollider>();
@@ -797,7 +704,7 @@ namespace Deepbound.Enemies
                 }
             }
             if (!any) return;
-            // Bounding extents overstate a round body: take a bit less than the wider side.
+
             float radius = Mathf.Clamp(Mathf.Lerp(Mathf.Min(rx, rz), Mathf.Max(rx, rz), 0.5f) * 0.85f, 0.3f, 1.8f);
             float height = Mathf.Clamp(top, radius * 2f, 8f);
             capsule.radius = radius;
@@ -818,14 +725,12 @@ namespace Deepbound.Enemies
             if (!IsServer || IsDead || !agent.enabled || !agent.isOnNavMesh) return;
 
             ApplyKnockback();
-            // Chill slows the walk, not the attack timing: you get time to reposition, not
-            // a free win.
+
             agent.speed = (health.Chilled.Value ? moveSpeed * 0.5f : moveSpeed) * SpeedScale * World.DungeonDirector.WaterSlow(transform.position) * (Enraged ? EnrageSpeed : 1f) * World.DungeonDirector.OmenSpeed * World.DungeonDirector.EventSpeed;
-            // Keep the synced looks current: the ward, and rage running out.
+
             byte fx = (byte)((wardUp ? 1 : 0) | (Enraged && Time.time < enragedUntil ? 2 : 0) | (Severed ? 4 : 0));
             if (FxFlags.Value != fx) FxFlags.Value = fx;
 
-            // Still coming in through a wall, the floor or a rift: it waits (EnemyBrain.Entrance).
             TickHunter();
             if (Time.time < enteringUntil || Time.time < stunnedUntil)
             {
@@ -843,8 +748,6 @@ namespace Deepbound.Enemies
 
             if (attacking)
             {
-                // A guardian's swing is LOCKED to the wedge it drew on the floor (2026-11-13, the user: the crescents "track
-                // the player but stay on the ground and are impossible to dodge close range"). Common foes still track a little.
                 if (LocksSwing) transform.rotation = Quaternion.LookRotation(strikeDir);
                 else FaceTarget(0.35f);
                 if (Time.time >= strikeAt)
@@ -877,9 +780,9 @@ namespace Deepbound.Enemies
             var hadTarget = target;
             target = PickTarget();
             if (target != null && Searcher) TickSight();
-            // Lost you (out of sight too long, or a Rogue slipped into hiding): search where you were last seen.
+
             if (target == null && hadTarget != null && Searcher) SearchFor(hadTarget);
-            // First sight of you: a beat to rear up and rattle, so being spotted reads (and costs them a moment).
+
             if (target != null && !engaged)
             {
                 engaged = true;
@@ -900,7 +803,6 @@ namespace Deepbound.Enemies
             }
             if (target == null && Time.time < investigateUntil)
             {
-                // Heard something: go and look (still watching - PickTarget above sees you on the way).
                 agent.isStopped = false;
                 if (Time.time >= repathAt) { repathAt = Time.time + 0.4f; agent.SetDestination(investigateAt); }
                 if (FlatDistance(investigateAt) < 1.4f) investigateUntil = Mathf.Min(investigateUntil, Time.time + 1.2f);
@@ -941,10 +843,6 @@ namespace Deepbound.Enemies
             }
         }
 
-        /// <summary>
-        /// Where to run while chasing. Far away: straight at the target. Close in: to this
-        /// enemy's own slot on a ring around the target, so packs fan out and flank.
-        /// </summary>
         protected virtual Vector3 ChaseDestination(float distanceToTarget)
         {
             var t = target.transform.position;
@@ -954,13 +852,10 @@ namespace Deepbound.Enemies
             return NavMesh.SamplePosition(p, out var hit, 1.5f, NavMesh.AllAreas) ? hit.position : t;
         }
 
-        /// <summary>Bosses override this to use abilities. Return true if an action was started.</summary>
         protected virtual bool ChooseSpecialAttack(float distanceToTarget) => false;
 
-        /// <summary>True during a telegraphed wind-up: the window a heavy hit can break.</summary>
         protected bool WindingUp => attacking;
 
-        /// <summary>Interrupt whatever is being wound up, with a stagger. Subclasses cancel their own telegraphs too.</summary>
         protected virtual void InterruptWindup(float stagger)
         {
             attacking = false;
@@ -968,8 +863,6 @@ namespace Deepbound.Enemies
             PlayActionRpc(RigAction.Stagger, stagger);
         }
 
-        // ---- Move set: every rank-and-file melee enemy mixes its swing with a heavy blow, a two-hit
-        //      flurry, a wide sweep and a lunge. Each has its own tell (Status bits 8/16/32, the HUD glyph). ----
         public enum Move : byte { Swing = 0, Heavy = 1, Flurry = 2, Sweep = 3, Lunge = 4 }
         protected Move currentMove;
         private int flurryLeft;
@@ -980,7 +873,6 @@ namespace Deepbound.Enemies
         private readonly System.Collections.Generic.HashSet<Health> lungeHit = new System.Collections.Generic.HashSet<Health>();
         public const float LungeMin = 3f, LungeMax = 7f, LungeSpeed = 13f, LungeCooldown = 7f;
 
-        /// <summary>Does this enemy use the shared move set? Melee rank and file only.</summary>
         protected virtual bool UsesMoveSet => !IsBoss && attackRange <= 3f && damage > 0f;
 
         private Move PickMove()
@@ -990,7 +882,6 @@ namespace Deepbound.Enemies
             return r < 0.5f ? Move.Swing : r < 0.7f ? Move.Heavy : r < 0.86f ? Move.Flurry : Move.Sweep;
         }
 
-        /// <summary>Tests: start a melee swing at the current target now. True if it began.</summary>
         public bool ServerDebugSwing()
         {
             if (target == null) target = PickTarget();
@@ -998,24 +889,17 @@ namespace Deepbound.Enemies
             BeginAttack();
             return attacking;
         }
-        /// <summary>Tests: the committed swing direction, and whether a swing is winding up.</summary>
+
         public Vector3 StrikeDirection => strikeDir;
         public bool WindingSwing => attacking;
 
-        /// <summary>
-        /// THE OPENING (2026-11-13, the user: "timings where i can weave into enemy range, hit them and go back before another
-        /// hit"). After a melee blow lands the creature is spent until its recovery ends: it slumps (RigAction.Recover, eyes
-        /// dim, Status bit 64) and takes PUNISH x<see cref="Classes.Combos.PunishMultiplier"/>. It cannot strike again until the
-        /// slump ends and a fresh wind-up plays.
-        /// </summary>
         public bool Recovering => IsServer ? (!attacking && !IsStunned && Time.time < busyUntil && Time.time - lastStrikeAt < 3f) : (Status.Value & 64) != 0;
         private float lastStrikeAt = -10f, recoverPoseAt = -1f;
 
-        /// <summary>Guardians commit their swing to the direction of the floor warning; nothing turns it after.</summary>
         protected virtual bool LocksSwing => IsBoss;
-        /// <summary>The direction the current swing was committed to (at the start of its wind-up).</summary>
+
         protected Vector3 strikeDir = Vector3.forward;
-        /// <summary>The arc and reach the current move will strike with (the floor wedge draws exactly this).</summary>
+
         protected float MoveArc => currentMove == Move.Heavy ? Mathf.Min(attackArc, 60f) : currentMove == Move.Sweep ? 220f : attackArc;
         protected float MoveReach => attackRange + (currentMove == Move.Sweep ? 0.8f : 0.5f);
 
@@ -1030,7 +914,7 @@ namespace Deepbound.Enemies
             strikeDir = transform.forward; strikeDir.y = 0f;
             if (strikeDir.sqrMagnitude < 0.001f) strikeDir = Vector3.forward;
             strikeDir.Normalize();
-            // Never quicker than MinWindup (readability audit 2026-11-19): Frenzied under the Quickened Dead halved a ghoul's swing to 0.17 s.
+
             float w = Mathf.Max(MinWindup, windup * Pace * (currentMove == Move.Heavy ? 1.7f : currentMove == Move.Sweep ? 1.25f : 1f));
             flurryLeft = currentMove == Move.Flurry ? 1 : 0;
             attacking = true;
@@ -1058,7 +942,7 @@ namespace Deepbound.Enemies
             if (currentMove == Move.Heavy) ImpactThudRpc(transform.position + transform.forward * 1.2f);
             lastStrikeAt = Time.time;
             recoverPoseAt = flurryLeft > 0 ? -1f : Time.time + (currentMove == Move.Heavy ? 0.5f : currentMove == Move.Sweep ? 0.42f : 0.3f);
-            // Flurry: the second blow follows fast.
+
             if (flurryLeft > 0)
             {
                 flurryLeft--;
@@ -1076,7 +960,6 @@ namespace Deepbound.Enemies
             Vfx.Smoke(at, 2, 0.4f, 0.8f);
         }
 
-        /// <summary>Server: start a lunge if one fits (mid range, clear line, off cooldown). Returns true if it began.</summary>
         private bool TryLunge(float dist)
         {
             if (!UsesMoveSet || Time.time < lungeReadyAt || dist < LungeMin || dist > LungeMax || target == null) return false;
@@ -1102,16 +985,12 @@ namespace Deepbound.Enemies
         private float lungeStartAt = -1f;
         private float lungeSpeedNow = LungeSpeed, lungeMaxNow = LungeMax, lungeDamageNow = 1.25f;
 
-        // ---- The guardians' dash (2026-11-12, the user: "give bosses a dash to close the distance with ranged classes").
-        // A guardian whose target has kept more than BossDashMin away for FarSeconds lines up (a long red line on the
-        // floor, BossDashTell) and charges along it at BossDashSpeed, up to a pace short of where its target stood,
-        // bowling over whoever it meets. Step out of the line. ----
         public const float BossDashMin = 9f, BossDashMax = 18f, BossDashSpeed = 24f, BossDashCooldown = 9f, BossDashTell = 0.75f, FarSeconds = 2f;
         protected float bossDashReadyAt;
         private float farSince = -1f;
-        /// <summary>Server, tests: dashes made.</summary>
+
         public int BossDashes { get; private set; }
-        /// <summary>Bosses that may not dash right now (asleep, untouchable, mid-change) say so.</summary>
+
         protected virtual bool CanDash => IsBoss && moveSpeed > 0.5f;
 
         private bool TryBossDash(float dist)
@@ -1124,7 +1003,6 @@ namespace Deepbound.Enemies
             return ServerBossDash();
         }
 
-        /// <summary>Server: line up on the target and charge (tests call this too).</summary>
         public virtual bool ServerBossDash()
         {
             if (target == null) target = PickTarget();
@@ -1189,8 +1067,6 @@ namespace Deepbound.Enemies
         {
             if (taunter != null && Time.time < tauntUntil && PlayerLife.CanTarget(taunter)) return taunter;
 
-            // Rage: hunt whoever has angered it most - but only change its mind when someone clearly
-            // overtakes the one it is after (by a fifth), so the tank can hold it and a Rogue get round it.
             Health raged = null;
             float ragedThreat = 0f, currentThreat = 0f;
             foreach (var p in PlayerLife.All)
@@ -1206,10 +1082,9 @@ namespace Deepbound.Enemies
                 if (!targetValid || (raged != target && ragedThreat > currentThreat * SwitchThreshold)) return raged;
                 return target;
             }
-            // Stay on the current target while it is alive, visible and within leash.
+
             if (targetValid) return target;
 
-            // Looking costs a linecast per player: an idle pack in range did that every frame. Staggered, and too quick to see.
             if (Time.time < nextAcquire) return null;
             nextAcquire = Time.time + 0.15f + (NetworkObjectId % 5) * 0.02f;
 
@@ -1232,32 +1107,20 @@ namespace Deepbound.Enemies
             return best;
         }
 
-        // ------------------------------------------------------------------
-        // Rage (threat): who it wants dead
-        // ------------------------------------------------------------------
-
         private readonly Dictionary<ulong, float> threat = new Dictionary<ulong, float>();
         private float lastThreatTick, nextThreatSync;
         private static readonly List<ulong> threatKeys = new List<ulong>();
 
-        /// <summary>A rival must exceed the current target's rage by this much to take it.</summary>
         public const float SwitchThreshold = 1.2f;
 
-        /// <summary>Synced for elites, champions and bosses (the HUD's rage meter).</summary>
         public readonly NetworkVariable<ThreatView> Rage = new NetworkVariable<ThreatView>();
 
-        /// <summary>
-        /// How much rage a hit raises, by class: the Knight's whole job is to be the thing it hates
-        /// most; the Rogue works unnoticed until it strikes. (Healing raises rage too, see ServerHealThreat.)
-        /// </summary>
         public static float ClassThreat(Classes.ClassId c) => c == Classes.ClassId.Knight ? 2.6f : c == Classes.ClassId.Rogue ? 0.7f
             : c == Classes.ClassId.Ranger ? 0.85f : c == Classes.ClassId.Cleric ? 0.9f
             : c == Classes.ClassId.Flagellant ? 1.6f : c == Classes.ClassId.PlagueDoctor ? 0.9f : 1f;
 
-        /// <summary>How well this one leads a moving target: by depth, sharper for elites and bosses.</summary>
         protected float LeadSkill => Mathf.Clamp01(Difficulty.Lead(depthForLoot) + (Elite.Value ? 0.25f : 0f) + (IsBoss ? 0.15f : 0f));
 
-        /// <summary>Server: the direction to fire a projectile of <paramref name="speed"/> at the target, leading it.</summary>
         protected Vector3 AimDir(Vector3 origin, float speed) => target != null ? Aim.Lead(target, origin, speed, LeadSkill) - origin : transform.forward;
 
         public void ServerAddThreat(ulong player, float amount)
@@ -1269,7 +1132,6 @@ namespace Deepbound.Enemies
 
         public float ThreatOf(ulong player) => threat.TryGetValue(player, out var t) ? t : 0f;
 
-        /// <summary>Server (tests): move it, and its post, to a spot.</summary>
         public void ServerDebugPlace(Vector3 at)
         {
             if (NavMesh.SamplePosition(at, out var nh, 3f, NavMesh.AllAreas)) at = nh.position;
@@ -1277,7 +1139,6 @@ namespace Deepbound.Enemies
             home = at;
         }
 
-        /// <summary>Server: who it is after right now (tests).</summary>
         public Health CurrentTarget => target;
 
         private float TopThreat()
@@ -1287,7 +1148,6 @@ namespace Deepbound.Enemies
             return top;
         }
 
-        /// <summary>Server: someone mended an ally in this fight. Everything fighting near the healer resents it a little.</summary>
         public static void ServerHealThreat(Health healer, float healed)
         {
             if (healer == null || healed <= 0f) return;
@@ -1302,7 +1162,6 @@ namespace Deepbound.Enemies
                     && (h.transform.position - healer.transform.position).sqrMagnitude < 25f * 25f) b.ServerAddThreat(healer.NetworkObjectId, share);
         }
 
-        /// <summary>Server, each frame it thinks: rage cools slowly; standing in its face keeps it warm; the meter is synced.</summary>
         private void ServerTickThreat()
         {
             float dt = Mathf.Min(0.5f, Time.time - lastThreatTick);
@@ -1317,7 +1176,7 @@ namespace Deepbound.Enemies
                 if (t < 0.5f || !NetworkManager.SpawnManager.SpawnedObjects.ContainsKey(k)) threat.Remove(k);
                 else threat[k] = t;
             }
-            // Presence: whoever stands at arm's length is the obvious thing to hit.
+
             foreach (var p in PlayerLife.All)
                 if (p != null && PlayerLife.CanTarget(p.Health) && FlatDistance(p.transform.position) < attackRange + 1.8f)
                     ServerAddThreat(p.NetworkObjectId, 3f * dt);
@@ -1335,7 +1194,6 @@ namespace Deepbound.Enemies
             if (!Rage.Value.Equals(view)) Rage.Value = view;
         }
 
-        /// <summary>Wakes up every idle enemy within earshot onto the same target.</summary>
         private void AlertPack(Health found)
         {
             foreach (var h in Health.All)
@@ -1348,29 +1206,21 @@ namespace Deepbound.Enemies
 
         private float nextIdleStroll;
 
-        /// <summary>Idle undead shuffle about their post instead of standing like furniture (not archers on watch, statues or bosses).</summary>
         private bool IdleWanders => !IsBoss && visualKind != CharacterArt.SkeletonKind.Archer && visualKind != CharacterArt.SkeletonKind.Gargoyle &&
             visualKind != CharacterArt.SkeletonKind.Mourner && visualKind != CharacterArt.SkeletonKind.Mimic;
-
-        // ---- Patrols (2026-10-20): a band of the dead that walks between rooms ----
 
         private Vector3[] patrol;
         private int patrolIndex, patrolStep = 1;
         private EnemyBrain patrolLeader;
         private Vector3 patrolOffset;
 
-        /// <summary>Server: on a patrol (its post walks the route; a cleared room is not always safe).</summary>
         public bool OnPatrol => patrol != null;
-        /// <summary>Every peer: this one marches with a patrol (for the tip and the minimap).</summary>
+
         public readonly NetworkVariable<bool> Patrolling = new NetworkVariable<bool>();
         public bool PatrolSynced => Patrolling.Value;
-        /// <summary>Server, for tests: where the patrol is heading.</summary>
+
         public Vector3 PatrolGoal => home;
 
-        /// <summary>
-        /// Server: walk <paramref name="route"/> back and forth, or (with a <paramref name="leader"/>) keep
-        /// <paramref name="offset"/> from the leader's post; if the leader dies, carry on alone.
-        /// </summary>
         public void ServerSetPatrol(Vector3[] route, EnemyBrain leader, Vector3 offset)
         {
             if (route == null || route.Length < 2) return;
@@ -1402,7 +1252,6 @@ namespace Deepbound.Enemies
             agent.isStopped = false;
             if (patrol != null)
             {
-                // On the march: an unhurried walk to the next room, the band keeping together.
                 TickPatrol();
                 agent.speed *= 0.5f;
                 if (Time.time >= repathAt)
@@ -1421,7 +1270,7 @@ namespace Deepbound.Enemies
                 }
                 return;
             }
-            // At its post: a slow, aimless shuffle now and then.
+
             agent.speed *= 0.3f;
             if (Time.time >= nextIdleStroll)
             {
@@ -1437,8 +1286,7 @@ namespace Deepbound.Enemies
             var to = target.transform.position - transform.position;
             to.y = 0f;
             if (to.sqrMagnitude < 0.01f) return;
-            // During a wind-up the enemy only tracks slowly — strafing around a big swing
-            // is a legitimate dodge.
+
             transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(to), Time.deltaTime / sharpness);
         }
 
@@ -1456,11 +1304,6 @@ namespace Deepbound.Enemies
             return d.magnitude;
         }
 
-        // ------------------------------------------------------------------
-        // Crowd control
-        // ------------------------------------------------------------------
-
-        /// <summary>Server: abandon the attack being wound up (no stagger).</summary>
         protected void CancelWindup()
         {
             attacking = false;
@@ -1483,10 +1326,6 @@ namespace Deepbound.Enemies
         private float lureUntil;
         public bool Lured => Time.time < lureUntil;
 
-        /// <summary>
-        /// Server: a bone rattle (2026-11-07, crafted tool): it forgets everyone and walks to the noise for a while.
-        /// Bosses and statues pay no mind.
-        /// </summary>
         public void ServerLure(Vector3 at, float seconds)
         {
             if (!IsServer || IsDead || IsBoss || visualKind == CharacterArt.SkeletonKind.Mourner || visualKind == CharacterArt.SkeletonKind.Mimic) return;
@@ -1498,20 +1337,14 @@ namespace Deepbound.Enemies
             attacking = false;
         }
 
-        // ------------------------------------------------------------------
-        // HEARING (2026-11-16): running and fighting carry; an idle one goes to look where the noise came from
-        // (DungeonDirector.TickHearing). Unlike a lure it keeps its eyes open on the way.
-        // ------------------------------------------------------------------
-
         private Vector3 investigateAt;
         private float investigateUntil;
         public bool Investigating => Time.time < investigateUntil;
-        /// <summary>Server: it has someone to fight.</summary>
+
         public bool HasTarget => target != null;
-        /// <summary>Server, tests: noises that sent this one to look.</summary>
+
         public int Heard { get; private set; }
 
-        /// <summary>Server: something was heard at <paramref name="at"/>; idle, it walks over to look for a while.</summary>
         public virtual bool ServerInvestigate(Vector3 at, float seconds)
         {
             if (!IsServer || IsDead || IsBoss || target != null || Lured) return false;
@@ -1527,21 +1360,18 @@ namespace Deepbound.Enemies
         [Rpc(SendTo.ClientsAndHost)]
         private void HeardRpc()
         {
-            // A head turned your way: a grey "?" and a low sound, so you know you were heard (show, don't tell).
             float top = Rig != null ? Rig.transform.lossyScale.y * 2.1f : 2.1f;
             UI.GameHud.ShowCombo(transform.position + Vector3.up * top, "?", new Color(0.78f, 0.76f, 0.7f));
             if (VoicePitch > 0f) Sfx.Play(Sound.Growl, transform.position + Vector3.up * 1.4f, 0.35f, VoicePitch * 0.9f);
             else Sfx.Play(Sound.Rattle, transform.position + Vector3.up * 1.4f, 0.3f, Random.Range(0.8f, 0.95f));
         }
 
-        /// <summary>Server: a player shouted nearby (proximity voice). Idle enemies turn on them.</summary>
         public virtual void ServerHear(Health who)
         {
             if (IsDead || who == null || !PlayerLife.CanTarget(who)) return;
             if (target == null) target = who;
         }
 
-        /// <summary>Server: wake up hunting the nearest targetable player (ambush spawns).</summary>
         public void ServerAggroNearest()
         {
             float best = float.MaxValue;
@@ -1555,16 +1385,9 @@ namespace Deepbound.Enemies
 
         public bool IsStunned => Time.time < stunnedUntil;
 
-        /// <summary>
-        /// Server, at the top of a subclass's Update: stunned, it does nothing of its own (no casts, no
-        /// shots, no specials) and the base update holds it still. Returns true when it handled the frame.
-        /// Fixed 2026-10-20: subclasses used to keep casting and shooting through a stun.
-        /// </summary>
-        /// <summary>Server: held still until then (a boss's entrance), like a stun but with no EXPOSED.</summary>
         protected float heldUntil;
         public bool InEntrance => Time.time < heldUntil;
 
-        /// <summary>For the boss pose sheet (2026-11-14): hold still and strike <paramref name="action"/> for <paramref name="seconds"/>.</summary>
         public void ServerDebugPose(RigAction action, float seconds)
         {
             if (!IsServer) return;
@@ -1581,25 +1404,20 @@ namespace Deepbound.Enemies
             return true;
         }
 
-        /// <summary>Per-type walk-speed scale (archers creep while repositioning).</summary>
         protected virtual float SpeedScale => 1f;
 
-        /// <summary>Synced crowd-control state, for the status tags over enemies: bit 0 stunned, bit 1 taunted.</summary>
         public readonly NetworkVariable<byte> Status = new NetworkVariable<byte>();
 
         private void ServerSyncStatus()
         {
-            // Bits: 1 stunned, 2 taunted, 4 winding up an attack (the HUD shows a "!" tell).
             bool lungeTell = lungeStartAt > 0f || lunging;
             byte s = (byte)((IsStunned ? 1 : 0) | (Taunter != null ? 2 : 0) | (attacking || lungeTell ? 4 : 0)
                 | (attacking && currentMove == Move.Heavy ? 8 : 0) | (attacking && currentMove == Move.Sweep ? 16 : 0) | (lungeTell ? 32 : 0) | (Recovering ? 64 : 0));
             if (Status.Value != s) Status.Value = s;
         }
 
-        /// <summary>Who has this enemy taunted right now, or null.</summary>
         public Health Taunter => taunter != null && Time.time < tauntUntil ? taunter : null;
 
-        /// <summary>Server: lose track of someone (they vanished into smoke). True if it was hunting them.</summary>
         public bool ServerForget(Health h)
         {
             bool was = target == h || taunter == h;
@@ -1614,7 +1432,7 @@ namespace Deepbound.Enemies
             taunter = taunterHealth;
             tauntUntil = Time.time + seconds;
             target = taunterHealth;
-            // A taunt does not just turn its head: it seizes the top of its rage, with room to spare.
+
             if (taunterHealth != null) threat[taunterHealth.NetworkObjectId] = TopThreat() * 1.3f + 40f;
         }
 
@@ -1623,11 +1441,6 @@ namespace Deepbound.Enemies
             if (!Heavy) knockback += velocity;
         }
 
-        /// <summary>
-        /// Server: haul this enemy to a spot (the Flagellant's chain). False if it is too heavy to move.
-        /// 2026-11-20 (the user: "not an instant teleport"): it is dragged along the floor at <see cref="HaulSpeed"/>,
-        /// sliding round what is in the way, after the chain has had <paramref name="delay"/> to reach it.
-        /// </summary>
         public bool ServerYank(Vector3 to, float delay = 0f)
         {
             if (Heavy || IsBoss || IsDead || agent == null) return false;
@@ -1640,7 +1453,6 @@ namespace Deepbound.Enemies
         public const float HaulSpeed = 15f;
         private Coroutine haul;
 
-        /// <summary>Seconds a haul of this length takes (the chain's art holds taut that long).</summary>
         public static float HaulSeconds(float distance) => 0.12f + distance / HaulSpeed;
 
         private System.Collections.IEnumerator Haul(Vector3 to, float delay)
@@ -1651,7 +1463,7 @@ namespace Deepbound.Enemies
             {
                 var d = to - transform.position;
                 d.y = 0f;
-                // A jerk off its feet, then the long drag in.
+
                 float speed = HaulSpeed * Mathf.Lerp(0.45f, 1f, Mathf.Clamp01((Time.time - t0) / 0.12f));
                 float step = speed * Time.deltaTime;
                 if (d.magnitude <= step) { agent.Move(d); break; }
@@ -1666,14 +1478,13 @@ namespace Deepbound.Enemies
             if (blindTo != null && blindTo.NetworkObjectId == attackerId) blindTo = null;
             if (NetworkManager.SpawnManager.SpawnedObjects.TryGetValue(attackerId, out var who) && who.TryGetComponent<Progression.PlayerProgress>(out var hitter))
                 ServerAddThreat(attackerId, amount * ClassThreat(hitter.ClassId.Value));
-            // Poise: a big enough single hit breaks a wind-up.
+
             if (!IsBoss && WindingUp && amount >= health.Max.Value * Difficulty.PoiseBreakFraction)
             {
                 InterruptWindup(0.6f);
                 PoiseBreakRpc();
             }
 
-            // Getting hit from out of view still pulls aggro onto the attacker.
             if (target == null && NetworkManager.SpawnManager.SpawnedObjects.TryGetValue(attackerId, out var obj) &&
                 obj.TryGetComponent<Health>(out var attacker) && attacker.Team == Team.Players && PlayerLife.CanTarget(attacker))
             {
@@ -1695,12 +1506,11 @@ namespace Deepbound.Enemies
 
         protected virtual void OnDied(Health _)
         {
-            // Once only: the autoplay run saw a champion's death (card, hoard) twice in the same moment.
             if (IsDead) return;
             if (AffixKind == EliteAffix.Volatile || ChampionTrait == ChampionTraits.Marrowgrin) StartCoroutine(VolatileBlast());
             if (tithe > 0) World.DungeonDirector.Instance?.ServerDropLoot(transform.position + Vector3.up * 0.5f, LootKind.Gold, Mathf.RoundToInt(tithe * 1.5f), transform.position, fixedSum: true);
             if (AffixKind == EliteAffix.Splitting) World.DungeonDirector.Instance?.ServerSpawnSplit(transform.position, scaledPlayersBase, depthForLoot);
-            // Gravebound: its bones gather to rise again, unless someone stamps them out.
+
             if (AffixKind == EliteAffix.Gravebound) World.DungeonDirector.Instance?.ServerGravebound(this);
             else World.DungeonDirector.Instance?.ServerRestless(this);
             IsDead = true;
@@ -1711,11 +1521,10 @@ namespace Deepbound.Enemies
             PlayActionRpc(RigAction.Death, 1.1f);
             if (IsChampion && !NoLoot)
             {
-                // The champion's hoard: gear for everyone and a Sigil.
                 GearDrop.ServerSpawnForParty(transform.position, 1f, 0);
-                // And a rare draught or tome for the party (2026-10-24).
+
                 World.DungeonDirector.Instance?.ServerDropLoot(transform.position + Vector3.up * 0.5f + Vector3.back * 0.8f, LootKind.RareItem, (int)Progression.RareItems.Random(), transform.position);
-                // A Sigil for each player (it was one for the whole party), three champions in four (2026-11-07 economy).
+
                 for (int i = 0; i < Difficulty.Party; i++)
                     if (Random.value < ChampionSigilChance) World.DungeonDirector.Instance?.ServerDropLoot(transform.position + Vector3.up * 0.5f + Quaternion.Euler(0f, i * 90f, 0f) * Vector3.forward * 0.8f, LootKind.Sigil, 1, transform.position);
                 ChampionFallenRpc(Title.Value.ToString());
@@ -1723,21 +1532,18 @@ namespace Deepbound.Enemies
             }
             if (!NoLoot && lootPrefab != null)
             {
-                LootDrop.ServerSpawnFromTable(lootPrefab, Elite.Value ? LootTable.Elite : Loot, transform.position, (1f + 0.3f * World.DungeonDirector.Tier(depthForLoot)) /* gold: gentler with depth (2026-10-21, 2,200 gold by floor 4); the setting's gold is in Difficulty.GoldIncome now */ * World.DungeonDirector.OmenGold * World.DungeonDirector.EventGold * (Elite.Value ? World.DungeonDirector.EventEliteLoot : 1f),
+                LootDrop.ServerSpawnFromTable(lootPrefab, Elite.Value ? LootTable.Elite : Loot, transform.position, (1f + 0.3f * World.DungeonDirector.Tier(depthForLoot))  * World.DungeonDirector.OmenGold * World.DungeonDirector.EventGold * (Elite.Value ? World.DungeonDirector.EventEliteLoot : 1f),
                     this is BossBrain || IsChampion || this is HoarderBrain || this is MimicBrain ? Difficulty.FixedLootShare(Difficulty.Party) : Difficulty.KillLootShare(Difficulty.Party));
-                // Gear, rolled for each player: always from a boss, sometimes from an elite.
+
                 if (this is BossBrain)
                 {
                     GearDrop.ServerSpawnForParty(transform.position, 1f, 1, (BossBrain)this);
-                    // Guardians no longer drop a Sigil each (2026-11-07 economy): with the champions' that was 20 a run
-                    // against the 14 that rank both abilities to 5. Champions, chests, elites and the dungeon's odd corners carry them.
                 }
                 else if (Elite.Value) GearDrop.ServerSpawnForParty(transform.position, 0.18f * Difficulty.DropCut, 0);
             }
             Invoke(nameof(Despawn), 4f);
         }
 
-        /// <summary>Volatile: the corpse swells and bursts. Get clear of the ring.</summary>
         private System.Collections.IEnumerator VolatileBlast()
         {
             var at = transform.position;
@@ -1752,7 +1558,7 @@ namespace Deepbound.Enemies
         private void VolatileWarnRpc(Vector3 at)
         {
             Telegraph.Show(at, 3.2f, 1.3f, null, new Color(1f, 0.45f, 0.1f, 0.4f));
-            // A fuse you can hear (readability audit 2026-11-19).
+
             Sfx.Play(Sound.Fire, at + Vector3.up * 0.8f, 0.8f, 0.7f);
         }
 
@@ -1775,14 +1581,6 @@ namespace Deepbound.Enemies
             if (NetworkObject != null && NetworkObject.IsSpawned) NetworkObject.Despawn();
         }
 
-        // ------------------------------------------------------------------
-        // Client presentation
-        // ------------------------------------------------------------------
-
-        /// <summary>
-        /// The creatures with throats (2026-10-24, recorded growls): the pitch of their voice, 0 for the bony dead,
-        /// who rattle instead.
-        /// </summary>
         protected float VoicePitch
         {
             get
@@ -1815,7 +1613,7 @@ namespace Deepbound.Enemies
                 case RigAction.WindSweep:
                 case RigAction.Windup:
                     if (voice > 0f && (Random.value < 0.35f || Elite.Value)) Sfx.Play(Sound.MonsterAttack, transform.position + Vector3.up * 1.4f, 0.7f, voice);
-                    // The voiceless (bones) wound up in silence: the dodge window could not be heard from behind.
+
                     else if (voice <= 0f) Sfx.Play(Sound.Rattle, transform.position + Vector3.up * 1.2f, 0.4f, 1.3f);
                     break;
                 case RigAction.Death:
@@ -1823,7 +1621,7 @@ namespace Deepbound.Enemies
                     if (voice > 0f) Sfx.Play(Sound.MonsterDie, transform.position + Vector3.up * 1.2f, 0.9f, voice);
                     BoneBurst.Spawn(transform.position, Rig != null ? Rig.transform.lossyScale.y : 1f, Elite.Value);
                     foreach (var c in GetComponentsInChildren<Collider>()) c.enabled = false;
-                    // The rank and file fall apart once they have crumpled; bosses keep their fall.
+
                     if (!(this is BossBrain)) StartCoroutine(FallApart(duration * 0.5f));
                     break;
             }
@@ -1875,8 +1673,6 @@ namespace Deepbound.Enemies
             Sfx.Play(Sound.Rattle, transform.position + Vector3.up, 0.8f, 1.2f);
             if (Rig != null)
             {
-                // Every hit jolts the body away from where it came; a heavy one still staggers.
-                // The server knows the attacker's spot; clients take the nearest player as the source.
                 var from = IsServer ? health.LastHitAt : transform.position - transform.forward;
                 if (!IsServer)
                 {

@@ -6,11 +6,6 @@ using UnityEngine;
 
 namespace Deepbound.World
 {
-    /// <summary>
-    /// A lectern with an open book: one page of Cathedra's history (UI.Journal). F reads it: the page
-    /// opens on screen and goes into your journal (kept across runs). Each player keeps their own
-    /// journal; the page stays for everyone to read.
-    /// </summary>
     public class LorePage : Interactable
     {
         public readonly NetworkVariable<byte> Index = new NetworkVariable<byte>();
@@ -31,7 +26,6 @@ namespace Deepbound.World
             if (isNew) Sfx.Play2D(Sound.Relic, 0.4f);
         }
 
-        /// <summary>Tests: read it as the local player would.</summary>
         public void DebugRead()
         {
             UI.Journal.Add(Index.Value);
@@ -41,7 +35,7 @@ namespace Deepbound.World
         public override void OnNetworkSpawn()
         {
             base.OnNetworkSpawn();
-            // A wooden lectern, a slanted top, an open book, and a candle burning beside it.
+
             MeshKit.Part(transform, "Post", MeshKit.Box(new Vector3(0.14f, 1.0f, 0.14f)), Mat.Wood, Vector3.up * 0.5f);
             MeshKit.Part(transform, "Foot", MeshKit.Box(new Vector3(0.5f, 0.06f, 0.4f)), Mat.Wood, Vector3.up * 0.03f);
             MeshKit.Part(transform, "Top", MeshKit.Box(new Vector3(0.55f, 0.04f, 0.4f)), Mat.Wood, new Vector3(0f, 1.05f, 0f), new Vector3(-22f, 0f, 0f));
@@ -62,7 +56,6 @@ namespace Deepbound.World
 
         private void Update()
         {
-            // Unread pages glow warmer, so you can tell from the doorway.
             if (glow != null) glow.intensity = UI.Journal.Has(Index.Value) ? 0.8f : 1.5f + Mathf.Sin(Time.time * 2f) * 0.25f;
         }
     }

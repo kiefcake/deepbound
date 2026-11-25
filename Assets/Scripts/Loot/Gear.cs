@@ -6,34 +6,23 @@ namespace Deepbound.Loot
 {
     public enum GearSlot : byte { Armor = 0, Charm = 1 }
 
-    /// <summary>
-    /// The named gear pieces. APPEND ONLY: synced as a byte. Every piece works for every
-    /// class — effects are written against things all classes share (being hit, dodging,
-    /// cooldowns, kills) — so a drop is never for the wrong class.
-    /// </summary>
     public enum GearId : byte
     {
         None = 0,
         OssuaryPlate = 1, GraveclothMantle = 2, TidewovenRobe = 3, ThornhideJerkin = 4, KingsguardHauberk = 5, AshenShroud = 6,
         LanternOfTheLost = 7, HuntersTooth = 8, CrackedHourglass = 9, Bloodstone = 10, EmberLocket = 11, LuckyKnucklebone = 12,
-        // Boss legendaries: each boss's own piece, never rolled at random.
+
         WardensBulwark = 13, LichPhylactery = 14, HollowCrown = 15, CardinalVestments = 16,
-        // More rollable pieces (after the legendaries: ids are synced, append only).
+
         BellringersHauberk = 17, GravediggersCoat = 18, RosaryOfAsh = 19, WitchboneFetish = 20,
-        // The Wardens' own legendaries (2026-10-27; before, a Warden fell through to the Hollow King's crown).
+
         MarrowgutsRib = 21, DrownedKnightsMail = 22, AldousOath = 23, ChoirmastersBaton = 24, GorrsHide = 25,
-        // The Panoply's armour (2026-11-07): only found in a guarded armoury crypt, never rolled.
+
         Rimecloak = 26, WraithstepCuirass = 27, MartyrsShell = 28, SunwardPlate = 29,
-        // Trade-offs (2026-11-12, the user: "a very tanky knight, but also if the player chooses to lean into dps that would
-        // be also allowed"): rollable pieces that give a lot of one thing for some of another.
+
         BulwarkPlate = 30, BerserkersHarness = 31, PilgrimsMail = 32, GlassHeart = 33, StoneheartAmulet = 34, DuelistsSash = 35,
     }
 
-    /// <summary>
-    /// Gear data and maths. A piece's stats are its stat weights times the stat's unit,
-    /// scaled by the depth it dropped at and its quality — so the same named piece found
-    /// deeper, or finer, is the same item made stronger.
-    /// </summary>
     public static class Gear
     {
         private struct Def
@@ -43,7 +32,6 @@ namespace Deepbound.Loot
             public (StatType stat, float weight)[] Stats;
         }
 
-        // What one weight point of each stat is worth.
         private static readonly float[] Unit = { 10f, 6f, 2f, 1f, 2f, 2f, 3f, 3f };
 
         private static readonly Dictionary<GearId, Def> Defs = new Dictionary<GearId, Def>
@@ -122,7 +110,6 @@ namespace Deepbound.Loot
                 Effect = "Your kills call down Judgement: a pillar of holy fire erupts there a moment later (once a second).", Stats = new[] { (StatType.DEF, 2f), (StatType.WIS, 2f), (StatType.ATT, 1.5f) } } },
         };
 
-        /// <summary>Random rolls draw from these; the boss pieces only come from their boss.</summary>
         private static readonly GearId[] Rollable =
         {
             GearId.OssuaryPlate, GearId.GraveclothMantle, GearId.TidewovenRobe, GearId.ThornhideJerkin, GearId.KingsguardHauberk, GearId.AshenShroud,
@@ -131,11 +118,8 @@ namespace Deepbound.Loot
             GearId.BulwarkPlate, GearId.BerserkersHarness, GearId.PilgrimsMail, GearId.GlassHeart, GearId.StoneheartAmulet, GearId.DuelistsSash,
         };
 
-        /// <summary>The rollable pieces for one slot (the smith sells armour, Silas pendants).</summary>
         public static GearId[] RollableOf(GearSlot slot) => System.Array.FindAll(Rollable, id => SlotOf(id) == slot);
 
-        /// <summary>The legendary a boss can drop, by its type.</summary>
-        /// <summary>The Panoply's pieces: one per guarded armoury, never rolled.</summary>
         public static readonly GearId[] PanoplyPieces = { GearId.Rimecloak, GearId.WraithstepCuirass, GearId.MartyrsShell, GearId.SunwardPlate };
         private static readonly GearId[] WardenPieces = { GearId.MarrowgutsRib, GearId.DrownedKnightsMail, GearId.AldousOath, GearId.ChoirmastersBaton, GearId.GorrsHide };
 
@@ -143,7 +127,7 @@ namespace Deepbound.Loot
             : boss is Enemies.GravewardenBrain ? GearId.WardensBulwark
             : boss is Enemies.TideLichBrain ? GearId.LichPhylactery
             : boss is Enemies.CardinalBrain ? GearId.CardinalVestments
-            // The Unsung ends the run: its fall is the reward, not a crown you will never wear.
+
             : boss is Enemies.UnsungBrain ? GearId.None
             : GearId.HollowCrown;
 
@@ -162,7 +146,6 @@ namespace Deepbound.Loot
 
         private static float Power(GearItem item) => (1f + 0.3f * item.Depth) * QualityPower[item.Quality];
 
-        /// <summary>What this item adds to one stat (may be negative).</summary>
         public static float StatValue(GearItem item, StatType stat)
         {
             if (item.IsEmpty || !Defs.TryGetValue(item.Kind, out var d)) return 0f;
@@ -174,14 +157,12 @@ namespace Deepbound.Loot
             return 0f;
         }
 
-        /// <summary>The stats this item touches, in display order.</summary>
         public static IEnumerable<StatType> StatsOf(GearItem item)
         {
             if (item.IsEmpty || !Defs.TryGetValue(item.Kind, out var d)) yield break;
             foreach (var (s, _) in d.Stats) yield return s;
         }
 
-        /// <summary>"+4 DEF, +20 HP" — the stat line in one string.</summary>
         public static string StatLine(GearItem item)
         {
             var parts = new List<string>();
@@ -193,16 +174,12 @@ namespace Deepbound.Loot
             return string.Join(", ", parts);
         }
 
-        /// <summary>Embers to refine a piece one quality step (Worn→Fine→Masterwork). 0 if it cannot be.</summary>
         public static int RefineCost(GearItem item) => item.IsEmpty || item.Quality >= 2 ? 0 : 30 + 30 * item.Quality;
 
-        /// <summary>Embers to attune a piece to a deeper floor, so a favourite keeps up.</summary>
         public static int AttuneCost(GearItem item, int depth) => item.IsEmpty || depth <= item.Depth ? 0 : 20 * (depth - item.Depth);
 
-        /// <summary>Embers you get for breaking an unwanted piece down.</summary>
         public static int ScrapValue(GearItem item) => item.IsEmpty ? 0 : Enemies.Difficulty.Embers(5 + 4 * item.Quality + 3 * item.Depth);
 
-        /// <summary>A random piece for the given depth. <paramref name="luck"/> 0 = normal, 1 = boss/vault.</summary>
         public static GearItem Roll(int depth, int luck)
         {
             int id = (int)Rollable[Random.Range(0, Rollable.Length)];

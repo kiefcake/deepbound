@@ -4,12 +4,6 @@ using UnityEngine;
 
 namespace Deepbound.World
 {
-    /// <summary>
-    /// Painted shop signs for the camp (2026-11-07, the user: stations should show what they are from a distance, "Both":
-    /// signs and names). Each sign is a pixel picture drawn in code: a dark board with a gold rule, the trade's icon on the
-    /// left and its word in a 5x7 pixel capital on the right, point-filtered to sit with the retro look. <see cref="Hang"/>
-    /// builds a wooden board on two chains; <see cref="Flat"/> a board fixed to a wall or a beam.
-    /// </summary>
     public static class SignArt
     {
         public enum Icon { Potion, Anvil, Needle, Sword, Rune, Candle, Mug, Dice, Scroll, Bell, Target }
@@ -48,7 +42,6 @@ namespace Deepbound.World
             ['\''] = new[] { "..#..", "..#..", ".....", ".....", ".....", ".....", "....." },
         };
 
-        // 12x12 icons, top row first. Letters pick colours: o outline, a gold, b body, c accent, d dark accent.
         private static readonly Dictionary<Icon, string[]> Icons = new Dictionary<Icon, string[]>
         {
             [Icon.Potion] = new[] { "....oooo....", "....oaao....", ".....oo.....", ".....oo.....", "...oobboo...", "..obbbbbbo..", ".obbcbbbbbo.", ".obcbbbbbbo.", ".obbbbbbbbo.", ".obbbbbbbbo.", "..obbbbbbo..", "...oooooo..." },
@@ -66,7 +59,6 @@ namespace Deepbound.World
 
         private static readonly Dictionary<Icon, Color32[]> IconColours = new Dictionary<Icon, Color32[]>
         {
-            // b body, c accent, d dark accent
             [Icon.Potion] = new[] { C(190, 40, 46), C(255, 190, 180), C(120, 20, 26) },
             [Icon.Anvil] = new[] { C(120, 124, 132), C(200, 200, 210), C(70, 70, 80) },
             [Icon.Needle] = new[] { C(120, 80, 50), C(160, 60, 140), C(90, 40, 80) },
@@ -82,7 +74,6 @@ namespace Deepbound.World
 
         private static Color32 C(byte r, byte g, byte b) => new Color32(r, g, b, 255);
 
-        /// <summary>The painted face of a sign: icon left, word right.</summary>
         public static Texture2D Paint(string word, Icon icon)
         {
             var tex = new Texture2D(W, H, TextureFormat.RGBA32, false) { name = "Sign_" + word, filterMode = FilterMode.Point, wrapMode = TextureWrapMode.Clamp };
@@ -95,7 +86,7 @@ namespace Deepbound.World
                     bool gold = x == 2 || y == 2 || x == W - 3 || y == H - 3;
                     px[y * W + x] = border ? edge : gold ? rule : (y % 5 == 0 || (x * 7 + y * 3) % 23 == 0) ? grain : board;
                 }
-            // The icon, 12x12 at double size, centred on the left.
+
             var cols = IconColours[icon];
             var rows = Icons[icon];
             int ix = 5, iy = (H + 24) / 2 - 1;
@@ -112,7 +103,7 @@ namespace Deepbound.World
                             if (x > 2 && y > 2 && x < W - 3 && y < H - 3) px[y * W + x] = col;
                         }
                 }
-            // The word, 5x7 capitals at double size if it fits, else single.
+
             word = word.ToUpperInvariant();
             int scale = 2;
             int textW = Measure(word, scale);
@@ -133,7 +124,7 @@ namespace Deepbound.World
                                 int x = tx + c * scale + sx, y = ty - r * scale - sy;
                                 if (x < 0 || y < 0 || x >= W || y >= H) continue;
                                 px[y * W + x] = ink;
-                                if (y - 1 >= 0 && px[(y - 1) * W + x].r != ink.r) px[(y - 1) * W + x] = edge; // a drop shadow
+                                if (y - 1 >= 0 && px[(y - 1) * W + x].r != ink.r) px[(y - 1) * W + x] = edge;
                             }
                     }
                 tx += 6 * scale;
@@ -152,13 +143,12 @@ namespace Deepbound.World
 
         private static Mesh quad, quadBack;
 
-        /// <summary>A quad in the XY plane facing +Z (the back one faces -Z with its picture the right way round).</summary>
         private static Mesh Quad(bool back)
         {
             if (back ? quadBack != null : quad != null) return back ? quadBack : quad;
             var m = new Mesh { name = back ? "SignBack" : "SignFace" };
             m.vertices = new[] { new Vector3(-0.5f, -0.5f, 0f), new Vector3(-0.5f, 0.5f, 0f), new Vector3(0.5f, 0.5f, 0f), new Vector3(0.5f, -0.5f, 0f) };
-            // Facing +Z: seen from +Z looking -Z, the viewer's right is -X, so the picture's left goes to +X.
+
             m.uv = back
                 ? new[] { new Vector2(0f, 0f), new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(1f, 0f) }
                 : new[] { new Vector2(1f, 0f), new Vector2(1f, 1f), new Vector2(0f, 1f), new Vector2(0f, 0f) };
@@ -186,7 +176,6 @@ namespace Deepbound.World
             return go;
         }
 
-        /// <summary>A board hung on two short chains under <paramref name="top"/>, readable from both sides, facing <paramref name="facing"/>.</summary>
         public static void Hang(Transform parent, MeshKit.Batcher d, Vector3 top, Vector3 facing, string word, Icon icon, float width = 1.15f)
         {
             facing.y = 0f; facing.Normalize();
@@ -202,8 +191,6 @@ namespace Deepbound.World
             Face(parent, tex, centre - facing * 0.027f, rot, new Vector2(width, h), true);
         }
 
-        /// <summary>A small plaque (its own board and painted face, no batcher), for runtime dressing such as the camp's
-        /// keepsakes. Returns the face, so the caller can dim or gild it.</summary>
         public static Renderer Plaque(Transform parent, Vector3 centre, Vector3 facing, string word, Icon icon, float width)
         {
             facing.y = 0f; facing.Normalize();
@@ -215,7 +202,6 @@ namespace Deepbound.World
             return Face(parent, Paint(word, icon), centre + facing * 0.022f, rot, new Vector2(width, h), false).GetComponent<Renderer>();
         }
 
-        /// <summary>A board fixed flat (on a wall, a beam, a post), its face toward <paramref name="facing"/>.</summary>
         public static void Flat(Transform parent, MeshKit.Batcher d, Vector3 centre, Vector3 facing, string word, Icon icon, float width = 1.15f)
         {
             facing.y = 0f; facing.Normalize();
@@ -225,7 +211,6 @@ namespace Deepbound.World
             Face(parent, Paint(word, icon), centre + facing * 0.027f, rot, new Vector2(width, h), false);
         }
 
-        /// <summary>A post with an arm and a hanging sign off it, for stations with no stall to hang one from.</summary>
         public static void Post(Transform parent, MeshKit.Batcher d, Vector3 foot, Vector3 arm, Vector3 facing, string word, Icon icon)
         {
             arm.y = 0f; arm.Normalize();

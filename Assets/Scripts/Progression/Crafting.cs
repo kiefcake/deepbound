@@ -2,18 +2,10 @@ using UnityEngine;
 
 namespace Deepbound.Progression
 {
-    /// <summary>The three crafting parts (2026-11-07). Append only: their counts are packed in <see cref="PlayerProgress.Parts"/>.</summary>
     public enum Part : byte { Bone, Cloth, Iron }
 
-    /// <summary>What a recipe makes. Append only (sent by index over the network).</summary>
     public enum CraftKind : byte { Potion, Lining, Edge, Boots, Caltrops, Rattle }
 
-    /// <summary>
-    /// Crafting from dungeon parts (2026-11-07, the user: parts reset each run; recipes for potions and flasks, run upgrades,
-    /// and traps and tools; crafted ANYWHERE from the inventory). Bone, cloth and iron drop from the dead, urns and chests
-    /// (<see cref="Loot.LootTable"/>) and scrapping gear gives iron. Recipes are fixed; <see cref="PlayerProgress.CraftRpc"/>
-    /// spends the parts on the server.
-    /// </summary>
     public static class Crafting
     {
         public struct Recipe
@@ -21,13 +13,12 @@ namespace Deepbound.Progression
             public string Name, Description;
             public int Bone, Cloth, Iron;
             public CraftKind Kind;
-            public int Arg;   // Potion: the Flasks.Kind
+            public int Arg;
         }
 
         public const int MaxUpgrade = 3, MaxTools = 5, PartCap = 999;
         public const float LiningDefense = 2f, EdgeDamage = 0.03f, BootsSpeed = 0.03f;
 
-        /// <summary>How many of each tool this player may carry (Tinker, from Legacy, raises it).</summary>
         public static int ToolCap(Component who) => Legacy.Has(who, Boon.Tinker) ? Legacy.TinkerTools : MaxTools;
 
         public static readonly Recipe[] Recipes =
@@ -55,7 +46,6 @@ namespace Deepbound.Progression
 
         public static string ToolName(CraftKind k) => k == CraftKind.Caltrops ? "Caltrops" : k == CraftKind.Rattle ? "Bone Rattle" : "";
 
-        // ---- Tools on the field: caltrops (server ticked by the thrower's ToolBelt) and the rattle's lure.
         public const float CaltropRadius = 2f, CaltropSeconds = 8f, CaltropTick = 0.5f, CaltropDamage = 4f, ToolRange = 12f;
         public const float RattleRadius = 10f, RattleSeconds = 4f;
     }

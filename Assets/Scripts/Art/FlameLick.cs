@@ -2,7 +2,6 @@ using UnityEngine;
 
 namespace Deepbound.Art
 {
-    /// <summary>Flickers a flame pivot that has no Torch of its own (the bonfire's side licks).</summary>
     public class FlameLick : MonoBehaviour
     {
         private Vector3 rest;

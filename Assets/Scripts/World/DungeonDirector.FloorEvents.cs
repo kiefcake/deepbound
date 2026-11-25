@@ -3,29 +3,8 @@ using UnityEngine;
 
 namespace Deepbound.World
 {
-    /// <summary>Append only: synced.</summary>
     public enum FloorEvent : byte { None, Gilded, Swarm, Marching, BloodTithe, Bountiful, LongNight, Embertide, BoneChoir, Muster, Quicksilver, Ascendant, Restless, EmberMarch }
 
-    /// <summary>
-    /// Floor events (2026-10-20): an omen sets the whole run; an event is one floor's twist, rolled when the
-    /// floor begins (40% from floor 2, never in tests) and named on the floor banner. Each trades a risk for
-    /// a reward, so no two descents feel alike:
-    /// <list type="bullet">
-    /// <item><b>Gilded Halls</b>: the dead carry 60% more gold.</item>
-    /// <item><b>The Swarm</b>: 35% more of the dead; 40% more embers.</item>
-    /// <item><b>The Dead March</b>: two more patrols walk the halls; 25% more gold.</item>
-    /// <item><b>Blood Tithe</b>: every kill mends the killer 4%, but you take 15% more damage.</item>
-    /// <item><b>Bountiful</b>: every cleared room leaves something behind.</item>
-    /// <item><b>The Long Night</b> (2026-10-23): twice the elites, and they carry half as much again.</item>
-    /// <item><b>Embertide</b>: the dead smoulder when struck, so any frost cracks them (Thermal Shock); their blows hurt 10% more.</item>
-    /// <item><b>The Bone Choir</b>: elites sing slow rings of souls to weave through; 30% more embers.</item>
-    /// <item><b>The Warlords' Muster</b> (2026-10-27): three champions walk this floor instead of one.</item>
-    /// <item><b>Quicksilver</b> (2026-10-27): you and the dead move 15% faster; 30% more embers.</item>
-    /// <item><b>Ascendant</b> (2026-11-22): ultimates charge 50% faster (Convergence comes round more often); enemies deal 10% more.</item>
-    /// <item><b>The Ember March</b> (2026-11-22): every elite is Emberbound and trails fire; 50% more embers.</item>
-    /// <item><b>The Restless Dead</b> (2026-11-22): a fifth of the ordinary dead leave bones that rise again unless stamped; 40% more embers.</item>
-    /// </list>
-    /// </summary>
     public partial class DungeonDirector
     {
         public const float FloorEventChance = 0.4f, TitheHeal = 0.04f, TitheHurt = 1.15f;
@@ -65,16 +44,15 @@ namespace Deepbound.World
             : e == FloorEvent.Muster ? new Color(1f, 0.76f, 0.3f) : e == FloorEvent.Quicksilver ? new Color(0.75f, 0.85f, 0.9f)
             : e == FloorEvent.Ascendant ? new Color(1f, 0.95f, 0.75f) : e == FloorEvent.Restless ? new Color(0.75f, 0.7f, 0.6f) : e == FloorEvent.EmberMarch ? new Color(1f, 0.5f, 0.2f) : Color.white;
 
-        // Effects, read on the server.
         public static float EventGold => CurrentEvent == FloorEvent.Gilded ? 1.6f : CurrentEvent == FloorEvent.Marching ? 1.25f : 1f;
         public static float EventCrowd => CurrentEvent == FloorEvent.Swarm ? 1.35f : 1f;
         public static float EventEmbers => CurrentEvent == FloorEvent.EmberMarch ? 1.5f : CurrentEvent == FloorEvent.Swarm || CurrentEvent == FloorEvent.Restless ? 1.4f : CurrentEvent == FloorEvent.BoneChoir || CurrentEvent == FloorEvent.Quicksilver ? 1.3f : 1f;
-        /// <summary>Ascendant: how fast ultimates charge.</summary>
+
         public static float EventUltCharge => CurrentEvent == FloorEvent.Ascendant ? 1.5f : 1f;
         public const float AscendantHurt = 1.1f, RestlessChance = 0.2f;
-        /// <summary>Tests: every ordinary death on The Restless Dead leaves bones.</summary>
+
         public static bool ForceRestless;
-        /// <summary>Quicksilver: players' and the dead's feet (any peer: the event is synced).</summary>
+
         public static float EventSpeed => CurrentEvent == FloorEvent.Quicksilver ? 1.15f : 1f;
         public static int EventChampions => CurrentEvent == FloorEvent.Muster ? 3 : 1;
         public static float EventElites => CurrentEvent == FloorEvent.LongNight ? 2f : 1f;
@@ -83,7 +61,6 @@ namespace Deepbound.World
         public static int EventPatrols => CurrentEvent == FloorEvent.Marching ? 2 : 0;
         public static float EventClearChance => CurrentEvent == FloorEvent.Bountiful ? 1f : RoomClearRewardChance;
 
-        /// <summary>Server: roll this floor's event (before enemies spawn, so the crowd and patrols see it).</summary>
         private void RollFloorEvent(int depth)
         {
             var e = FloorEvent.None;
@@ -98,7 +75,6 @@ namespace Deepbound.World
             Combat.Health.FloorPlayerDamageScale = 1f;
         }
 
-        /// <summary>Server, for tests: force an event on this floor.</summary>
         public void ServerDebugEvent(FloorEvent e)
         {
             HookEmbertide();
@@ -108,7 +84,6 @@ namespace Deepbound.World
 
         private static float PlayerHurtFor(FloorEvent e) => e == FloorEvent.BloodTithe ? TitheHurt : e == FloorEvent.Embertide ? EmbertideHurt : e == FloorEvent.Ascendant ? AscendantHurt : 1f;
 
-        /// <summary>Server: an ordinary enemy died; on The Restless Dead it may leave bones that rise again.</summary>
         public void ServerRestless(Enemies.EnemyBrain brain)
         {
             if (CurrentEvent != FloorEvent.Restless || brain == null || brain.Elite.Value || brain is Enemies.BossBrain || Random.value >= (ForceRestless ? 1f : RestlessChance)) return;
@@ -117,7 +92,6 @@ namespace Deepbound.World
 
         private static bool embertideHooked;
 
-        /// <summary>Server, once: Embertide scorches whatever a player strikes (so frost then cracks it).</summary>
         private static void HookEmbertide()
         {
             if (embertideHooked) return;
@@ -133,7 +107,6 @@ namespace Deepbound.World
 
         private float nextChoir;
 
-        /// <summary>Server, each frame of a floor: the Bone Choir's elites sing.</summary>
         private void TickBoneChoir()
         {
             HookEmbertide();
@@ -165,7 +138,6 @@ namespace Deepbound.World
             Art.Sfx.Play(Art.Sound.Whisper, origin, 0.6f, 0.8f);
         }
 
-        /// <summary>Server: a player landed a killing blow (Blood Tithe pays it back in blood).</summary>
         public static void ServerOnPlayerKill(Combat.Health killer)
         {
             if (CurrentEvent != FloorEvent.BloodTithe || killer == null || !killer.IsAlive) return;

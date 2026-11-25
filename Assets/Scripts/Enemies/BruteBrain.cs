@@ -4,14 +4,6 @@ using UnityEngine;
 
 namespace Deepbound.Enemies
 {
-    /// <summary>
-    /// Bone Brute: a slow, massive skeleton with a stone maul — a mini-boss in a normal
-    /// room. It cannot be shoved, and its attack is a ground pound with a filling circle
-    /// telegraph: leave the circle, or Shield Bash the wind-up to cancel it.
-    ///
-    /// It exists to anchor a fight: while it lumbers toward the tank, everything else in
-    /// the room is where the damage dealers should be looking.
-    /// </summary>
     public class BruteBrain : EnemyBrain
     {
         [SerializeField] private float poundRadius = 2.8f;
@@ -21,10 +13,9 @@ namespace Deepbound.Enemies
         protected override void BeginAttack()
         {
             base.BeginAttack();
-            // The pound is centred a little in front of it, where the maul lands.
+
             var at = transform.position + transform.forward * 1.2f;
-            // READABILITY (2026-11-19): the circle used the bare wind-up, but the move set stretches it (heavy x1.7, sweep x1.25)
-            // and rage/frenzy shrink it: the circle filled long before the blow, or the blow landed before it was full.
+
             TelegraphRpc(at, poundRadius, Mathf.Max(0.1f, strikeAt - Time.time));
         }
 

@@ -8,11 +8,6 @@ using UnityEngine;
 
 namespace Deepbound.UI
 {
-    /// <summary>
-    /// Teach by play: the first time a player meets a mechanic, one short tip says what it is
-    /// and what to do about it — then never again on this machine (Options can reset them,
-    /// or turn them off). One tip at a time, queued, each on screen for a few seconds.
-    /// </summary>
     public static class Tips
     {
         public static readonly string[] Keys =
@@ -27,16 +22,10 @@ namespace Deepbound.UI
         private static float shownAt = -100f, nextCheck;
         private const float Duration = 7f;
         private static readonly System.Collections.Generic.Queue<(string key, string text, bool camp, float at)> queue = new System.Collections.Generic.Queue<(string, string, bool, float)>();
-        /// <summary>Seconds of quiet after a tip before the next one (they used to arrive back to back).</summary>
+
         private const float Gap = 9f, MaxWait = 25f;
         private static bool currentCamp;
 
-        /// <summary>
-        /// The tips that always show (2026-11-14, the user: "we are giving way too many tips, some things should be left to
-        /// the player to figure out"): controls, what is being done to you, co-op rescue, and the few rules that kill without a
-        /// tell. Everything else - enemies, guardians, rooms, traps, puzzles, secrets, finds, combat finesse - is for the
-        /// player to work out (telegraphs, prompts, the Bestiary and the Guide still say it). Options can turn the rest back on.
-        /// </summary>
         public static readonly System.Collections.Generic.HashSet<string> Essential = new System.Collections.Generic.HashSet<string>
         {
             "camp", "quests", "questfloor", "potions", "inventory", "relictray", "rare", "pingwheel", "emotewheel", "purse", "voice",
@@ -54,10 +43,8 @@ namespace Deepbound.UI
             queue.Enqueue((key, text, DungeonDirector.InLobby, Time.time));
         }
 
-        /// <summary>A first-time tip raised by an event (a kit, a station) rather than by looking around.</summary>
         public static void OfferNow(string key, string text) => Offer(key, text);
 
-        /// <summary>Owner, from the HUD: look around for anything worth a first-time tip.</summary>
         public static void Check(NetworkPlayer player)
         {
             if (Time.time < nextCheck || player == null) return;
@@ -100,7 +87,7 @@ namespace Deepbound.UI
                 if (pl.Downed.Value && !pl.Soul.Value) Offer("bleed", "ALLY DOWN: hold F beside them to revive within 40 s. If they bleed out, carry their soul skull to the start room's waystone.");
                 if (pl.Soul.Value) Offer("soul", "SOUL SKULL: carry it (F) to the start room's waystone to revive its owner. You move slower and cannot fight while carrying it.");
             }
-            // Voice and pings are for a party: alone they mean nothing.
+
             bool party = PlayerLife.All.Count > 1;
             foreach (var b in Object.FindObjectsByType<Breakable>(FindObjectsSortMode.None))
             {
@@ -139,7 +126,7 @@ namespace Deepbound.UI
             foreach (var it in Interactable.All)
                 if (it is Lever lv && !lv.Pulled.Value && Vector3.Distance(lv.transform.position, me) < 9f)
                     Offer("levers", "VAULT LEVER: pull all three on this floor to open the vault.");
-            // Taught on the first real wound, while there is still a potion to drink.
+
             if (player.GetComponent<Health>().Fraction < 0.7f)
             {
                 var pouch = player.GetComponent<Flasks>();
@@ -168,7 +155,7 @@ namespace Deepbound.UI
             if (deb != null && deb.Blinded)
                 Offer("blinded", "BLINDED: your map and enemy health bars are hidden. Avoid the ink pools; Holy Water (3) clears it.");
             if (deb != null && deb.Accursed)
-                Offer("accursed", "CURSED: you take 40% more damage until it expires or the Withering Hag dies. Holy Water (3) removes it."); 
+                Offer("accursed", "CURSED: you take 40% more damage until it expires or the Withering Hag dies. Holy Water (3) removes it.");
             if (deb != null && deb.Dazed)
                 Offer("dazed", "DAZED: you turn at half speed for a moment. Block or dodge heavy attacks to avoid it.");
             if (deb != null && deb.Silenced)
@@ -180,7 +167,7 @@ namespace Deepbound.UI
                 float d = Vector3.Distance(h.transform.position, me);
                 if (d > 14f) continue;
                 var b = h.GetComponent<EnemyBrain>();
-                if (b == null) continue; // a rift: a body with no brain
+                if (b == null) continue;
                 if (b is BossBrain bb && bb.Immune) Offer("phases", "The boss is IMMUNE. Warded bosses stay immune until their guards die; during SURVIVE phases, dodge until the timer ends.");
                 if (b is AbyssEyeBrain) Offer("abysseye", "ABYSSAL EYE: step off the violet line before its beam fires. The iris is its weak point.");
                 if (b is ChoirAcolyteBrain) Offer("acolyte", "CHOIR ACOLYTE: when its hymn completes, nearby enemies are Shielded. Stun it or hit it hard to interrupt the song.");
@@ -212,7 +199,7 @@ namespace Deepbound.UI
 
             foreach (var vent in layout.FlameTraps)
                 if ((vent.At - me).sqrMagnitude < 144f) { Offer("flamevents", "FLAME VENTS fire on a steady rhythm and deal a third of your health. Cross as soon as the fire drops."); break; }
-            // Hidden spike plates (2026-11-01): from the second act some lie in the floor's own flagstone.
+
             if (layout.Depth >= 2) Offer("hiddenplates", "HIDDEN PLATES: some spike plates blend into the floor. If you hear a click, move immediately.");
 
             var room = layout.RoomAt(me, 0f);
@@ -245,15 +232,12 @@ namespace Deepbound.UI
             if (act == 3) Offer("bell", "THE BLACK CATHEDRAL: jump the shockwave when the bell tolls.");
         }
 
-        /// <summary>Owner, from the HUD's OnGUI.</summary>
-        /// <summary>The bottom of the tip box drawn last frame, 0 when none is up (the feed keeps below it).</summary>
         public static float BottomEdge { get => Time.frameCount - bottomSetAt <= 1 ? bottomEdge : 0f; private set => bottomEdge = value; }
         private static float bottomEdge;
         private static int bottomSetAt = -10;
 
         public static void Draw(float w, float h)
         {
-            // A boss's entrance has the screen to itself, and so does being down; the tip waits (its timer held).
             var meDown = NetworkPlayer.Local != null ? NetworkPlayer.Local.GetComponent<PlayerLife>() : null;
             if (GameHud.CentreBusy || (meDown != null && meDown.Downed.Value))
             {
@@ -261,26 +245,25 @@ namespace Deepbound.UI
                 return;
             }
             if (current != null && Time.time - shownAt > Duration) current = null;
-            // A camp tip still up when the carriage arrives (a floor banner holds its timer) goes at once, and the other way round.
+
             if (current != null && currentCamp != DungeonDirector.InLobby) current = null;
             if (current == null)
             {
                 if (queue.Count == 0 || Time.time - shownAt < Duration + Gap) return;
-                // A tip offered at camp means nothing in the dungeon (and the other way round): drop stale ones.
+
                 (string key, string text, bool camp, float at) next = default;
                 bool found = false;
                 while (queue.Count > 0)
                 {
                     next = queue.Dequeue();
-                    // So is one that waited too long: "an Entling!" a minute after it died teaches nothing. It can be offered again.
+
                     if (next.camp == DungeonDirector.InLobby && (next.camp || Time.time - next.at <= MaxWait)) { found = true; break; }
                     sessionSeen.Remove(next.key);
                 }
                 if (!found) return;
                 current = next.text;
                 currentCamp = next.camp;
-                // Seen once it is shown (not when offered: a stale one dropped above can come back in its place).
-                // Automated tests show tips but never mark them seen in the real save.
+
                 if (!DungeonDirector.TestMode && !Progression.Cosmetics.TestMode) Settings.MarkTipSeen(next.key);
                 GameHud.Heard?.Invoke("tip", current);
                 shownAt = Time.time;
@@ -288,21 +271,20 @@ namespace Deepbound.UI
             }
             float t = Time.time - shownAt;
             float a = Mathf.Clamp01(t * 4f) * Mathf.Clamp01((Duration - t) * 2f);
-            // 2026-11-13, the user: "make the popup more see through". A light veil instead of a solid panel (the world shows
-            // through it); the words carry a shadow so they still read over a bright room.
+
             float pw = Mathf.Min(560f, w - 40f);
             string text = Binds.Rekey(current);
             var style = new GUIStyle(UiSkin.Body) { fontSize = 14, wordWrap = true, alignment = TextAnchor.MiddleCenter, normal = { textColor = new Color(0.97f, 0.94f, 0.87f, a) } };
             var shadowStyle = new GUIStyle(style) { normal = { textColor = new Color(0f, 0f, 0f, 0.85f * a) } };
             float ph = style.CalcHeight(new GUIContent(text), pw - 40f) + 28f;
-            // Below the floor banner, the boss bar and the rage meter (at 104 it sat on top of them).
+
             var r = new Rect(w / 2f - pw / 2f, 176f, pw, ph);
             BottomEdge = r.yMax;
             bottomSetAt = Time.frameCount;
             UiSkin.Rect(r, new Color(0.03f, 0.025f, 0.02f, 0.38f * a));
             UiSkin.Rect(new Rect(r.x, r.y, r.width, 1f), new Color(UiSkin.Gold.r, UiSkin.Gold.g, UiSkin.Gold.b, 0.55f * a));
             UiSkin.Rect(new Rect(r.x, r.yMax - 1f, r.width, 1f), new Color(UiSkin.Gold.r, UiSkin.Gold.g, UiSkin.Gold.b, 0.25f * a));
-            GUI.Label(new Rect(r.x + 20, r.y + 4, pw - 40, 16), "TIP", new GUIStyle(UiSkin.Small) { fontSize = 11, alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold, normal = { textColor = new Color(UiSkin.Gold.r, UiSkin.Gold.g, UiSkin.Gold.b, 0.9f * a) } });
+            GUI.Label(new Rect(r.x + 20, r.y + 4, pw - 40, 16), "TIP", UiSkin.Derive(UiSkin.Small, new Color(UiSkin.Gold.r, UiSkin.Gold.g, UiSkin.Gold.b, 0.9f * a), fontSize: 11, fontStyle: FontStyle.Bold, align: TextAnchor.MiddleCenter));
             var body = new Rect(r.x + 20, r.y + 20, pw - 40, ph - 24);
             GUI.Label(new Rect(body.x + 1.5f, body.y + 1.5f, body.width, body.height), text, shadowStyle);
             GUI.Label(body, text, style);

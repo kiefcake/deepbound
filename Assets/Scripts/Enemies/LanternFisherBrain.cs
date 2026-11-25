@@ -7,21 +7,6 @@ using UnityEngine;
 
 namespace Deepbound.Enemies
 {
-    // =====================================================================================================================
-    // THE DROWNED VAULTS - THE LANTERN FISHER
-    // =====================================================================================================================
-
-    /// <summary>
-    /// The Lantern Fisher: something huge in the black water, and the only thing you see of it is the lure. A loop:
-    /// <list type="number">
-    /// <item><b>The Lure</b>: it sinks (no body, cannot be hurt) and its lantern drifts toward one of you. Come within
-    /// reach of the light and the jaws close under it.</item>
-    /// <item><b>Surfacing</b>: it rises where the lure last hung, open to blades for a few seconds, swinging and spitting ink.</item>
-    /// <item><b>The Reel</b>: a hook in one of you; the line drags you to its mouth unless it takes enough of a beating first
-    /// (any of you, or the hooked one alone).</item>
-    /// </list>
-    /// Below half, the lure lingers less and the reel pulls harder.
-    /// </summary>
     public class LanternFisherBrain : LairBrain
     {
         public override string DisplayName => "The Lantern Fisher";
@@ -33,7 +18,6 @@ namespace Deepbound.Enemies
         protected override Color ShockwaveColor => new Color(0.45f, 0.85f, 0.75f);
         public static readonly Color LureColor = new Color(0.55f, 1f, 0.75f);
 
-        /// <summary>Any peer: sunk (no body) and where the lure hangs.</summary>
         public readonly NetworkVariable<bool> Submerged = new NetworkVariable<bool>();
         public readonly NetworkVariable<Vector3> LurePos = new NetworkVariable<Vector3>();
         public readonly NetworkVariable<ulong> Hooked = new NetworkVariable<ulong>(ulong.MaxValue);
@@ -43,16 +27,12 @@ namespace Deepbound.Enemies
         private float stageEnds, nextBite, biteAt = -1f;
         private Vector3 biteSpot;
         private bool surfaceWarned;
-        /// <summary>
-        /// READABILITY (2026-11-19): the jaws under the lure used to close the instant you came near, and the surfacing struck
-        /// with no warning. Now the jaws rise first (a circle under the lure, a splash) and the lure stops a second before the
-        /// body breaks the water there, its circle on the floor.
-        /// </summary>
+
         public const float BiteRadius = 1.9f, BiteTell = 0.45f, SurfaceTell = 1f, SurfaceRadius = 2.4f;
         private PlayerLife lureTarget;
         private float reelHp;
         private bool deep;
-        /// <summary>For tests.</summary>
+
         public int Bites { get; private set; }
         public int LoopsDone { get; private set; }
 
@@ -78,7 +58,6 @@ namespace Deepbound.Enemies
             if (agent != null && agent.enabled) agent.isStopped = true;
         }
 
-        /// Gallery shots: bring it up now so its body is in the frame (it is otherwise caught under the water).
         public void ServerDebugSurface() { if (IsServer && Submerged.Value) Surface(); }
 
         private void Surface()
@@ -117,7 +96,7 @@ namespace Deepbound.Enemies
         {
             if (stage != Stage.Surfaced || Time.time < nextSpecial || target == null) return false;
             nextSpecial = Time.time + 3.5f / Cadence;
-            // Ink: a spray at its prey.
+
             var origin = transform.position + Vector3.up * 2f;
             var dir = AimDir(origin, 12f);
             PlayActionRpc(RigAction.Hurl, 0.6f);
@@ -166,7 +145,6 @@ namespace Deepbound.Enemies
             {
                 case Stage.Lure:
                 {
-                    // The lure drifts toward its chosen one, bobbing; the jaws snap under it at anyone in reach.
                     if (lureTarget == null || !lureTarget.Targetable) lureTarget = NearestStanding(LurePos.Value);
                     var lp = LurePos.Value;
                     bool surfacing = Time.time >= stageEnds - SurfaceTell;
@@ -185,7 +163,6 @@ namespace Deepbound.Enemies
                     }
                     if (biteAt > 0f && Time.time >= biteAt)
                     {
-                        // The jaws close where they rose: the first one still over them is bitten.
                         biteAt = -1f;
                         nextBite = Time.time + 1.2f;
                         foreach (var p in Standing())
@@ -223,7 +200,6 @@ namespace Deepbound.Enemies
                     {
                         if (hooked != null && !broken)
                         {
-                            // Reeled all the way in: the bite.
                             hooked.Health.ServerDamage(Signature(damage * 1.6f), transform.position, NetworkObjectId);
                             BiteFxRpc(hooked.transform.position);
                             Bites++;
@@ -257,7 +233,6 @@ namespace Deepbound.Enemies
             Vfx.Embers(at + Vector3.up * 0.4f, 10, LureColor, 3f, 0.05f, 0.5f);
         }
 
-        // Any peer: the body sinks out of sight; the lure hangs in the dark; a line runs to the hooked.
         private Transform lure, line;
         private Light lureLight;
         private void UpdateLook()
@@ -298,15 +273,14 @@ namespace Deepbound.Enemies
         protected override void DressRig(HumanoidRig rig)
         {
             if (rig.Head == null) return;
-            // The rod: a long bone stalk curling up and over from its brow, the lantern at its tip, and a mouth of needle teeth.
+
             var stalk = MeshKit.Pivot(rig.Head, "Stalk", new Vector3(0f, 0.2f, 0.05f));
             for (int i = 0; i < 6; i++)
                 MeshKit.Part(stalk, "Seg", MeshKit.Cylinder(0.04f - i * 0.004f, 0.035f - i * 0.004f, 0.22f, 6), Mat.Bone, new Vector3(0f, 0.1f + i * 0.17f, 0.04f + i * i * 0.025f), new Vector3(10f + i * 14f, 0f, 0f));
             GlowPart(MeshKit.Part(stalk, "Lantern", MeshKit.Ball(0.1f, 8, 6), Mat.Glow, new Vector3(0f, 1.05f, 0.95f)), LureColor * 1.6f);
             for (int i = 0; i < 9; i++)
                 MeshKit.Part(rig.Head, "Tooth", MeshKit.Cylinder(0.018f, 0f, 0.11f, 4), Mat.Bone, new Vector3(-0.12f + i * 0.03f, -0.08f, 0.16f), new Vector3(180f, 0f, 0f));
-            // 2026-11-20 visual pass: a hunched back with a ridge of fin spines, long webbed arms, and a fisher's net of
-            // chain and hooks hung from its belt.
+
             GuardianKit.Fisher(rig);
         }
     }

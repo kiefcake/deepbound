@@ -4,11 +4,6 @@ using UnityEngine;
 
 namespace Deepbound.Art
 {
-    /// <summary>
-    /// The HOODED LANTERN (2026-11-13, the user: "an item or pick up that acts like a small light source around the player at
-    /// all times"): every peer hangs a small lantern at the belt of each delver whose <see cref="PlayerProgress.Lantern"/> is
-    /// set, with a warm shadowless light (<see cref="Range"/>). Booted on load; nothing in batchmode.
-    /// </summary>
     public class CarriedLantern : MonoBehaviour
     {
         public const float Range = 7.5f, Intensity = 1.5f;
@@ -52,7 +47,7 @@ namespace Deepbound.Art
             fr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             ArtLibrary.SetGlow(fr, Warm * 1.8f);
             MeshKit.Part(root, "Hood", MeshKit.Cylinder(0.02f, 0.085f, 0.06f, 6), Mat.Dark, Vector3.up * 0.19f);
-            // The light sits a little above and ahead of the lantern so it lights the way, not your own hands.
+
             var lightGo = new GameObject("Light");
             lightGo.transform.SetParent(root, false);
             lightGo.transform.localPosition = new Vector3(-0.2f, 0.5f, 0.6f);

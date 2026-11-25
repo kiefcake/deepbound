@@ -4,34 +4,14 @@ using UnityEngine;
 
 namespace Deepbound.World
 {
-    /// <summary>
-    /// THE ENDLESS DESCENT (2026-11-19, the user: "a new game mode, where a single player can infinitely progress through
-    /// the dungeon floors until they are downed earning them a floor highscore"). Chosen at Corwin's carriage before a run,
-    /// for one player only. The foundation:
-    /// <list type="bullet">
-    /// <item>No last floor: the Unsung's floor goes back to camp like any other (<see cref="ExitFinal"/> never set).</item>
-    /// <item>Past floor 10 the acts come round again (<see cref="Act"/> cycles: Ossuary, Vaults, Throne, Cathedral,
-    /// Abyss, Ossuary...), each lap a <see cref="Lap"/> deeper, while <see cref="Tier"/> keeps climbing with the true
-    /// depth - floor 11 looks like floor 1 and hits like floor 11.</item>
-    /// <item>The first time you go down the run is over (<see cref="PartyWiped"/>): no bleed-out, no Smelling Salts.</item>
-    /// <item>The floor you fell on is the score: <see cref="Progression.Records.EndlessBest"/>, on the Hall of Records
-    /// slab and the run summary. It is kept apart from the ten-floor records.</item>
-    /// </list>
-    /// Everything else (camp between floors, shops, the Tallyman, omens, contracts) is the normal run. Open for later:
-    /// lap modifiers, a leaderboard, refusing late joiners mid-descent (today a second player who joins mid-run is
-    /// simply in it, and either of you going down ends it).
-    /// </summary>
     public partial class DungeonDirector
     {
         public readonly NetworkVariable<bool> EndlessRun = new NetworkVariable<bool>();
 
-        /// <summary>Any peer: this run is the Endless Descent.</summary>
         public static bool Endless => Instance != null && Instance.EndlessRun.Value;
 
-        /// <summary>How many times the acts have come round (0 on the first ten floors).</summary>
         public static int Lap(int depth) => Mathf.Max(0, depth) / FloorsPerRun;
 
-        /// <summary>Host → server: choose the endless road (camp, before a run, alone).</summary>
         [Rpc(SendTo.Server)]
         public void SetEndlessRpc(bool on) => ServerSetEndless(on);
 
@@ -42,7 +22,6 @@ namespace Deepbound.World
             EndlessRun.Value = on;
         }
 
-        /// <summary>Server, as a run starts: the endless road is for one. A party that boards it gets the ordinary descent.</summary>
         private void EndlessCheckAtStart()
         {
             if (!EndlessRun.Value || PlayerLife.All.Count <= 1) return;
@@ -50,29 +29,18 @@ namespace Deepbound.World
             ServerFeedAll("Corwin shakes his head: \"The endless road takes one at a time.\" The ordinary descent, then.", new Color(0.85f, 0.75f, 0.55f));
         }
 
-        /// <summary>The ordinary run's floor name, or the endless one (the act's name, and which time round).</summary>
         public static string EndlessFloorName(string baseName, int depth) => Lap(depth) > 0 ? baseName + " (" + Ordinal(Lap(depth) + 1) + " time down)" : baseName;
 
-        /// <summary>
-        /// LAP MODIFIERS (2026-11-22): each time the acts come round the deep gets meaner beyond the Tier climb.
-        /// Lap 1+: every floor has a floor event. Each lap lifts the elite cap by <see cref="LapEliteCap"/> (0.6 -> 0.85 max).
-        /// From lap 2 every elite is FRENZIED-quick (<see cref="LapPace"/> on its wind-ups), from lap 3 the Tallyman comes
-        /// <see cref="LapTallySooner"/> s sooner per lap past 2.
-        /// </summary>
         public const float LapEliteCap = 0.1f, LapPace = 0.85f, LapTallySooner = 45f;
 
-        /// <summary>Server: the current endless lap (0 outside the Endless Descent).</summary>
         public static int EndlessLap(int depth) => Endless ? Lap(depth) : 0;
 
-        /// <summary>Any peer: the elite wind-up multiplier on this floor (lap 2+ of the Endless Descent).</summary>
         public static float LapElitePace => Layout != null && EndlessLap(Layout.Depth) >= 2 ? LapPace : 1f;
 
-        /// <summary>Server: seconds taken off the Tallyman's clock on this lap.</summary>
         public static float LapTallyCut(int depth) => Mathf.Max(0, EndlessLap(depth) - 2) * LapTallySooner;
 
         public static float EliteCapFor(int depth) => Mathf.Min(0.85f, 0.6f + LapEliteCap * EndlessLap(depth));
 
-        /// <summary>What this lap adds, for the banner ("" on the first ten floors).</summary>
         public static string LapLine(int depth)
         {
             int lap = EndlessLap(depth);

@@ -2,13 +2,6 @@ using UnityEngine;
 
 namespace Deepbound.Art
 {
-    /// <summary>
-    /// Brings a camp figure to life: it breathes, its head (and, close up, its whole body) turns to you, and while nobody is
-    /// at its counter it works at its trade (2026-11-07, the user: "turn to face you", "work animations"): Hobb hammers the
-    /// anvil (sparks and a clang), Vey sews, Brann drills with his practice sword, Ysolde traces runes in the air, Marta
-    /// wipes the bar. Walk up and they stop, turn and look at you. Arms are the pivots <see cref="ArmR"/>/<see cref="ArmL"/>
-    /// built by <c>Props.Townsfolk</c>. Local only.
-    /// </summary>
     public class FolkIdle : MonoBehaviour
     {
         public enum WorkKind { None, Hammer, Sew, Drill, Trace, Wipe, Drink }
@@ -16,19 +9,19 @@ namespace Deepbound.Art
         private Transform neck;
         private float seed, yaw, pitch, nextGlance, glanceYaw;
         private Vector3 baseScale;
-        /// <summary>How far the head hangs when nobody is about (the priest's bowed head).</summary>
+
         public float RestPitch;
-        /// <summary>At prayer: a slow rock, and now and then a mote of light between the hands (and incense).</summary>
+
         public bool Prays;
         public Vector3 PrayAt, IncenseAt;
-        /// <summary>Who this is (for the chatter, the greeting and the name over the head), or null for nameless folk.</summary>
+
         public World.FolkId? Who;
         public string DisplayName, Trade;
-        /// <summary>Turn the whole body toward a player who comes close (not the kneeling priest, the driver on his box, the band).</summary>
+
         public bool TurnsBody = true;
         public WorkKind Work;
         public Transform ArmR, ArmL;
-        /// <summary>The hammer's head (sparks fly from here on each strike).</summary>
+
         public Transform Striker;
         private float nextMote, nextSmoke;
         private float jolt, bodyYaw, workBlend, lastCycle;
@@ -37,7 +30,7 @@ namespace Deepbound.Art
         private Vector3 joltAway;
         private Quaternion baseRot;
         private Vector3 homeLocal;
-        /// <summary>Home in the world NOW: it rides with whatever the figure stands on (Corwin's carriage drove off without him).</summary>
+
         private Vector3 HomePos => transform.parent != null ? transform.parent.TransformPoint(homeLocal) : homeLocal;
         private bool away;
         public static readonly System.Collections.Generic.List<FolkIdle> All = new System.Collections.Generic.List<FolkIdle>();
@@ -47,7 +40,6 @@ namespace Deepbound.Art
         private void OnEnable() => All.Add(this);
         private void OnDisable() => All.Remove(this);
 
-        /// <summary>The figure standing nearest <paramref name="at"/> (within 3 m), or null.</summary>
         public static FolkIdle Near(Vector3 at)
         {
             FolkIdle best = null; float bd = 9f;
@@ -60,17 +52,14 @@ namespace Deepbound.Art
             return best;
         }
 
-        /// <summary>The figure for a named camp person, or null.</summary>
         public static FolkIdle Of(World.FolkId who)
         {
             foreach (var f in All) if (f != null && f.Who == who) return f;
             return null;
         }
 
-        /// <summary>A point just over the head (speech and name labels).</summary>
         public Vector3 HeadTop => (neck != null ? neck.position : transform.position + Vector3.up * 1.5f) + Vector3.up * 0.55f;
 
-        /// <summary>Struck (or startled): rock back away from <paramref name="from"/>.</summary>
         public void Flinch(Vector3 from, float strength = 1f)
         {
             var away = transform.position - from; away.y = 0f;
@@ -78,7 +67,6 @@ namespace Deepbound.Art
             jolt = Mathf.Max(jolt, strength);
         }
 
-        /// <summary>Gather the named head parts under a neck pivot at <paramref name="neckY"/> and animate them.</summary>
         public static FolkIdle Attach(Transform root, float neckY, params string[] headParts)
         {
             var neck = new GameObject("Neck").transform;
@@ -107,7 +95,7 @@ namespace Deepbound.Art
         {
             float t = Time.time + seed;
             var cam = ViewCamera.Current;
-            // Rounds: off on an errand now and then, the same walk on every machine (World/FolkRounds).
+
             var pose = default(World.FolkRounds.Pose);
             if (Who.HasValue && World.DungeonDirector.InLobby && World.FolkRounds.Walks(Who.Value))
             {
@@ -118,9 +106,9 @@ namespace Deepbound.Art
             if (away) transform.position = new Vector3(pose.Position.x, HomePos.y + (pose.Walking ? Mathf.Abs(Mathf.Sin(t * 6.5f)) * 0.035f : 0f), pose.Position.z);
             else transform.localPosition = homeLocal;
             float camDist = cam != null ? Flat(cam.transform.position - transform.position) : 99f;
-            // Breathing: a slow rise and fall.
+
             transform.localScale = new Vector3(baseScale.x * (1f + Mathf.Sin(t * 1.4f) * 0.006f), baseScale.y * (1f + Mathf.Sin(t * 1.4f) * 0.009f), baseScale.z);
-            // Turning to face someone who comes up to them (within reason: never a full about-turn).
+
             float wantBody = 0f;
             if (TurnsBody && !away && cam != null && camDist < BodyTurnRange)
             {
@@ -130,7 +118,7 @@ namespace Deepbound.Art
                 if (Mathf.Abs(a) < 120f) wantBody = Mathf.Clamp(a, -70f, 70f);
             }
             bodyYaw = Mathf.Lerp(bodyYaw, wantBody, 1f - Mathf.Exp(-Time.deltaTime * 2.5f));
-            // A flinch: the whole figure rocks back and settles.
+
             jolt = Mathf.MoveTowards(jolt, 0f, Time.deltaTime * 2.5f);
             var axis = Vector3.Cross(Vector3.up, joltAway);
             var lean = jolt > 0f ? Quaternion.AngleAxis(Mathf.Sin(jolt * Mathf.PI) * 14f * jolt, transform.parent != null ? transform.parent.InverseTransformDirection(axis) : axis) : Quaternion.identity;
@@ -143,7 +131,6 @@ namespace Deepbound.Art
             TickWork(t, away ? 0f : camDist);
             if (away && pose.Walking)
             {
-                // Arms swing as they walk.
                 float swing = Mathf.Sin(t * 6.5f) * 20f;
                 if (ArmR != null) ArmR.localRotation = Quaternion.Euler(swing, 0f, 0f);
                 if (ArmL != null) ArmL.localRotation = Quaternion.Euler(-swing, 0f, 0f);
@@ -167,7 +154,7 @@ namespace Deepbound.Art
                     }
                 }
             }
-            // At work, eyes on the work (unless someone is close enough to talk to).
+
             if (!watching && workBlend > 0.5f) { wantYaw = 0f; wantPitch = Work == WorkKind.Trace ? -8f : Work == WorkKind.Drink ? -6f : 24f; }
             if (!watching && Time.time >= nextGlance)
             {
@@ -177,7 +164,6 @@ namespace Deepbound.Art
             float nod = Mathf.Max(0f, Mathf.Sin(t * 0.7f) - 0.93f) * 60f;
             if (Prays)
             {
-                // Rocking at prayer, the head rising to peek at anyone who comes close (and their purse).
                 nod = watching ? 0f : Mathf.Sin(t * 1.1f) * 6f;
                 if (cam != null && (cam.transform.position - PrayAt).sqrMagnitude < 18f * 18f)
                 {
@@ -198,20 +184,18 @@ namespace Deepbound.Art
             neck.localRotation = Quaternion.Euler(pitch + nod, yaw, Mathf.Sin(t * 0.5f) * 2f);
         }
 
-        /// <summary>The trade's motion on the arm pivots, eased out while a player is close enough to talk to.</summary>
         private void TickWork(float t, float camDist)
         {
             if (Work == WorkKind.None || (ArmR == null && ArmL == null)) return;
             bool attend = camDist < AttendRange;
             bool far = camDist > 40f;
             workBlend = Mathf.MoveTowards(workBlend, attend ? 0f : 1f, Time.deltaTime * (attend ? 2.5f : 0.8f));
-            if (far && workBlend >= 1f) return; // nobody to see it
+            if (far && workBlend >= 1f) return;
             var r = Vector3.zero; var l = Vector3.zero;
             switch (Work)
             {
                 case WorkKind.Hammer:
                 {
-                    // Lift slow, strike fast, a beat on the anvil.
                     float c = Mathf.Repeat(t, 1.3f);
                     if (c < 0.85f) r.x = -Mathf.Lerp(38f, 112f, Smooth(c / 0.85f));
                     else if (c < 0.97f) r.x = -Mathf.Lerp(112f, 32f, (c - 0.85f) / 0.12f);
@@ -231,7 +215,6 @@ namespace Deepbound.Art
                     break;
                 case WorkKind.Drill:
                 {
-                    // A cut, a recovery, a thrust, a pause.
                     float c = Mathf.Repeat(t, 3f);
                     if (c < 0.5f) r = new Vector3(-Mathf.Lerp(30f, 150f, Smooth(c / 0.5f)), 0f, 20f);
                     else if (c < 0.75f) r = new Vector3(-Mathf.Lerp(150f, 25f, (c - 0.5f) / 0.25f), 0f, Mathf.Lerp(20f, -10f, (c - 0.5f) / 0.25f));
@@ -247,7 +230,6 @@ namespace Deepbound.Art
                     break;
                 case WorkKind.Drink:
                 {
-                    // Leaning on the bar (left forearm on the counter); every few seconds the tankard comes up for a pull.
                     float cyc = Mathf.Repeat(t, 7f);
                     float lift = Smooth(cyc / 0.8f) * (1f - Smooth((cyc - 2.4f) / 0.8f));
                     r = new Vector3(-30f - lift * 68f, -lift * 26f, 0f);

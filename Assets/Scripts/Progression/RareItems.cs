@@ -2,15 +2,8 @@ using UnityEngine;
 
 namespace Deepbound.Progression
 {
-    /// <summary>APPEND ONLY: synced as a byte (the pouch's fifth slot, loot drops).</summary>
     public enum RareItem : byte { None = 0, Ironbark = 1, Bloodfury = 2, GraveStillness = 3, PhoenixTome = 4, StormTome = 5, SanctuaryTome = 6 }
 
-    /// <summary>
-    /// The pouch's fifth slot (2026-10-24, the user: "a really tanky potion and some kind of dps potion... summoning
-    /// tomes, a phoenix with a scroll"). One rare thing at a time, found far more than bought, used with 5: a draught
-    /// for a moment that matters, or a tome that calls something to fight beside you. A full slot leaves a new one
-    /// on the floor for a teammate (or for when you have used yours).
-    /// </summary>
     public static class RareItems
     {
         public const int Count = 6;
@@ -37,7 +30,6 @@ namespace Deepbound.Progression
             }
         }
 
-        /// <summary>Two-word label for the belt.</summary>
         public static string Short(RareItem r)
         {
             switch (r)
@@ -83,7 +75,6 @@ namespace Deepbound.Progression
         public static RareItem Random() => (RareItem)UnityEngine.Random.Range(1, Count + 1);
         public static RareItem FromSeed(System.Random rng) => (RareItem)(1 + rng.Next(Count));
 
-        /// <summary>Silas keeps one under the counter each visit, priced for the depth.</summary>
         public static int Price(int depth) => 150 + 40 * depth;
     }
 }

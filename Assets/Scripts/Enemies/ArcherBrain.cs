@@ -5,14 +5,6 @@ using UnityEngine;
 
 namespace Deepbound.Enemies
 {
-    /// <summary>
-    /// Skeleton archer: the first ranged enemy, and the reason a room is not just a melee
-    /// scrum. It hangs back, keeps line of sight, and backs off if you close in — so the
-    /// party has to decide who dives the back line while someone holds the front.
-    ///
-    /// The draw is a long, visible telegraph (bow raised, arm pulled back, eyes flaring);
-    /// the arrow is aimed where you were, not where you are going, so moving dodges it.
-    /// </summary>
     public class ArcherBrain : EnemyBrain
     {
         [Header("Archer")]
@@ -21,8 +13,6 @@ namespace Deepbound.Enemies
 
         private float nextRetreat;
 
-        // After each shot the archer sidesteps to a new spot, slowly, so it is never a
-        // stationary turret: you have to track it, and its next arrow comes from a new angle.
         private float repositionUntil;
         private Vector3 repositionTo;
 
@@ -35,7 +25,7 @@ namespace Deepbound.Enemies
             toTarget.y = 0f;
             float dist = toTarget.magnitude;
             var side = Vector3.Cross(Vector3.up, toTarget.normalized) * (Random.value < 0.5f ? -1f : 1f);
-            // Sideways, and a little toward or away to settle back near the preferred range.
+
             var step = side * Random.Range(2.5f, 4.5f) + toTarget.normalized * Mathf.Clamp(dist - preferredRange, -2f, 2f);
             var want = transform.position + step;
             if (UnityEngine.AI.NavMesh.SamplePosition(want, out var hit, 2f, UnityEngine.AI.NavMesh.AllAreas) &&
@@ -48,7 +38,6 @@ namespace Deepbound.Enemies
 
         protected override bool ChooseSpecialAttack(float distanceToTarget)
         {
-            // Mid-sidestep: keep walking (and keep facing the target) instead of shooting.
             if (Time.time < repositionUntil)
             {
                 if ((transform.position - repositionTo).sqrMagnitude < 0.5f) repositionUntil = 0f;
@@ -67,7 +56,6 @@ namespace Deepbound.Enemies
                 }
             }
 
-            // Too close: back away rather than shoot point-blank.
             if (distanceToTarget < panicRange && Time.time >= nextRetreat)
             {
                 nextRetreat = Time.time + 0.4f;
@@ -78,7 +66,6 @@ namespace Deepbound.Enemies
                 return true;
             }
 
-            // No line of sight: walk closer instead of firing into a wall.
             if (distanceToTarget <= attackRange && !CombatQuery.ClearLine(transform.position + Vector3.up * 1.5f, target))
             {
                 agent.isStopped = false;
@@ -98,7 +85,7 @@ namespace Deepbound.Enemies
         protected override void BeginAttack()
         {
             base.BeginAttack();
-            // Replace the melee wind-up animation with the bow draw.
+
             PlayActionRpc(RigAction.Draw, Mathf.Max(0.1f, strikeAt - Time.time));
         }
 

@@ -2,14 +2,6 @@ using UnityEngine;
 
 namespace Deepbound.Art
 {
-    /// <summary>
-    /// The Mending Beam: a soft gold shaft of light from the Cleric's hand to its target, gently pulsing, with a glow where
-    /// it lands. One per Cleric, toggled on and off.
-    /// 2026-11-21 (distinct abilities): the shaft is soft light now (two crossed bands that fade at their edges, so it reads
-    /// from any side), with two strands of beads braiding round it and flowing toward the one being mended: a holy rope,
-    /// unlike any other line in the game (the War Cry's tether is a flash, the Flagellant's a chain, the Pandemic's veins
-    /// lie on the floor).
-    /// </summary>
     public class BeamVisual : MonoBehaviour
     {
         private Transform shaft, core;
@@ -31,7 +23,7 @@ namespace Deepbound.Art
             {
                 var band = new GameObject("Band");
                 band.transform.SetParent(b.shaft, false);
-                // A Bar runs along local Y: lay it along Z (the beam's length), crossed at 90 degrees.
+
                 band.transform.localRotation = Quaternion.Euler(90f, 0f, i * 90f);
                 band.AddComponent<MeshFilter>().sharedMesh = Shapes.Bar(1f, 0.32f);
                 var r = band.AddComponent<MeshRenderer>();
@@ -79,7 +71,7 @@ namespace Deepbound.Art
                 r.SetPropertyBlock(block);
             }
             ArtLibrary.SetGlow(coreRenderer, new Color(1f, 0.95f, 0.75f) * 2f);
-            // Two strands braid round the shaft, flowing from the Cleric to the mended.
+
             var right = rot * Vector3.right;
             var up = rot * Vector3.up;
             var dir = (to - from) / len;
@@ -89,7 +81,7 @@ namespace Deepbound.Art
                 {
                     float t = Mathf.Repeat(i / (float)BeadsPerStrand + flow / Mathf.Max(1f, len), 1f);
                     float a = t * len * 2.4f - Time.time * 6f + s * Mathf.PI;
-                    // The braid swells in the middle of the span and closes at both ends.
+
                     float r = 0.11f * Mathf.Sin(t * Mathf.PI);
                     var bead = beads[s * BeadsPerStrand + i];
                     bead.position = from + dir * len * t + (right * Mathf.Cos(a) + up * Mathf.Sin(a)) * r;

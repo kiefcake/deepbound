@@ -6,12 +6,6 @@ using UnityEngine;
 
 namespace Deepbound.World
 {
-    /// <summary>
-    /// Room clears (2026-10-20, Binding of Isaac's beat): when the last of a room's own dead falls, a
-    /// chime and a CLEARED stamp for whoever is near, and sometimes a little something left in the middle
-    /// of the room (gold, a potion, embers). Counted by the room each enemy was raised in, so one chasing
-    /// you down a corridor still counts for its room. Patrols, gargoyles and later summons are not counted.
-    /// </summary>
     public partial class DungeonDirector
     {
         public const float RoomClearRewardChance = 0.45f;
@@ -20,10 +14,8 @@ namespace Deepbound.World
         private readonly HashSet<int> roomsCleared = new HashSet<int>();
         private float nextClearCheck;
 
-        /// <summary>Server, for tests: rooms cleared this floor.</summary>
         public int RoomsClearedCount => roomsCleared.Count;
 
-        /// <summary>Server, for tests: remove the dead raised in one room not yet cleared (no loot); its id, or -1.</summary>
         public int ServerDebugClearOneRoom()
         {
             int pick = -1;
@@ -82,7 +74,7 @@ namespace Deepbound.World
             Player.PetPerks.ServerRoomCleared(at);
             MaybeArmEruption(room);
             QuestOnRoomClear();
-            // The Chorister's Bell: a room won is a breath taken.
+
             foreach (var p in Player.PlayerLife.All)
                 if (p != null && !p.Downed.Value && p.TryGetComponent<Progression.PlayerProgress>(out var prog) && prog.HasRelic(Relic.ChoristersBell)
                     && Vector3.Distance(p.transform.position, at) < 40f)

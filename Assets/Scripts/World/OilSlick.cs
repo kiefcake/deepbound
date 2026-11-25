@@ -7,19 +7,11 @@ using UnityEngine;
 
 namespace Deepbound.World
 {
-    /// <summary>
-    /// SPILLED LAMP OIL (2026-11-08, dungeon interactables: "oil spills + torches"). A broken oil jar
-    /// (<see cref="Breakable.Kind.OilJar"/>) leaves a dark slick on the floor. Any fire lights it: a scorch on anything
-    /// standing in it (Mage fire, the Ember Rune, Embertide, meteors...), a powder barrel, a tipped fire bowl
-    /// (<see cref="Breakable.Kind.FireBowl"/>), or a burning hand torch carried through it. Lit, it burns for
-    /// <see cref="BurnSeconds"/>: everything in it - the dead AND you - burns every half second, and a lit slick lights
-    /// any other slick touching it. The rim glows orange while it burns, so the danger reads at a glance.
-    /// </summary>
     public class OilSlick : NetworkBehaviour
     {
         public static readonly List<OilSlick> All = new List<OilSlick>();
         public const float Radius = 2.4f, BurnSeconds = 9f, Tick = 0.5f, SpreadDelay = 0.6f;
-        /// <summary>Per tick: enemies lose this share of their max health (bosses a fifth of it), at least a flat floor.</summary>
+
         public const float EnemyShare = 0.05f, PlayerShare = 0.045f;
 
         public readonly NetworkVariable<bool> Lit = new NetworkVariable<bool>();
@@ -47,9 +39,6 @@ namespace Deepbound.World
         public override void OnNetworkDespawn() { All.Remove(this); base.OnNetworkDespawn(); }
         public override void OnDestroy() { All.Remove(this); base.OnDestroy(); }
 
-        // ---- Server ----
-
-        /// <summary>Server: fire touches this slick.</summary>
         public void ServerIgnite(ulong by)
         {
             if (!IsServer || Lit.Value) return;
@@ -60,14 +49,12 @@ namespace Deepbound.World
             spreadAt = Time.time + SpreadDelay;
         }
 
-        /// <summary>Server: light every unlit slick that <paramref name="at"/> stands in (within <paramref name="slack"/>).</summary>
         public static void ServerIgniteAt(Vector3 at, ulong by, float slack = 0f)
         {
             foreach (var s in All.ToArray())
                 if (s != null && s.IsSpawned && !s.Lit.Value && s.Contains(at, slack)) s.ServerIgnite(by);
         }
 
-        /// <summary>Server: a burning slick (or other fire) is at <paramref name="at"/>?</summary>
         public static bool BurningAt(Vector3 at)
         {
             foreach (var s in All) if (s != null && s.Lit.Value && s.Contains(at)) return true;
@@ -119,11 +106,8 @@ namespace Deepbound.World
             Vfx.Smoke(transform.position + Vector3.up * 0.3f, 6, Radius * 0.6f, 2.5f);
         }
 
-        // ---- Every peer: the pool, the flames ----
-
         private void BuildVisual()
         {
-            // A wet black pool with a dull sheen, and a rim that only glows while it burns.
             pool = MeshKit.Part(transform, "Oil", MeshKit.Cylinder(Radius, Radius, 0.012f, 20), Mat.Dark, Vector3.up * 0.015f).transform;
             ArtLibrary.Tint(pool.GetComponent<Renderer>(), new Color(0.04f, 0.035f, 0.03f));
             pool.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;

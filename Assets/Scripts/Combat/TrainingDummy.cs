@@ -4,12 +4,6 @@ using UnityEngine;
 
 namespace Deepbound.Combat
 {
-    /// <summary>
-    /// A straw dummy in the lobby for trying out a kit. It counts as an enemy for every
-    /// hit query, so swings, bashes and the floating damage numbers behave exactly as they
-    /// do in the dungeon — but it never fights back and refills a moment after you stop.
-    /// It also implements crowd control as no-ops, so Shield Bash and War Cry land on it.
-    /// </summary>
     [RequireComponent(typeof(Health))]
     public class TrainingDummy : NetworkBehaviour, ICrowdControl
     {
@@ -63,7 +57,7 @@ namespace Deepbound.Combat
             var head = MeshKit.Part(body, "Head", MeshKit.Ball(0.15f, 8, 6), Mat.Cloth, new Vector3(0f, 0.85f, 0f));
             ArtLibrary.Tint(head.GetComponent<Renderer>(), straw * 0.9f);
             MeshKit.Part(body, "Rope", MeshKit.Cylinder(0.21f, 0.21f, 0.04f, 8), Mat.Leather, new Vector3(0f, 0.3f, 0f));
-            // A painted target on the chest.
+
             var target = MeshKit.Part(body, "Target", MeshKit.Cylinder(0.12f, 0.12f, 0.01f, 12), Mat.Cloth, new Vector3(0f, 0.38f, 0.24f), new Vector3(90f, 0f, 0f));
             ArtLibrary.Tint(target.GetComponent<Renderer>(), new Color(0.7f, 0.1f, 0.08f));
         }

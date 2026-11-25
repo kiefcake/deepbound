@@ -7,12 +7,6 @@ using UnityEngine;
 
 namespace Deepbound.Networking
 {
-    /// <summary>
-    /// <c>-camptour &lt;dir&gt;</c> (2026-11-07, the user: camp placements "very very sloppy", "nothing should seem out of place"):
-    /// hosts, then renders the camp from its own camera into PNGs with no window and no HUD: a lit top-down plan of the whole
-    /// castle, four quadrant plans, and eye-level views of every station and corner from two sides. Works in batchmode
-    /// (not with -nographics), so it can run while someone plays. Writes <c>tour.txt</c> listing every named spot.
-    /// </summary>
     public class CampTour : MonoBehaviour
     {
         private string dir;
@@ -34,7 +28,7 @@ namespace Deepbound.Networking
             for (float t = 0f; t < 20f && (NetworkPlayer.Local == null || !DungeonDirector.InLobby); t += 0.25f) yield return new WaitForSeconds(0.25f);
             yield return new WaitForSeconds(3f);
             var local = NetworkPlayer.Local;
-            // The photographer stands out of every shot.
+
             if (local != null) local.GetComponent<FirstPersonMotor>().Teleport(Lobby.Origin + new Vector3(0f, -40f, 0f), Quaternion.identity);
             yield return new WaitForSeconds(0.5f);
 
@@ -45,7 +39,6 @@ namespace Deepbound.Networking
             cam.farClipPlane = 600f;
             var lines = new List<string>();
 
-            // ---- Plans: bright, flat light from above so every footprint reads.
             var sun = new GameObject("TourSun").AddComponent<Light>();
             sun.type = LightType.Directional;
             sun.intensity = 1.6f;
@@ -65,17 +58,16 @@ namespace Deepbound.Networking
             cam.transform.position = o + Vector3.up * 80f;
             cam.orthographicSize = r * 1.08f;
             yield return Render(cam, "plan_all", 2048, 2048);
-            // Quadrants, each half the camp, overlapping at the middle.
+
             foreach (var (qx, qz, tag) in new[] { (-1f, 1f, "NW"), (1f, 1f, "NE"), (-1f, -1f, "SW"), (1f, -1f, "SE") })
             {
                 cam.transform.position = o + new Vector3(qx * r * 0.45f, 80f, qz * r * 0.45f);
                 cam.orthographicSize = r * 0.58f;
                 yield return Render(cam, "plan_" + tag, 2048, 2048);
             }
-            // A grid of 10 m cells, labelled, as a key for the plans: printed into tour.txt.
+
             lines.Add("PLAN: camera straight down, +X right (east), +Z up (north). Origin " + o + ", radius " + r.ToString("F1") + " m.");
 
-            // ---- -tourbot: the inspector (CampInspector) with the game's own light, then done.
             if (System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-tourbot") >= 0)
             {
                 Destroy(sun.gameObject);
@@ -84,7 +76,7 @@ namespace Deepbound.Networking
                 RenderSettings.fog = fog;
                 cam.orthographic = false;
                 cam.fieldOfView = 70f;
-                // The light a player carries at camp (Art/PresenceLight is off in batchmode): half strength, 3 m ahead.
+
                 var carried = new GameObject("TourPresence").AddComponent<Light>();
                 carried.type = LightType.Point;
                 carried.range = Art.PresenceLight.Range;
@@ -98,7 +90,6 @@ namespace Deepbound.Networking
                 yield break;
             }
 
-            // ---- Eye level, as a player sees it: the game's own light, a little brighter so dark corners show.
             Destroy(sun.gameObject);
             RenderSettings.ambientLight = ambient * 1.6f + new Color(0.06f, 0.06f, 0.07f);
             RenderSettings.ambientMode = ambientMode;
@@ -115,7 +106,7 @@ namespace Deepbound.Networking
                 ("mannequin", Lobby.MannequinSpot), ("range", Lobby.RangeCenter), ("dummies", Lobby.DummySpots[0]),
             };
             foreach (var (name, at) in spots) lines.Add(name + " " + (at - o).ToString("F1"));
-            // Ring of the wall: eight views from inside the curtain wall looking in, to judge the edges.
+
             for (int i = 0; i < 8; i++)
             {
                 float a = i * 45f;
@@ -124,9 +115,9 @@ namespace Deepbound.Networking
             }
 
             int n = 0;
-            // -tourquick: plans, the fire, the tent and the card table only (the walk grid and station views take minutes).
+
             bool quick = System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-tourquick") >= 0;
-            // Aerial obliques (the user: "take more angles"): eight from outside the wall high up, eight closer and lower.
+
             for (int i = 0; i < 8; i++)
             {
                 var d = Quaternion.Euler(0f, i * 45f, 0f) * Vector3.forward;
@@ -137,7 +128,7 @@ namespace Deepbound.Networking
                 cam.transform.rotation = Quaternion.LookRotation(o + d * 2f - cam.transform.position);
                 yield return Render(cam, "air_" + (n++).ToString("000") + "_low_" + i * 45, 1600, 900);
             }
-            // A walk across the courtyard: every 8 m, looking north, east, south and west at head height.
+
             for (float gx = -32f; gx <= 32f && !quick; gx += 8f)
                 for (float gz = -32f; gz <= 32f; gz += 8f)
                 {
@@ -150,7 +141,7 @@ namespace Deepbound.Networking
                         yield return Render(cam, "walk_" + gx.ToString("+00;-00") + "_" + gz.ToString("+00;-00") + "_" + tag, 1280, 720);
                     }
                 }
-            // From the spawn fire, sitting and standing, toward each side; and inside the tent looking up (its roof).
+
             var pit = Lobby.FirePit;
             foreach (var (yaw, tag) in new[] { (270f, "tavern"), (90f, "tent"), (0f, "north"), (180f, "south"), (235f, "sw"), (125f, "se") })
                 foreach (var (hgt, pose) in new[] { (1.75f, "stand"), (1.15f, "sit") })
@@ -171,7 +162,6 @@ namespace Deepbound.Networking
             yield return Render(cam, "tent_inside_table", 1280, 720);
             foreach (var (name, at) in quick ? new List<(string, Vector3)>() : spots)
             {
-                // Two views of each: from the camp's middle side and from the side away from it, at head height.
                 var toCentre = o - at; toCentre.y = 0f;
                 if (toCentre.sqrMagnitude < 1f) toCentre = Vector3.back;
                 toCentre.Normalize();
@@ -191,7 +181,7 @@ namespace Deepbound.Networking
                     yield return Render(cam, "eye_" + (n++).ToString("00") + "_" + name + "_" + tag, 1280, 720);
                 }
             }
-            // Seated at Deadman's Hand with a hand dealt: what the player sees over the felt.
+
             var bj = FindAnyObjectByType<BlackjackTable>();
             if (bj != null && local != null)
             {
@@ -211,7 +201,7 @@ namespace Deepbound.Networking
                     lines.Add("blackjack seat camera " + vc.transform.position + " " + vc.transform.eulerAngles);
                 }
             }
-            // The roll of the first expedition (2026-11-14): bare (nobody home), half home, then all four and the fifth name.
+
             var dd = World.DungeonDirector.Instance;
             if (dd != null && dd.IsServer)
             {
@@ -240,7 +230,7 @@ namespace Deepbound.Networking
         private IEnumerator Render(Camera cam, string name, int w, int h)
         {
             yield return new WaitForEndOfFrame();
-            // The retro pass stays off for these (it would grid them to the screen's lines).
+
             Shader.SetGlobalFloat("_RetroOn", 0f);
             var rt = RenderTexture.GetTemporary(w, h, 24, RenderTextureFormat.ARGB32);
             cam.targetTexture = rt;
@@ -254,7 +244,7 @@ namespace Deepbound.Networking
             cam.targetTexture = null;
             RenderTexture.ReleaseTemporary(rt);
             File.WriteAllBytes(Path.Combine(dir, name + ".jpg"), tex.EncodeToJPG(88));
-            // Kept until the next shot, so the inspector can measure it.
+
             if (last[0] != null) Destroy(last[0]);
             last[0] = tex;
         }

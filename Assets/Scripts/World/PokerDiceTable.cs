@@ -6,10 +6,10 @@ using Deepbound.Progression;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using Deepbound.UI;
 
 namespace Deepbound.World
 {
-    /// <summary>The whole table, synced as one value (memcpy). Dice: 3 bits each, seat * 5 + die.</summary>
     public struct PokerState : INetworkSerializeByMemcpy, IEquatable<PokerState>
     {
         public ulong Seat0, Seat1, Seat2, Seat3;
@@ -29,35 +29,14 @@ namespace Deepbound.World
             && DoneMask == o.DoneMask && FoldMask == o.FoldMask && MatchMask == o.MatchMask && Turn == o.Turn && Bettor == o.Bettor && WinMask == o.WinMask && Dealer == o.Dealer;
     }
 
-    /// <summary>
-    /// SKULL POKER, the players' game in the gambling tent (2026-11-08, the user: "make a multiplayer game where players
-    /// gamble against each other"). Poker dice for two to four players, no house: every coin on the table belongs to
-    /// someone sitting at it.
-    /// <list type="number">
-    /// <item>Take a stool (F). Anyone seated picks the ANTE (10 / 25 / 50 / 100) and deals (Space): everyone seated who
-    /// can pay antes into the pot and rolls five bone dice under their own cup. Only you see yours.</item>
-    /// <item>HOLD what you like (1-5 or click) and REROLL the rest once (R), or STAND (S). The others see how many dice you
-    /// kept - a tell, or a bluff.</item>
-    /// <item>One round of betting, in turn from the dealer's left: CHECK or BET one ante; once someone has bet, the rest
-    /// CALL or FOLD. Folding gives up your share; if everyone else folds, the bettor takes the pot unseen.</item>
-    /// <item>SHOWDOWN: the cups lift. Five of a kind, four of a kind, full house, straight, three of a kind, two pair, a pair,
-    /// then high dice. The best hand takes the pot (a tie splits it).</item>
-    /// </list>
-    /// Walk off (or F) to leave; leaving mid-hand folds. Turns time out (hold: stand; betting: check, or fold to a bet).
-    /// <para>OLD WICK (2026-11-08, the user's list: "NPC delvers / a poker bot"): a delver back from the deep pulls up a
-    /// stool when exactly one player sits alone (<see cref="Wick"/> in a seat). He plays honestly and simply - holds his
-    /// pairs, bets strong hands, calls fair ones, bluffs now and then - with a purse of real house gold,
-    /// <see cref="WickPurse"/> a camp visit: he leaves when it is gone ("cleaned out") or when a second player sits down,
-    /// since the table is meant for players. What he wins leaves the economy.</para>
-    /// </summary>
     public class PokerDiceTable : Interactable
     {
         public const ulong NoOne = ulong.MaxValue;
-        /// <summary>Old Wick's seat id (never a real client id).</summary>
+
         public const ulong Wick = ulong.MaxValue - 1;
         public const string WickName = "Old Wick";
         public const int WickPurse = 150;
-        /// <summary>Tests: let Wick sit even in test mode.</summary>
+
         public static bool DebugWick;
         public readonly NetworkVariable<int> WickGold = new NetworkVariable<int>(WickPurse);
         public const int Seats = 4, DiceCount = 5;
@@ -72,14 +51,13 @@ namespace Deepbound.World
         });
 
         public static bool LocalSeated => localTable != null;
-        /// <summary>Tests: players stay seated wherever they stand.</summary>
+
         public static bool DebugNoDistance;
         private static PokerDiceTable localTable;
         public override float Range => 2.6f;
 
         private static double Now => NetworkManager.Singleton != null ? NetworkManager.Singleton.ServerTime.Time : 0d;
 
-        /// <summary>Stool k's direction from the table centre (local).</summary>
         public static Vector3 SeatDir(int k)
         {
             float a = (45f + 90f * k) * Mathf.Deg2Rad;
@@ -100,8 +78,6 @@ namespace Deepbound.World
             for (int k = 0; k < Seats; k++) if (State.Value.SeatOf(k) == NoOne) free++;
             return free == 0 ? null : "Sit at Skull Poker  -  dice against the other players  (" + (Seats - free) + " seated)";
         }
-
-        // ================= Server =================
 
         protected override void ServerUse(PlayerProgress who) => ServerSit(who);
 
@@ -148,7 +124,6 @@ namespace Deepbound.World
             ServerDeal(SeatOfClient(obj.OwnerClientId), ante);
         }
 
-        /// <summary>Server: everyone seated who can pay antes in and rolls. False when fewer than two can play.</summary>
         public bool ServerDeal(int dealer, int ante)
         {
             var s = State.Value;
@@ -183,7 +158,6 @@ namespace Deepbound.World
             if (player.TryGet(out var obj)) ServerReroll(SeatOfClient(obj.OwnerClientId), holdMask);
         }
 
-        /// <summary>Server: reroll every die not held (all held = stand).</summary>
         public void ServerReroll(int seat, int holdMask)
         {
             var s = State.Value;
@@ -242,7 +216,6 @@ namespace Deepbound.World
             ServerAdvance();
         }
 
-        /// <summary>Server: move the hand on after any change (all rolled -> betting; next turn; showdown).</summary>
         private void ServerAdvance()
         {
             var s = State.Value;
@@ -264,7 +237,6 @@ namespace Deepbound.World
             }
             if (s.Phase == (byte)Phase.Betting)
             {
-                // Still owed: with no bet, everyone alive must act; after a bet, everyone alive must have matched it.
                 byte owed = s.Bettor == 255 ? (byte)(alive & ~s.DoneMask) : (byte)(alive & ~s.MatchMask);
                 if (owed == 0) { ServerShowdown(alive, unseen: false); return; }
                 s.Turn = (byte)NextSeat(s, s.Turn == 255 ? s.Dealer : s.Turn, owed, 0);
@@ -312,7 +284,7 @@ namespace Deepbound.World
             s.Phase = (byte)Phase.Showdown;
             s.Turn = 255;
             s.Deadline = Now + ShowSeconds;
-            if (unseen) s.InMask = 0; // nothing to show: the others folded, the winner keeps their cup down
+            if (unseen) s.InMask = 0;
             State.Value = s;
             int handOf = -1;
             for (int k = 0; k < Seats; k++) if ((win & (1 << k)) != 0) { handOf = k; break; }
@@ -348,7 +320,7 @@ namespace Deepbound.World
             switch ((Phase)s.Phase)
             {
                 case Phase.Rolling:
-                    // Time: everyone who has not chosen stands.
+
                     for (int k = 0; k < Seats; k++)
                         if ((s.InMask & (1 << k)) != 0 && (s.DoneMask & (1 << k)) == 0 && (s.FoldMask & (1 << k)) == 0) ServerReroll(k, 31);
                     break;
@@ -362,8 +334,6 @@ namespace Deepbound.World
                     break;
             }
         }
-
-        // ================= Old Wick =================
 
         private int wickVisit = -1;
         private float wickSitAt = -1f, wickActAt = -1f;
@@ -388,7 +358,6 @@ namespace Deepbound.World
 
         public int WickSeat => SeatOfClient(Wick);
 
-        /// <summary>Server: Wick sits with a lone player, plays his hand, and leaves when outnumbered or broke.</summary>
         private void TickWick()
         {
             if (DungeonDirector.TestMode && !DebugWick) return;
@@ -415,7 +384,7 @@ namespace Deepbound.World
                 TableFeedRpc(broke ? WickName + " turns out his purse. \"Cleaned out. You'll drink on me, then.\" He leaves the table." : WickName + " gets up. \"Your game now. I'll watch.\"", false);
                 return;
             }
-            // Give him a moment to think before each move.
+
             if (s.Phase != wickPhase || s.Turn != wickTurn || s.Round != wickRound)
             {
                 wickPhase = s.Phase; wickTurn = s.Turn; wickRound = s.Round;
@@ -429,7 +398,6 @@ namespace Deepbound.World
                 ServerAct(seat, WickChoice(Score(Hand(s, seat)) / 1000000, s.Bettor != 255, WickGold.Value >= s.Ante));
         }
 
-        /// <summary>Wick keeps every die in a pair or better, a straight whole, else his best single die.</summary>
         public static int WickHold(int[] dice)
         {
             var count = new int[7];
@@ -446,7 +414,6 @@ namespace Deepbound.World
             return mask;
         }
 
-        /// <summary>Wick's bet: two pair or better bets/calls; a pair sometimes bets, calls a bet; nothing checks, folds to a bet, and bluffs now and then.</summary>
         public static Act WickChoice(int category, bool facingBet, bool canPay)
         {
             float r = UnityEngine.Random.value;
@@ -466,8 +433,6 @@ namespace Deepbound.World
         private static float Flat(Vector3 v) { v.y = 0f; return v.magnitude; }
         private static int Popcount(int m) { int c = 0; while (m != 0) { c += m & 1; m >>= 1; } return c; }
 
-        // ================= Hands =================
-
         public static int[] Hand(PokerState s, int seat)
         {
             var h = new int[DiceCount];
@@ -475,7 +440,6 @@ namespace Deepbound.World
             return h;
         }
 
-        /// <summary>A comparable score: category x 10^6 + the faces that break ties (most-of first, then highest).</summary>
         public static int Score(int[] dice)
         {
             var count = new int[7];
@@ -508,8 +472,6 @@ namespace Deepbound.World
                 3 => "three of a kind", 2 => "two pair", 1 => "a pair", _ => "nothing",
             };
         }
-
-        // ================= Everyone =================
 
         [Rpc(SendTo.ClientsAndHost)]
         private void TableFeedRpc(string text, bool warn)
@@ -546,8 +508,6 @@ namespace Deepbound.World
             if (log.Count > 5) log.RemoveAt(0);
         }
 
-        // ================= Local: the stool, the dice, the panel =================
-
         private readonly Transform[,] dice = new Transform[Seats, DiceCount];
         private readonly Transform[] cups = new Transform[Seats];
         private readonly float[] rattleUntil = new float[Seats];
@@ -566,7 +526,7 @@ namespace Deepbound.World
             DrawWick(s);
             int seat = SeatOfClient(me.OwnerClientId);
             var motor = me.GetComponent<FirstPersonMotor>();
-            // Sit / stand to follow the server.
+
             if (seat >= 0 && mySeat < 0 && motor != null)
             {
                 mySeat = seat; localTable = this; satAt = Time.time; holdMask = 0;
@@ -585,11 +545,10 @@ namespace Deepbound.World
             }
             if (mySeat >= 0 && motor != null)
             {
-                // Moved off the stool by something else (a teleport): leave the table.
                 if (!motor.Pinned || Flat(me.transform.position - SeatPoint(mySeat)) > 0.35f) { LeaveRpc(me.NetworkObject); motor.Unpin(me.transform.position); mySeat = -1; localTable = null; }
                 else motor.PinTo(SeatPoint(mySeat));
             }
-            // Dice: a new roll (or a reroll) tumbles; others' stay under their cups until the showdown.
+
             for (int k = 0; k < Seats; k++)
             {
                 bool inHand = (s.InMask & (1 << k)) != 0 && s.Phase != (byte)Phase.Idle;
@@ -605,7 +564,7 @@ namespace Deepbound.World
                     if (changed && v >= 1)
                     {
                         var rest = DieRest(k, i);
-                        var t = d.GetComponent<DieTumble>() ?? d.gameObject.AddComponent<DieTumble>();
+                        var t = d.TryGetComponent<DieTumble>(out var dt) ? dt : d.gameObject.AddComponent<DieTumble>();
                         t.Throw(CupLocal(k) + Vector3.up * 0.18f, rest, v, UnityEngine.Random.Range(-20f, 20f) + (45f + 90f * k), i * 0.05f, 0.6f);
                     }
                 }
@@ -655,8 +614,6 @@ namespace Deepbound.World
 
         private Transform wickBody;
 
-        /// <summary>Old Wick plays standing at his place, behind his stool: a delver in dented armour (the knight rig's sit pose
-        /// tipped him over on the stool).</summary>
         private void DrawWick(PokerState s)
         {
             int ws = -1;
@@ -683,7 +640,6 @@ namespace Deepbound.World
             return dir * DiceRadius + side * (i - 2) * (DieSize * 1.45f) + Vector3.up * (FeltY + DieSize * 0.5f + 0.012f);
         }
 
-        // ---- The panel ----
         private void OnGUI()
         {
             useGUILayout = false;
@@ -704,10 +660,9 @@ namespace Deepbound.World
             var gold = new GUIStyle(small) { normal = { textColor = UI.UiSkin.Gold } };
             GUI.Label(new Rect(r.x + 18, r.y + 8, pw - 36, 28), "SKULL POKER", head);
             GUI.Label(new Rect(r.x + 18, r.y + 10, pw - 36, 26), "POT " + s.Pot + "   ·   ANTE " + (phase == Phase.Idle ? Antes[anteIndex] : s.Ante) + "   ·   your gold " + prog.Gold.Value,
-                new GUIStyle(gold) { alignment = TextAnchor.MiddleRight, fontSize = 15 });
+                UiSkin.Derive(gold, gold.normal.textColor, fontSize: 15, align: TextAnchor.MiddleRight));
             double left = Math.Max(0d, s.Deadline - Now);
 
-            // The players.
             float y = r.y + 44f;
             for (int k = 0; k < Seats; k++)
             {
@@ -730,7 +685,6 @@ namespace Deepbound.World
                 y += 24f;
             }
 
-            // Your dice.
             y = r.y + 158f;
             byte mine = (byte)(1 << mySeat);
             bool myHand = (s.InMask & mine) != 0 && phase != Phase.Idle;
@@ -747,14 +701,13 @@ namespace Deepbound.World
                     if (choosing)
                     {
                         if (GUI.Button(tr, GUIContent.none, GUIStyle.none)) holdMask ^= 1 << i;
-                        GUI.Label(new Rect(tr.x, tr.yMax + 4, tile, 18), (i + 1) + (held ? "  HELD" : ""), new GUIStyle(small) { alignment = TextAnchor.MiddleCenter, normal = { textColor = held ? UI.UiSkin.Gold : new Color(0.7f, 0.68f, 0.62f) } });
+                        GUI.Label(new Rect(tr.x, tr.yMax + 4, tile, 18), (i + 1) + (held ? "  HELD" : ""), UiSkin.Derive(small, held ? UI.UiSkin.Gold : new Color(0.7f, 0.68f, 0.62f), align: TextAnchor.MiddleCenter));
                     }
                 }
-                GUI.Label(new Rect(r.x, y + tile + 24, pw, 24), "You hold " + HandName(hand), new GUIStyle(UI.UiSkin.Heading) { fontSize = 17, alignment = TextAnchor.MiddleCenter });
+                GUI.Label(new Rect(r.x, y + tile + 24, pw, 24), "You hold " + HandName(hand), UiSkin.Derive(UI.UiSkin.Heading, UI.UiSkin.Heading.normal.textColor, fontSize: 17, align: TextAnchor.MiddleCenter));
             }
-            else GUI.Label(new Rect(r.x, y + 20, pw, 30), phase == Phase.Idle ? "Waiting for a deal." : "You sit this hand out.", new GUIStyle(UI.UiSkin.Body) { alignment = TextAnchor.MiddleCenter, fontSize = 16 });
+            else GUI.Label(new Rect(r.x, y + 20, pw, 30), phase == Phase.Idle ? "Waiting for a deal." : "You sit this hand out.", UiSkin.Derive(UI.UiSkin.Body, UI.UiSkin.Body.normal.textColor, fontSize: 16, align: TextAnchor.MiddleCenter));
 
-            // Actions.
             y = r.y + 270f;
             float bw = (pw - 56f) / 2f;
             var left1 = new Rect(r.x + 20, y, bw, 34);
@@ -777,7 +730,7 @@ namespace Deepbound.World
             {
                 if (GUI.Button(left1, "R  Reroll " + (DiceCount - Popcount(holdMask)) + " dice", UI.UiSkin.Button)) RerollRpc(me.NetworkObject, (byte)holdMask);
                 if (GUI.Button(right1, "S  Stand (keep all)", UI.UiSkin.Button)) RerollRpc(me.NetworkObject, 31);
-                GUI.Label(new Rect(r.x, y + 38, pw, 20), "Click dice or press 1-5 to hold them.  " + Mathf.CeilToInt((float)left) + "s", new GUIStyle(small) { alignment = TextAnchor.MiddleCenter });
+                GUI.Label(new Rect(r.x, y + 38, pw, 20), "Click dice or press 1-5 to hold them.  " + Mathf.CeilToInt((float)left) + "s", UiSkin.Derive(small, small.normal.textColor, align: TextAnchor.MiddleCenter));
             }
             else if (phase == Phase.Betting && s.Turn == mySeat)
             {
@@ -795,18 +748,17 @@ namespace Deepbound.World
                     GUI.enabled = true;
                     if (GUI.Button(right1, "X  Fold", UI.UiSkin.Button)) ActRpc(me.NetworkObject, (byte)Act.Fold);
                 }
-                GUI.Label(new Rect(r.x, y + 38, pw, 20), "Your turn  -  " + Mathf.CeilToInt((float)left) + "s", new GUIStyle(gold) { alignment = TextAnchor.MiddleCenter });
+                GUI.Label(new Rect(r.x, y + 38, pw, 20), "Your turn  -  " + Mathf.CeilToInt((float)left) + "s", UiSkin.Derive(gold, gold.normal.textColor, align: TextAnchor.MiddleCenter));
             }
             else
             {
                 string wait = phase == Phase.Rolling ? "Waiting for the others to choose (" + Mathf.CeilToInt((float)left) + "s)" : phase == Phase.Betting ? "Betting..." : "";
-                GUI.Label(new Rect(r.x, y + 6, pw, 22), wait, new GUIStyle(UI.UiSkin.Body) { alignment = TextAnchor.MiddleCenter, fontSize = 15 });
+                GUI.Label(new Rect(r.x, y + 6, pw, 22), wait, UiSkin.Derive(UI.UiSkin.Body, UI.UiSkin.Body.normal.textColor, fontSize: 15, align: TextAnchor.MiddleCenter));
             }
 
-            // The table's last words and the rules in one line.
             y = r.y + 330f;
             for (int i = Mathf.Max(0, log.Count - 2); i < log.Count; i++) { GUI.Label(new Rect(r.x + 20, y, pw - 40, 20), log[i], small); y += 20f; }
-            GUI.Label(new Rect(r.x + 20, r.yMax - 24, pw - 40, 20), "5 kind > 4 kind > full house > straight > 3 kind > 2 pair > pair     F / Esc: leave", new GUIStyle(small) { fontSize = 11 });
+            GUI.Label(new Rect(r.x + 20, r.yMax - 24, pw - 40, 20), "5 kind > 4 kind > full house > straight > 3 kind > 2 pair > pair     F / Esc: leave", UiSkin.Derive(small, small.normal.textColor, fontSize: 11));
         }
 
         private void OnDisable()
@@ -817,7 +769,7 @@ namespace Deepbound.World
         public override void OnNetworkSpawn()
         {
             base.OnNetworkSpawn();
-            // A round table, black felt with a gold ring, four stools, a skull candle and the pot bowl in the middle.
+
             MeshKit.Part(transform, "Leg", MeshKit.Cylinder(0.16f, 0.3f, FeltY - 0.06f, 10), Mat.Wood, Vector3.zero);
             MeshKit.Part(transform, "Top", MeshKit.Cylinder(0.92f, 0.92f, 0.07f, 20), Mat.Wood, Vector3.up * (FeltY - 0.07f));
             var felt = MeshKit.Part(transform, "Felt", MeshKit.Cylinder(0.84f, 0.84f, 0.012f, 20), Mat.Cloth, Vector3.up * FeltY);
@@ -847,7 +799,7 @@ namespace Deepbound.World
                     dice[k, i] = d;
                 }
             }
-            // The skull candle (the table's light).
+
             MeshKit.Part(transform, "Skull", MeshKit.Ball(0.07f, 8, 6), Mat.Bone, new Vector3(0.18f, FeltY + 0.07f, -0.18f));
             var flame = MeshKit.Part(transform, "Flame", MeshKit.Ball(0.02f, 6, 4), Mat.Glow, new Vector3(0.18f, FeltY + 0.18f, -0.18f));
             ArtLibrary.SetGlow(flame.GetComponent<Renderer>(), new Color(1f, 0.6f, 0.25f) * 2f);

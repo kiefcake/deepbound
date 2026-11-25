@@ -5,24 +5,10 @@ using Deepbound.Progression;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using Deepbound.UI;
 
 namespace Deepbound.World
 {
-    /// <summary>
-    /// ARM-WRESTLING AT THE GUTTED LANTERN (reworked 2026-11-13, the user: "move the arm wrestling game closer to the campfire
-    /// and tavern ... please rework it also"). A barrel in the tavern yard where BIG GORM, a drover who never leaves it, takes
-    /// all comers. It is a contest of GRIP now, not a timing bar:
-    /// <list type="bullet">
-    /// <item>HOLD SPACE to STRAIN: your arm drives his down, but your <see cref="GripA"/> drains; let go and it comes back.
-    /// Empty it and your hand CRAMPS (<see cref="CrampSeconds"/>): no strain at all.</item>
-    /// <item>Gorm leans in all the time, and every few seconds he gathers himself (WARN, a red "!") and SURGES. Strain through
-    /// a surge and you hold him; be resting and he shoves you most of the way to the wood.</item>
-    /// <item>After every surge he is TIRED for a moment: strain then and your push counts x<see cref="TiredBonus"/>.</item>
-    /// </list>
-    /// So: rest while he leans, brace for the surge, drive when he tires. Pin him: double your stake (<see cref="PaidWins"/>
-    /// paid wins a visit). Delver against delver: no Gorm; both strain, and the better-managed grip wins both stakes.
-    /// The bout runs on its own clock (<see cref="ServerSimulate"/>), so tests can play it out in one frame.
-    /// </summary>
     public class ArmWrestle : Interactable
     {
         public static readonly int[] Stakes = { 10, 25, 50 };
@@ -36,19 +22,19 @@ namespace Deepbound.World
 
         public readonly NetworkVariable<ulong> Wrestler = new NetworkVariable<ulong>(ulong.MaxValue);
         public readonly NetworkVariable<double> StartAt = new NetworkVariable<double>(-1);
-        /// <summary>-1 you are pinned .. +1 you have him (in a delvers' bout +1 is the challenger).</summary>
+
         public readonly NetworkVariable<float> Balance = new NetworkVariable<float>();
         public readonly NetworkVariable<int> Stake = new NetworkVariable<int>();
-        /// <summary>Grip left: the wrestler's (A) and the delver across the barrel's (B).</summary>
+
         public readonly NetworkVariable<float> GripA = new NetworkVariable<float>(1f), GripB = new NetworkVariable<float>(1f);
         public readonly NetworkVariable<Phase> GormPhase = new NetworkVariable<Phase>();
-        /// <summary>Bits: 1 = A straining, 2 = B straining, 4 = A cramped, 8 = B cramped (for the panel and the arms).</summary>
+
         public readonly NetworkVariable<byte> Strain = new NetworkVariable<byte>();
-        /// <summary>Delver against delver: who holds the far side. MaxValue = Gorm; <see cref="Waiting"/> = a challenge stands.</summary>
+
         public readonly NetworkVariable<ulong> Rival = new NetworkVariable<ulong>(ulong.MaxValue);
         public const ulong Waiting = ulong.MaxValue - 1;
         public const float WaitLimit = 40f;
-        /// <summary>Tests: one player may take both sides.</summary>
+
         public static bool DebugSelfMatch;
 
         public static bool LocalOpen { get; private set; }
@@ -56,17 +42,15 @@ namespace Deepbound.World
         private static double Now => NetworkManager.Singleton != null ? NetworkManager.Singleton.ServerTime.Time : Time.timeAsDouble;
         private static int Visit => DungeonDirector.Instance != null ? DungeonDirector.Instance.NextDepth.Value * 1000 + (int)(DungeonDirector.Instance.RunStartedAt.Value % 997) : 0;
 
-        // Server.
         private readonly Dictionary<ulong, (int visit, int wins)> paid = new Dictionary<ulong, (int, int)>();
         private double waitSince;
         private float boutT, phaseLeft, crampA, crampB;
         private bool strainA, strainB;
         private System.Random rng = new System.Random(7);
-        public int LastOutcome { get; private set; } // +1 won, -1 lost, 0 draw
-        /// <summary>Server, tests: the bout's own clock.</summary>
+        public int LastOutcome { get; private set; }
+
         public float BoutTime => boutT;
 
-        // Local.
         private int stakeIndex;
         private float openedAt;
         private string result;
@@ -110,8 +94,6 @@ namespace Deepbound.World
             Sfx.Play2D(Sound.UiClose, 0.6f);
         }
 
-        // ---------------------------------------------------------------- server
-
         [Rpc(SendTo.Server)]
         private void ClaspRpc(NetworkObjectReference player, int stake)
         {
@@ -132,7 +114,6 @@ namespace Deepbound.World
             phaseLeft = 2.2f + (float)rng.NextDouble() * 1.5f;
         }
 
-        /// <summary>Server: a bout with Gorm begins (the stake is taken now). Public for tests.</summary>
         public bool ServerClasp(PlayerProgress who, int stake)
         {
             if (InBout || WaitingForRival) return false;
@@ -158,7 +139,6 @@ namespace Deepbound.World
             else ServerChallenge(who, stake);
         }
 
-        /// <summary>Server: a delver stakes and waits for another to take them on. Public for tests.</summary>
         public bool ServerChallenge(PlayerProgress who, int stake)
         {
             if (InBout || WaitingForRival) return false;
@@ -175,7 +155,6 @@ namespace Deepbound.World
             return true;
         }
 
-        /// <summary>Server: someone takes the waiting challenge (pays the same stake); the bout begins. Public for tests.</summary>
         public bool ServerAccept(PlayerProgress who)
         {
             if (!WaitingForRival || (who.NetworkObjectId == Wrestler.Value && !DebugSelfMatch) || who.Gold.Value < Stake.Value) return false;
@@ -195,17 +174,12 @@ namespace Deepbound.World
             else if (Delvers && obj.NetworkObjectId == Rival.Value) ServerSetStrain(-1, on);
         }
 
-        /// <summary>Server: one side starts or stops straining (+1 the wrestler, -1 the delver across). Public for tests.</summary>
         public void ServerSetStrain(int side, bool on)
         {
             if (!InBout) return;
             if (side > 0) strainA = on; else strainB = on;
         }
 
-        /// <summary>
-        /// Server: the bout moves on by <paramref name="dt"/> seconds of its own clock: grips, Gorm's lean / warn / surge / tired
-        /// cycle, the balance, the end. FixedUpdate calls it; tests call it in a loop to play a bout out at once.
-        /// </summary>
         public void ServerSimulate(float dt)
         {
             if (!InBout) return;
@@ -219,7 +193,6 @@ namespace Deepbound.World
             if (b) push -= StrainPush;
             if (!Delvers)
             {
-                // Gorm's cycle.
                 phaseLeft -= dt;
                 if (phaseLeft <= 0f)
                 {
@@ -229,7 +202,7 @@ namespace Deepbound.World
                     if (next == Phase.Surge) SurgeFxRpc(a);
                 }
                 float lean = GormLean + GormLeanGrow * boutT;
-                if (GormPhase.Value == Phase.Surge) push -= a ? GormSurge * SurgeHeld + StrainPush : GormSurge; // braced, your strain only holds him
+                if (GormPhase.Value == Phase.Surge) push -= a ? GormSurge * SurgeHeld + StrainPush : GormSurge;
                 else if (GormPhase.Value != Phase.Tired) push -= lean;
             }
             Balance.Value = Mathf.Clamp(Balance.Value + push * dt, -1f, 1f);
@@ -239,7 +212,6 @@ namespace Deepbound.World
             else if (boutT > Limit) ServerEnd(0);
         }
 
-        /// <summary>One side's grip this step: true if it is straining (and not cramped).</summary>
         private static bool Side(ref bool strain, ref float cramp, NetworkVariable<float> grip, float dt)
         {
             if (cramp > 0f) { cramp -= dt; grip.Value = Mathf.Min(1f, grip.Value + GripRecover * 0.5f * dt); return false; }
@@ -261,7 +233,6 @@ namespace Deepbound.World
             else if (InBout && Delvers && obj.NetworkObjectId == Rival.Value) ServerEnd(+1);
         }
 
-        /// <summary>Server: nobody took the challenge (or the challenger left): the stake goes back.</summary>
         public void ServerCancelWait()
         {
             if (!WaitingForRival) return;
@@ -287,7 +258,6 @@ namespace Deepbound.World
 
         private bool Near(ulong id) => NetworkManager.SpawnManager.SpawnedObjects.TryGetValue(id, out var obj) && Vector3.Distance(obj.transform.position, transform.position) <= Range + 2f;
 
-        /// <summary>Server: the bout is over (+1 the player pinned him, -1 Gorm won, 0 a draw: stake back).</summary>
         public void ServerEnd(int outcome)
         {
             if (!InBout) return;
@@ -306,7 +276,7 @@ namespace Deepbound.World
                     var key = who.OwnerClientId;
                     var rec = paid.TryGetValue(key, out var r) && r.visit == Visit ? r : (Visit, 0);
                     if (rec.Item2 < PaidWins) { payout = stake * 2; paid[key] = (Visit, rec.Item2 + 1); }
-                    else payout = stake; // for pride: the stake back
+                    else payout = stake;
                 }
                 if (payout > 0) who.ServerAddGold(payout);
             }
@@ -331,8 +301,6 @@ namespace Deepbound.World
             Balance.Value = outcome > 0 ? 1f : outcome < 0 ? -1f : 0f;
             DelversEndRpc(outcome > 0 ? an : bn, outcome > 0 ? bn : an, outcome, stake);
         }
-
-        // ---------------------------------------------------------------- everyone
 
         private void Say(string text)
         {
@@ -388,7 +356,6 @@ namespace Deepbound.World
             if (LocalOpen && localTable == this) LocalInput();
             if (arms != null)
             {
-                // The clasped arms tip toward whoever is losing; they shake while someone strains, hard in a surge.
                 bool straining = (Strain.Value & 3) != 0, surging = InBout && !Delvers && GormPhase.Value == Phase.Surge;
                 float shake = InBout ? (straining ? 0.03f : 0.012f) * (surging ? 2f : 1f) : 0f;
                 float k = Balance.Value + Mathf.Sin(Time.time * 37f) * shake;
@@ -396,7 +363,6 @@ namespace Deepbound.World
             }
             if (gorm != null)
             {
-                // Gorm hunches into a surge and sags when he tires.
                 float lean = !InBout || Delvers ? 0f : GormPhase.Value == Phase.Surge ? 14f : GormPhase.Value == Phase.Warn ? 8f : GormPhase.Value == Phase.Tired ? -6f : 3f;
                 gorm.localRotation = Quaternion.Slerp(gorm.localRotation, Quaternion.Euler(lean, 0f, 0f), Time.deltaTime * 8f);
             }
@@ -443,11 +409,11 @@ namespace Deepbound.World
             var r = new Rect(W * 0.5f - pw * 0.5f, H * 0.6f, pw, ph);
             UI.UiSkin.Panel(r, 0.95f);
             bool rivalSide = Delvers && Rival.Value == me.NetworkObjectId;
-            GUI.Label(new Rect(r.x + 20, r.y + 10, pw - 40, 28), Delvers ? "ARM-WRESTLING AT GORM'S BARREL" : "ARM-WRESTLE BIG GORM", new GUIStyle(UI.UiSkin.Heading) { fontSize = 20 });
+            GUI.Label(new Rect(r.x + 20, r.y + 10, pw - 40, 28), Delvers ? "ARM-WRESTLING AT GORM'S BARREL" : "ARM-WRESTLE BIG GORM", UiSkin.Derive(UI.UiSkin.Heading, UI.UiSkin.Heading.normal.textColor, fontSize: 20));
             if (InBout && (Wrestler.Value == me.NetworkObjectId || rivalSide))
             {
                 double t = Now - StartAt.Value;
-                // Who is winning: their side left, yours right.
+
                 var tug = new Rect(r.x + 30, r.y + 52, pw - 60, 22);
                 UI.UiSkin.Rect(tug, new Color(0.3f, 0.1f, 0.08f, 0.85f));
                 float b = ((rivalSide ? -Balance.Value : Balance.Value) + 1f) / 2f;
@@ -455,15 +421,15 @@ namespace Deepbound.World
                 UI.UiSkin.Rect(new Rect(tug.center.x - 1f, tug.y - 3f, 2f, tug.height + 6f), new Color(1f, 1f, 1f, 0.5f));
                 string them = !Delvers ? "GORM" : NameOf(rivalSide ? Wrestler.Value : Rival.Value).ToUpperInvariant();
                 GUI.Label(new Rect(tug.x, tug.yMax + 2, 200, 20), them, UI.UiSkin.Small);
-                GUI.Label(new Rect(tug.xMax - 120, tug.yMax + 2, 120, 20), "YOU", new GUIStyle(UI.UiSkin.Small) { alignment = TextAnchor.UpperRight });
-                // Your grip.
+                GUI.Label(new Rect(tug.xMax - 120, tug.yMax + 2, 120, 20), "YOU", UiSkin.Derive(UI.UiSkin.Small, UI.UiSkin.Small.normal.textColor, align: TextAnchor.UpperRight));
+
                 float grip = rivalSide ? GripB.Value : GripA.Value;
                 bool cramped = (Strain.Value & (rivalSide ? 8 : 4)) != 0, straining = (Strain.Value & (rivalSide ? 2 : 1)) != 0;
                 var gr = new Rect(r.x + 30, r.y + 104, pw - 60, 14);
                 UI.UiSkin.Rect(gr, new Color(0f, 0f, 0f, 0.5f));
                 UI.UiSkin.Rect(new Rect(gr.x, gr.y, gr.width * grip, gr.height), cramped ? new Color(0.8f, 0.2f, 0.15f) : grip < 0.3f ? new Color(0.95f, 0.55f, 0.2f) : new Color(0.55f, 0.85f, 0.5f));
                 GUI.Label(new Rect(gr.x, gr.yMax + 1, 260, 18), cramped ? "CRAMP!  let it come back" : straining ? "GRIP  -  straining" : "GRIP", UI.UiSkin.Small);
-                // Gorm's mood: the thing to read.
+
                 string call; Color cc;
                 if (t < 0) { call = "On three..."; cc = UI.UiSkin.Gold; }
                 else if (Delvers) { call = "HOLD SPACE to strain - mind your grip"; cc = UI.UiSkin.Gold; }
@@ -474,17 +440,17 @@ namespace Deepbound.World
                     case Phase.Tired: call = "HE'S TIRED - DRIVE (hold SPACE)"; cc = new Color(0.6f, 1f, 0.5f); break;
                     default: call = "He leans in. Rest your grip, or strain while it lasts."; cc = new Color(0.9f, 0.85f, 0.7f); break;
                 }
-                GUI.Label(new Rect(r.x + 20, r.y + 146, pw - 40, 26), call, new GUIStyle(UI.UiSkin.Body) { fontSize = 17, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter, normal = { textColor = cc } });
-                GUI.Label(new Rect(r.x + 20, r.y + 180, pw - 40, 20), "Stake " + Stake.Value + " gold   ·   " + Mathf.Max(0, Mathf.CeilToInt(Limit - (float)t)) + " s", new GUIStyle(UI.UiSkin.Small) { alignment = TextAnchor.MiddleCenter });
+                GUI.Label(new Rect(r.x + 20, r.y + 146, pw - 40, 26), call, UiSkin.Derive(UI.UiSkin.Body, cc, fontSize: 17, fontStyle: FontStyle.Bold, align: TextAnchor.MiddleCenter));
+                GUI.Label(new Rect(r.x + 20, r.y + 180, pw - 40, 20), "Stake " + Stake.Value + " gold   ·   " + Mathf.Max(0, Mathf.CeilToInt(Limit - (float)t)) + " s", UiSkin.Derive(UI.UiSkin.Small, UI.UiSkin.Small.normal.textColor, align: TextAnchor.MiddleCenter));
             }
             else
             {
                 GUI.Label(new Rect(r.x + 20, r.y + 44, pw - 40, 48), WaitingForRival
                     ? (Wrestler.Value == me.NetworkObjectId ? "Your elbow is on the barrel, " + Stake.Value + " gold staked. Waiting for another delver to take you on (Esc / F withdraws, the stake comes back)."
                         : NameOf(Wrestler.Value) + " waits with " + Stake.Value + " gold on the barrel. Match it and the winner takes both.")
-                    : "HOLD SPACE to strain; it drains your grip, so rest while he leans. When he gathers himself (!), brace; when he tires, drive. Pin him for double. C challenges a delver.", new GUIStyle(UI.UiSkin.Small) { wordWrap = true });
+                    : "HOLD SPACE to strain; it drains your grip, so rest while he leans. When he gathers himself (!), brace; when he tires, drive. Pin him for double. C challenges a delver.", UiSkin.Derive(UI.UiSkin.Small, UI.UiSkin.Small.normal.textColor, wrap: true));
                 float y = r.y + 98;
-                GUI.Label(new Rect(r.x + 20, y + 4, 80, 24), "STAKE", new GUIStyle(UI.UiSkin.Small) { fontSize = 13, normal = { textColor = UI.UiSkin.Gold } });
+                GUI.Label(new Rect(r.x + 20, y + 4, 80, 24), "STAKE", UiSkin.Derive(UI.UiSkin.Small, UI.UiSkin.Gold, fontSize: 13));
                 for (int i = 0; i < Stakes.Length; i++)
                 {
                     var bb = new Rect(r.x + 90 + i * 70, y, 60, 28);
@@ -494,10 +460,10 @@ namespace Deepbound.World
                 string act = InBout ? "The barrel is taken - wait your turn."
                     : WaitingForRival ? (Wrestler.Value == me.NetworkObjectId ? "Waiting for a challenger..." : "SPACE  -  take the challenge   (gold: " + prog.Gold.Value + ")")
                     : "SPACE  -  wrestle Gorm     C  -  challenge a delver";
-                GUI.Label(new Rect(r.x + 20, y + 40, pw - 40, 24), act, new GUIStyle(UI.UiSkin.Body) { fontSize = 16, fontStyle = FontStyle.Bold, normal = { textColor = UI.UiSkin.Gold } });
-                if (result != null && Time.time - resultAt < 15f) GUI.Label(new Rect(r.x + 20, y + 70, pw - 40, 40), result, new GUIStyle(UI.UiSkin.Small) { wordWrap = true });
+                GUI.Label(new Rect(r.x + 20, y + 40, pw - 40, 24), act, UiSkin.Derive(UI.UiSkin.Body, UI.UiSkin.Gold, fontSize: 16, fontStyle: FontStyle.Bold));
+                if (result != null && Time.time - resultAt < 15f) GUI.Label(new Rect(r.x + 20, y + 70, pw - 40, 40), result, UiSkin.Derive(UI.UiSkin.Small, UI.UiSkin.Small.normal.textColor, wrap: true));
             }
-            GUI.Label(new Rect(r.xMax - 200, r.yMax - 24, 190, 20), "Esc / F to step away", new GUIStyle(UI.UiSkin.Small) { alignment = TextAnchor.MiddleRight });
+            GUI.Label(new Rect(r.xMax - 200, r.yMax - 24, 190, 20), "Esc / F to step away", UiSkin.Derive(UI.UiSkin.Small, UI.UiSkin.Small.normal.textColor, align: TextAnchor.MiddleRight));
         }
 
         private void OnDisable() { if (localTable == this) { LocalOpen = false; localTable = null; } }
@@ -505,14 +471,13 @@ namespace Deepbound.World
         public override void OnNetworkSpawn()
         {
             base.OnNetworkSpawn();
-            // A barrel on end with a cloth over it, two forearms clasped above it, and Big Gorm on the far side. You stand on the
-            // barrel's +z side (its forward), Gorm on the other.
+
             MeshKit.Part(transform, "Barrel", MeshKit.Cylinder(0.36f, 0.36f, 0.95f, 12), Mat.Wood, Vector3.zero);
             foreach (float h in new[] { 0.12f, 0.8f })
                 MeshKit.Part(transform, "Hoop", MeshKit.Cylinder(0.375f, 0.375f, 0.05f, 12), Mat.Steel, Vector3.up * h);
             var cloth = MeshKit.Part(transform, "Cloth", MeshKit.Cylinder(0.4f, 0.4f, 0.02f, 12), Mat.Cloth, Vector3.up * 0.95f);
             ArtLibrary.Tint(cloth.GetComponent<Renderer>(), new Color(0.45f, 0.12f, 0.1f));
-            // A mug and a tally of chalk marks: the barrel is his.
+
             MeshKit.Part(transform, "Mug", MeshKit.Cylinder(0.05f, 0.045f, 0.12f, 8), Mat.Wood, new Vector3(0.24f, 0.96f, -0.18f));
             arms = MeshKit.Pivot(transform, "Arms", Vector3.up * 0.97f);
             var skin = new Color(0.72f, 0.55f, 0.42f);
@@ -526,13 +491,13 @@ namespace Deepbound.World
             var fist = MeshKit.Part(arms, "Fists", MeshKit.Box(new Vector3(0.13f, 0.12f, 0.11f)), Mat.Bone, new Vector3(0f, 0.34f, 0f));
             ArtLibrary.Tint(fist.GetComponent<Renderer>(), skin);
             arms.localRotation = Quaternion.identity;
-            // Big Gorm: a broad drover, stood leaning on his side of the barrel (scaled up a touch), pivoting at the hips.
+
             var hip = MeshKit.Pivot(transform, "GormHip", new Vector3(0f, 0f, -0.75f));
             var fig = Props.Townsfolk(hip, transform.position + transform.rotation * new Vector3(0f, 0f, -0.75f), transform.position + Vector3.up * 0.9f, Props.Folk.Drinker);
             if (fig != null)
             {
                 fig.localScale = new Vector3(1.18f, 1.08f, 1.18f);
-                // The Drinker body carries Old Hollis's name tag: Gorm is his own man (2026-11-13 shots).
+
                 var idle = fig.GetComponentInChildren<Art.FolkIdle>();
                 if (idle != null) { idle.DisplayName = "Big Gorm"; idle.Trade = "Arm-wrestler"; }
             }

@@ -6,19 +6,8 @@ using UnityEngine.AI;
 
 namespace Deepbound.World
 {
-    /// <summary>
-    /// The Tallyman (2026-10-20): the reason not to linger. A party still on a floor after
-    /// <see cref="DungeonDirector.TallyArriveSeconds"/> hears a far bell, then he comes in at the
-    /// start of the floor: a gaunt collector in a stovepipe hat with a green lantern and a ledger. He
-    /// cannot be hurt, stunned or stopped; he walks after the nearest standing player, a little faster
-    /// every minute (a sprint always outruns him, a walk soon does not, a reliquary carrier never does),
-    /// and his touch takes a quarter of your life a second. He goes when the guardian's arena seals or
-    /// the floor ends. The dread of Spelunky's ghost, in a crypt.
-    /// <para>Server moves him on the navmesh; every peer draws him from the synced position.</para>
-    /// </summary>
     public class Tallyman : NetworkBehaviour
     {
-        /// <summary>Holy Water holds him this long (the one counter he has).</summary>
         public const float RepelSeconds = 3f;
         public const float BaseSpeed = 3.5f, MaxSpeed = 5.7f, SpeedGrowth = 0.012f, Reach = 1.7f, DrainPerSecond = 0.25f;
 
@@ -29,10 +18,8 @@ namespace Deepbound.World
         public readonly NetworkVariable<bool> Leaving = new NetworkVariable<bool>();
         public readonly NetworkVariable<double> ArrivedAt = new NetworkVariable<double>();
 
-        /// <summary>Server, for the screenshot run: ignore the arena seal and the phase (only a dismissal sends him off).</summary>
         public bool ServerStay { get; set; }
 
-        /// <summary>Server, for tests: the damage his touch has dealt.</summary>
         public float DamageDealt { get; private set; }
 
         private NavMeshPath path;
@@ -49,15 +36,10 @@ namespace Deepbound.World
         private double Now => NetworkManager != null ? NetworkManager.ServerTime.Time : 0;
         public float Speed => Mathf.Min(MaxSpeed, BaseSpeed + (float)(Now - ArrivedAt.Value) * SpeedGrowth);
 
-        // ---- DREAD (2026-11-23, the user: "please make the tallyman extremely scary") ----
-        // He comes faster while no one is looking at him (UnseenPace); seen, he keeps his slow walk. Up close, on the local
-        // screen: the view closes in black and his tally marks scratch in at its edges (AfflictionOverlay reads LocalDread),
-        // a heartbeat quickens, torches near him gutter, his head turns to follow you and the jaw drops, the eyes flare, and
-        // now and then he is simply not there for an instant. The first time he closes on you: a wail and a bell.
         public const float UnseenPace = 1.4f, DreadFar = 26f, DreadNear = 4f, SeenRange = 45f, SeenAngle = 55f;
-        /// <summary>Synced: no hunted player has him in view (he walks faster, and lurches).</summary>
+
         public readonly NetworkVariable<bool> Unseen = new NetworkVariable<bool>();
-        /// <summary>Local: 0 far away .. 1 at arm's reach (the overlay, the heartbeat).</summary>
+
         public static float LocalDread { get; private set; }
         private float seenCheckAt, heartAt, shriekReadyAt, blinkAt, blinkUntil;
         private bool shrieked;
@@ -119,11 +101,9 @@ namespace Deepbound.World
             guttered.Clear();
         }
 
-        /// <summary>Synced: server time until which he reels from holy water and cannot move or touch.</summary>
         public readonly NetworkVariable<double> RepelledUntil = new NetworkVariable<double>();
         public bool Repelled => Now < RepelledUntil.Value;
 
-        /// <summary>Server: holy water splashed on him.</summary>
         public void ServerRepel(float seconds)
         {
             if (!IsServer || Leaving.Value) return;
@@ -139,7 +119,6 @@ namespace Deepbound.World
             Progression.Deeds.Earn(Progression.Deeds.Deed.RepelledTallyman, "Held back the Tallyman");
         }
 
-        /// <summary>Server: tip the hat and go (the arena sealed, the floor ended).</summary>
         public void ServerLeave()
         {
             if (!IsServer || Leaving.Value) return;
@@ -205,7 +184,7 @@ namespace Deepbound.World
             }
 
             if (Time.time >= seenCheckAt) { seenCheckAt = Time.time + 0.2f; Unseen.Value = !AnyoneWatching(); }
-            // No way round: he walks straight at you, through whatever is in between, at half pace. Unwatched, faster.
+
             float speed = Speed * (corners == null ? 0.5f : 1f) * (Unseen.Value ? UnseenPace : 1f) * Time.deltaTime;
             Vector3 next = goal;
             if (corners != null && corner < corners.Length)
@@ -221,7 +200,6 @@ namespace Deepbound.World
             if (dir.sqrMagnitude > 1e-6f) Yaw.Value = Mathf.MoveTowardsAngle(Yaw.Value, Quaternion.LookRotation(dir).eulerAngles.y, 240f * Time.deltaTime);
             Pos.Value = step;
 
-            // His touch: a quarter of your life each second, through armour.
             if (Time.time >= drainAt)
             {
                 foreach (var p in PlayerLife.All)
@@ -245,10 +223,6 @@ namespace Deepbound.World
             Sfx.Play(Sound.Whisper, at, 0.9f, 0.6f);
         }
 
-        // ------------------------------------------------------------------
-        // Presentation (every peer)
-        // ------------------------------------------------------------------
-
         private void Animate()
         {
             if (vis == null) return;
@@ -261,7 +235,6 @@ namespace Deepbound.World
             lastPos = transform.position;
             stride += moved.magnitude * 2.2f;
 
-            // A long, unhurried gait: stiff legs, the coat swaying, the lantern swinging on its chain.
             float walk = Mathf.Clamp01(pace / 2f);
             float s = Mathf.Sin(stride);
             legL.localRotation = Quaternion.Euler(s * 24f * walk, 0f, 0f);
@@ -273,7 +246,7 @@ namespace Deepbound.World
             float dist = camT != null ? Vector3.Distance(camT.transform.position, transform.position) : 99f;
             float dread = Leaving.Value ? 0f : Mathf.Clamp01(Mathf.InverseLerp(DreadFar, DreadNear, dist));
             LocalDread = Mathf.MoveTowards(LocalDread, dread, Time.deltaTime * 1.5f);
-            // He looks at YOU: the skull turns after the camera further than a neck should (an owl's turn), and tips.
+
             float lookYaw = 0f;
             if (camT != null)
             {
@@ -282,17 +255,17 @@ namespace Deepbound.World
             }
             head.localRotation = Repelled ? Quaternion.Euler(-28f, 0f, Mathf.Sin(Time.time * 9f) * 6f)
                 : Quaternion.Euler(8f + Mathf.Sin(Time.time * 0.6f) * 3f - 10f * dread, lookYaw + Mathf.Sin(Time.time * 0.45f) * 14f * (1f - dread), Mathf.Sin(Time.time * 0.8f) * 5f + 22f * dread);
-            // The jaw hangs open as he nears, chattering when he is on you.
+
             if (jaw != null) jaw.localRotation = Quaternion.Euler(28f * dread + (dread > 0.8f ? Mathf.Sin(Time.time * 38f) * 6f : 0f), 0f, 0f);
             if (eyeRenderer != null) ArtLibrary.SetGlow(eyeRenderer, LanternGreen * (3f + 9f * dread * (0.8f + 0.2f * Mathf.Sin(Time.time * 23f))));
-            // Unwatched, his walk turns into a lurch: the body pitched forward, the arms hanging.
+
             if (Unseen.Value && walk > 0.2f)
             {
                 vis.localRotation = Quaternion.Euler(14f, 0f, Mathf.Sin(stride * 0.5f) * 6f);
                 armL.localRotation = Quaternion.Euler(-12f + s * 20f, 0f, -4f);
             }
             else vis.localRotation = Quaternion.Slerp(vis.localRotation, Quaternion.identity, 1f - Mathf.Exp(-Time.deltaTime * 6f));
-            // Now and then he is simply not there for a blink (only while near, never while leaving).
+
             if (dread > 0.15f && Time.time >= blinkAt) { blinkAt = Time.time + Random.Range(2.5f, 6f); blinkUntil = Time.time + Random.Range(0.07f, 0.16f); }
             vis.gameObject.SetActive(Time.time >= blinkUntil || Leaving.Value);
             TickDread(dread, dist);
@@ -306,15 +279,14 @@ namespace Deepbound.World
                 sink = Mathf.Clamp01((Time.time - leftAt) / 2.4f);
             }
             vis.localPosition = new Vector3(0f, bob - sink * 2.9f, 0f);
-            // The lantern burns steady far off and stutters as he gets close.
+
             float stutter = LocalDread > 0.4f && Mathf.PerlinNoise(Time.time * 9f, 0.3f) < 0.3f ? 0.25f : 1f;
             if (lanternLight != null) lanternLight.intensity = (2.2f + Mathf.Sin(Time.time * 7f) * 0.2f) * (1f - sink) * (Repelled ? 0.35f : 1f) * stutter;
             if (mist != null) mist.localScale = new Vector3(1f + Mathf.Sin(Time.time * 0.9f) * 0.08f, 1f, 1f + Mathf.Cos(Time.time * 0.7f) * 0.08f) * (1f - sink * 0.6f);
 
-            // Heavy, slow footfalls and a murmur from the ledger, near enough to hear.
             var cam = ViewCamera.Current;
             float near = cam != null ? Vector3.Distance(cam.transform.position, transform.position) : 99f;
-            // Wherever you are, his bell: a toll every so often, louder as he comes closer.
+
             if (!Leaving.Value && Time.time >= tollAt)
             {
                 tollAt = Time.time + 18f;
@@ -327,7 +299,6 @@ namespace Deepbound.World
             }
         }
 
-        /// <summary>Local: the heartbeat, the torches guttering round him, and the shriek the first time he is on you.</summary>
         private void TickDread(float dread, float dist)
         {
             if (Leaving.Value) { ReleaseDread(); return; }
@@ -345,7 +316,7 @@ namespace Deepbound.World
                 if (Player.NetworkPlayer.Local != null) Player.NetworkPlayer.Local.AddShake(0.25f);
             }
             if (dread < 0.2f) shrieked = false;
-            // Torches within 10 m of him gutter low; the ones he has left come back.
+
             var at = transform.position;
             foreach (var t in Torch.All)
             {
@@ -371,11 +342,10 @@ namespace Deepbound.World
         {
             vis = new GameObject("Vis").transform;
             vis.SetParent(transform, false);
-            // Dark, but not so dark he vanishes into a crypt: a grave-green black that his lantern catches.
+
             var coat = new Color(0.13f, 0.15f, 0.13f);
             var trim = new Color(0.32f, 0.08f, 0.08f);
 
-            // Legs: long and thin, in black hose, with buckled shoes.
             foreach (float side in new[] { -1f, 1f })
             {
                 var hip = MeshKit.Pivot(vis, side < 0 ? "LegL" : "LegR", new Vector3(side * 0.12f, 1.25f, 0f));
@@ -386,7 +356,6 @@ namespace Deepbound.World
                 if (side < 0) legL = hip; else legR = hip;
             }
 
-            // The coat: a long tailed frock flaring below the waist, a high collar, a red sash.
             var skirt = MeshKit.Part(vis, "Coat", MeshKit.Lathe("tallyCoat", new[]
             {
                 new Vector2(0.44f, 0f), new Vector2(0.38f, 0.35f), new Vector2(0.27f, 0.85f), new Vector2(0.22f, 1.05f), new Vector2(0f, 1.06f),
@@ -407,10 +376,9 @@ namespace Deepbound.World
                     MeshKit.Part(vis, "Button", MeshKit.Ball(0.022f, 6, 4), Mat.Gold, new Vector3(side * 0.06f, 1.85f + b * 0.14f, 0.15f));
             }
 
-            // The head: a long bare skull under a stovepipe hat, two pale points in the sockets.
             head = MeshKit.Pivot(vis, "Head", new Vector3(0f, 2.42f, 0.02f));
             MeshKit.Part(head, "Neck", MeshKit.Cylinder(0.05f, 0.045f, 0.12f, 6), Mat.Bone, Vector3.zero);
-            // The skull is faintly self-lit, like a soul skull, so his face reads across a dark room.
+
             var skull = MeshKit.Part(head, "Skull", MeshKit.Ball(0.15f, 12, 8), Mat.Glow, new Vector3(0f, 0.22f, 0f), default, new Vector3(0.86f, 1.15f, 0.95f));
             ArtLibrary.SetGlow(skull.GetComponent<Renderer>(), new Color(0.72f, 0.8f, 0.7f) * 0.42f);
             jaw = MeshKit.Pivot(head, "JawHinge", new Vector3(0f, 0.12f, -0.02f));
@@ -435,10 +403,9 @@ namespace Deepbound.World
             ArtLibrary.Tint(brim.GetComponent<Renderer>(), coat * 0.8f);
             var band = MeshKit.Part(head, "Band", MeshKit.Cylinder(0.157f, 0.158f, 0.06f, 12), Mat.Cloth, new Vector3(0f, 0.37f, -0.013f), new Vector3(-6f, 0f, 0f));
             ArtLibrary.Tint(band.GetComponent<Renderer>(), trim);
-            // A tally card tucked in the band.
+
             MeshKit.Part(head, "Card", MeshKit.Box(new Vector3(0.07f, 0.1f, 0.005f)), Mat.Cloth, new Vector3(0.1f, 0.45f, 0.08f), new Vector3(-6f, 30f, 8f));
 
-            // Right arm: the lantern on a short chain. Left arm: the ledger, held open.
             armR = MeshKit.Pivot(vis, "ArmR", new Vector3(0.3f, 2.24f, 0f));
             var sleeveR = MeshKit.Part(armR, "Sleeve", MeshKit.Cylinder(0.06f, 0.075f, 0.9f, 7), Mat.Cloth, new Vector3(0f, -0.9f, 0f));
             ArtLibrary.Tint(sleeveR.GetComponent<Renderer>(), coat);
@@ -479,14 +446,14 @@ namespace Deepbound.World
                 var page = MeshKit.Part(book, "Pages", MeshKit.Box(new Vector3(0.15f, 0.22f, 0.02f)), Mat.Cloth, new Vector3(side * 0.08f, 0f, 0.014f), new Vector3(0f, side * -12f, 0f));
                 ArtLibrary.Tint(page.GetComponent<Renderer>(), new Color(0.78f, 0.72f, 0.58f));
             }
-            // A low grave-mist round his feet.
+
             var fog = MeshKit.Part(transform, "Mist", MeshKit.Cylinder(1.1f, 0.5f, 0.3f, 18), Mat.Smoke, Vector3.up * 0.02f);
             ArtLibrary.Tint(fog.GetComponent<Renderer>(), new Color(0.55f, 0.9f, 0.6f, 0.1f));
             fog.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             mist = fog.transform;
             MeshKit.MergeParts(vis);
             eyeRenderer = eyes != null ? eyes.GetComponentInChildren<Renderer>() : null;
-            // Taller than any man (he used to stand at a big man's height).
+
             vis.localScale = Vector3.one * 1.14f;
         }
     }

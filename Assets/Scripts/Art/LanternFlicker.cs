@@ -2,7 +2,6 @@ using UnityEngine;
 
 namespace Deepbound.Art
 {
-    /// <summary>A slow candle flicker on the lantern's light.</summary>
     public class LanternFlicker : MonoBehaviour
     {
         private Light l;

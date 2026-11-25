@@ -7,21 +7,6 @@ using UnityEngine;
 
 namespace Deepbound.Enemies
 {
-    // =====================================================================================================================
-    // THE BLACK CATHEDRAL - MOTHER VEYLE, THE MIRROR-NUN
-    // =====================================================================================================================
-
-    /// <summary>
-    /// Mother Veyle, the Mirror-Nun. A loop of three:
-    /// <list type="number">
-    /// <item><b>The Glass</b>: she is four. The copies cast as she does, and a strike on one shatters it - and the glass cuts
-    /// whoever stands close. Only the real one casts a shadow on the floor.</item>
-    /// <item><b>Penance</b>: two beams of holy light sweep the nave like clock hands (cannot be hurt; step over the gaps).</item>
-    /// <item><b>Confession</b>: a ring closes round one of you and she steps into it: a duel. In the ring she takes more from
-    /// the one she chose; leaving it scalds.</item>
-    /// </list>
-    /// Below half there are five of her in the glass.
-    /// </summary>
     public class MirrorNunBrain : LairBrain
     {
         public override string DisplayName => "Mother Veyle";
@@ -40,7 +25,7 @@ namespace Deepbound.Enemies
         private PlayerLife confessor;
         private Vector3 ringAt;
         public const float RingRadius = 5f;
-        /// <summary>For tests.</summary>
+
         public int Shattered { get; private set; }
         public int LoopsDone { get; private set; }
 
@@ -48,7 +33,6 @@ namespace Deepbound.Enemies
         {
             if (IsServer) health.IncomingModifiers.Add((dmg, from) =>
             {
-                // In the ring, the one she chose cuts deeper (a duel favours the bold).
                 if (stage == Stage.Confession && confessor != null && Vector3.Distance(from, confessor.transform.position) < 2.5f) return dmg * 1.4f;
                 return dmg;
             });
@@ -65,7 +49,7 @@ namespace Deepbound.Enemies
         {
             stage = Stage.Glass;
             stageEnds = Time.time + 14f;
-            // Her and her copies, shuffled round a circle: you cannot know which went where.
+
             var spots = new List<Vector3>();
             for (int i = 0; i <= copies; i++)
                 spots.Add(RoomCenter + Quaternion.Euler(0f, i * 360f / (copies + 1) + Random.Range(-15f, 15f), 0f) * Vector3.forward * RoomRadius * 0.6f);
@@ -140,7 +124,6 @@ namespace Deepbound.Enemies
 
         protected override bool ChooseSpecialAttack(float distanceToTarget)
         {
-            // Every one of her casts a fan of holy bolts - copies too: the glass hurts as much as she does.
             if (Time.time < nextBolt || target == null || InSurvival) return false;
             nextBolt = Time.time + (IsEcho ? 4.2f : 3.2f) / Cadence;
             var origin = transform.position + Vector3.up * 1.8f;
@@ -156,7 +139,6 @@ namespace Deepbound.Enemies
             return true;
         }
 
-        /// <summary>READABILITY (2026-11-19): her fans (and every copy's) left in silence.</summary>
         [Rpc(SendTo.ClientsAndHost)]
         private void CastFxRpc(Vector3 at) => Sfx.Play(Sound.Whisper, at, 0.7f, 1.4f);
 
@@ -181,14 +163,14 @@ namespace Deepbound.Enemies
         protected override void OnRoleChanged()
         {
             if (Rig == null || Role.Value != 2) return;
-            // A copy: glass, not flesh - and glass casts no shadow (the only way to tell).
+
             foreach (var r in Rig.GetComponentsInChildren<Renderer>()) r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
         }
 
         protected override void DressRig(HumanoidRig rig)
         {
             if (rig.Head == null || rig.Torso == null) return;
-            // A wimple of white and a halo of mirror shards turning about her head.
+
             var hood = rig.Head.Find("Hood");
             if (hood != null) DestroyImmediate(hood.gameObject);
             TintPart(MeshKit.Part(rig.Head, "Wimple", MeshKit.Box(new Vector3(0.34f, 0.12f, 0.3f)), Mat.Cloth, new Vector3(0f, -0.12f, 0f)), new Color(0.9f, 0.88f, 0.84f));
@@ -199,8 +181,7 @@ namespace Deepbound.Enemies
                 var c = Quaternion.Euler(0f, i * 45f, 0f) * Vector3.forward * 0.36f;
                 GlowPart(MeshKit.Part(halo, "Shard", MeshKit.Box(new Vector3(0.07f, 0.16f, 0.01f)), Mat.Glow, c, new Vector3(0f, i * 45f, 15f)), Glass * 0.8f);
             }
-            // 2026-11-20 visual pass: a full black habit to the floor, a white collar, a long scapular, and her mirror in hand.
-            // The chorister's pale surplice dyed black: a nun's habit, the white of the wimple and collar standing out.
+
             foreach (var r in rig.GetComponentsInChildren<Renderer>(true))
                 if (r.name.StartsWith("Robe") || r.name.StartsWith("Mantle")) ArtLibrary.Tint(r, new Color(0.08f, 0.07f, 0.09f));
             TintPart(MeshKit.Part(rig.Torso, "Collar", MeshKit.Cylinder(0.25f, 0.17f, 0.08f, 12), Mat.Cloth, new Vector3(0f, 0.56f, 0f)), new Color(0.9f, 0.88f, 0.84f));

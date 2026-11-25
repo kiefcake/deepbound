@@ -2,11 +2,6 @@ using UnityEngine;
 
 namespace Deepbound.Art
 {
-    /// <summary>
-    /// The Mage's Tidal Wave (2026-11-01, replacing Blink): a curling crest of water that rolls out from the caster's
-    /// feet across a wedge, rising as it leaves and breaking into foam at its reach, with spray and wet rings on the
-    /// floor behind it. Heavier and greener-dark on a flooded floor. Local only; the hits are resolved by the server.
-    /// </summary>
     public class TidalWave : MonoBehaviour
     {
         private const int Segments = 17;
@@ -47,14 +42,14 @@ namespace Deepbound.Art
             for (int i = 0; i < Segments; i++)
             {
                 crest[i] = MeshKit.Pivot(transform, "Crest" + i, Vector3.zero);
-                // A sloping wall of water, and a rolling white lip along its top.
+
                 var body = MeshKit.Part(crest[i], "Body", slab, Mat.Telegraph, new Vector3(0f, 0.5f, 0f), new Vector3(-26f, 0f, 0f));
                 var top = MeshKit.Part(crest[i], "Lip", lip, Mat.Telegraph, new Vector3(0f, 1f, 0.12f), default, new Vector3(1f, 0.45f, 0.6f));
                 parts[i * 2] = body.GetComponent<Renderer>();
                 parts[i * 2 + 1] = top.GetComponent<Renderer>();
                 foreach (var r in new[] { parts[i * 2], parts[i * 2 + 1] }) r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             }
-            // The first heave of water at the Mage's feet.
+
             Vfx.Ring(from + Vector3.up * 0.05f, 1.4f, Foam, 0.4f);
             FxSprite.Decal("circle_05", from + Vector3.up * 0.04f, 1.2f, 3.2f, 0.6f, new Color(tint.r, tint.g, tint.b, 0.5f));
         }
@@ -65,7 +60,7 @@ namespace Deepbound.Art
         {
             float age = Time.time - born;
             float k = Mathf.Clamp01(age / seconds);
-            // Out fast, easing as it spends itself; after its reach it collapses into foam.
+
             float r = Mathf.Lerp(0.6f, length, 1f - (1f - k) * (1f - k));
             float rise = Mathf.Sin(Mathf.Clamp01(k * 1.15f) * Mathf.PI * 0.85f) * (wet ? 1.5f : 1.25f);
             float fall = age > seconds ? Mathf.Clamp01(1f - (age - seconds) / 0.4f) : 1f;
@@ -75,7 +70,7 @@ namespace Deepbound.Art
             {
                 float t = Segments == 1 ? 0.5f : i / (float)(Segments - 1);
                 float a = Mathf.Lerp(-half, half, t);
-                // The middle runs a little ahead and stands taller: a crest, not a wall.
+
                 float lead = 1f + 0.06f * (1f - Mathf.Abs(t * 2f - 1f));
                 var local = Quaternion.Euler(0f, a, 0f) * Vector3.forward * (r * lead);
                 crest[i].localPosition = local;
@@ -89,7 +84,6 @@ namespace Deepbound.Art
             f.a *= fall;
             for (int i = 0; i < parts.Length; i++) if (parts[i] != null) ArtLibrary.Tint(parts[i], i % 2 == 0 ? c : f);
 
-            // Spray off the crest, and wet rings where it has passed.
             if (age < seconds && Time.time >= nextSpray)
             {
                 nextSpray = Time.time + 0.04f;

@@ -6,12 +6,6 @@ using UnityEngine;
 
 namespace Deepbound.UI
 {
-    /// <summary>
-    /// The end-of-run screen, shown to the whole party after a wipe or a victory, while the
-    /// carriage waits to take them back to camp: how far you got, how long it took, and
-    /// each player's kills, damage, gold, relics, revives and times downed. It is the
-    /// "one more run" moment, and where the Renown it earned is banked for the tailor.
-    /// </summary>
     public class RunSummary : MonoBehaviour
     {
         private int renownEarned;
@@ -19,7 +13,7 @@ namespace Deepbound.UI
 
         private void OnGUI()
         {
-            useGUILayout = false; // no GUILayout here: skip the layout pass (perf)
+            useGUILayout = false;
             UiSkin.Apply();
             if (DebugEpilogueAt >= 0f) { GUI.depth = -6; DrawEpilogue(UiScale.W, UiScale.H, DebugEpilogueAt); return; }
             var d = DungeonDirector.Instance;
@@ -28,7 +22,7 @@ namespace Deepbound.UI
             GUI.depth = -5;
 
             bool won = d.Phase.Value == RunPhase.RunComplete;
-            // A victory opens on the epilogue: the Last Morning, over black, before the table.
+
             if (won && DrawEpilogue(UiScale.W, UiScale.H, (float)(NetworkManager.Singleton.ServerTime.Time - d.RunEndedAt.Value))) return;
             int floor = Mathf.Max(0, d.Floor.Value.y) + 1;
             double seconds = d.RunEndedAt.Value - d.RunStartedAt.Value;
@@ -37,7 +31,7 @@ namespace Deepbound.UI
 
             UiSkin.Rect(new Rect(0, 0, w, h), new Color(0f, 0f, 0f, 0.6f));
             float pw = Mathf.Min(900f, w - 60f), ph = 290f + PlayerLife.All.Count * 62f;
-            // Remember how it ended (once a run): the camp will mention it.
+
             if (recordedRun != d.RunStartedAt.Value)
             {
                 recordedRun = d.RunStartedAt.Value;
@@ -48,31 +42,28 @@ namespace Deepbound.UI
 
             bool endless = d.EndlessRun.Value;
             UiSkin.Shadowed(new Rect(panel.x, panel.y + 14, pw, 50), won ? "THE DEPTHS ARE CLEARED" : endless ? "THE ENDLESS DESCENT ENDS" : "YOUR PARTY HAS FALLEN",
-                new GUIStyle(UiSkin.Title) { fontSize = 38, normal = { textColor = won ? UiSkin.Gold : new Color(0.85f, 0.25f, 0.2f) } });
+                UiSkin.Derive(UiSkin.Title, won ? UiSkin.Gold : new Color(0.85f, 0.25f, 0.2f), fontSize: 38));
             GUI.Label(new Rect(panel.x, panel.y + 66, pw, 24),
                 (won ? "All " + DungeonDirector.FloorsPerRun + " floors conquered, the Unsung silenced"
                     : endless ? "Went down on floor " + floor + "   ·   Endless best: floor " + Mathf.Max(floor, Records.EndlessBest)
                     : "Fell on floor " + floor + " of " + DungeonDirector.FloorsPerRun + (floor - 1 >= DungeonDirector.AbyssDepth ? ", in the Abyss" : "")) + "   ·   Run time " + time,
-                new GUIStyle(UiSkin.Body) { alignment = TextAnchor.MiddleCenter });
+                UiSkin.Derive(UiSkin.Body, UiSkin.Body.normal.textColor, align: TextAnchor.MiddleCenter));
 
-            // How long each floor took (as this machine saw the guardians fall).
             if (GameHud.FloorTimes.Count > 0)
             {
                 var parts = new System.Collections.Generic.List<string>();
                 for (int i = 0; i < GameHud.FloorTimes.Count; i++) parts.Add((i + 1) + "  " + Records.Clock(GameHud.FloorTimes[i]));
                 GUI.Label(new Rect(panel.x, panel.y + 88, pw, 20), "Floors:   " + string.Join("   ·   ", parts),
-                    new GUIStyle(UiSkin.Small) { alignment = TextAnchor.MiddleCenter, normal = { textColor = new Color(0.8f, 0.76f, 0.68f) } });
+                    UiSkin.Derive(UiSkin.Small, new Color(0.8f, 0.76f, 0.68f), align: TextAnchor.MiddleCenter));
             }
 
-            // Table.
             string[] headers = { "PLAYER", "CLASS", "KILLS", "DAMAGE", "COMBOS", "GOLD", "RELICS", "REVIVES", "DOWNED" };
             float[] cols = { 0.03f, 0.19f, 0.32f, 0.42f, 0.54f, 0.64f, 0.73f, 0.82f, 0.91f };
             float ty = panel.y + 128;
             for (int c = 0; c < headers.Length; c++)
-                GUI.Label(new Rect(panel.x + pw * cols[c], ty, 120, 20), headers[c], new GUIStyle(UiSkin.Small) { normal = { textColor = UiSkin.Gold }, fontStyle = FontStyle.Bold });
+                GUI.Label(new Rect(panel.x + pw * cols[c], ty, 120, 20), headers[c], UiSkin.Derive(UiSkin.Small, UiSkin.Gold, fontStyle: FontStyle.Bold));
             ty += 26;
 
-            // Highlight the party's best killer.
             int topKills = 0;
             foreach (var p in PlayerLife.All) if (p != null) topKills = Mathf.Max(topKills, p.GetComponent<PlayerProgress>().Kills.Value);
 
@@ -96,38 +87,34 @@ namespace Deepbound.UI
                     prog.Downs.Value.ToString(),
                 };
                 for (int c = 0; c < values.Length; c++)
-                    GUI.Label(new Rect(panel.x + pw * cols[c], ty + 4, 160, 24), values[c], new GUIStyle(UiSkin.Body) { fontStyle = c == 0 ? FontStyle.Bold : FontStyle.Normal });
+                    GUI.Label(new Rect(panel.x + pw * cols[c], ty + 4, 160, 24), values[c], UiSkin.Derive(UiSkin.Body, UiSkin.Body.normal.textColor, fontStyle: c == 0 ? FontStyle.Bold : FontStyle.Normal));
                 string title = titles.TryGetValue(prog, out var t) ? t : "";
                 GUI.Label(new Rect(panel.x + pw * cols[0], ty + 28, pw - 48, 20), "<color=#E8BC5C><b>" + title + "</b></color>     " + BuildLine(prog),
                     new GUIStyle(UiSkin.Small) { fontSize = 12, richText = true });
                 ty += 62;
             }
 
-            // Renown: this machine's share of the run, banked once, spent at the camp tailor.
             var me = NetworkPlayer.Local != null ? NetworkPlayer.Local.GetComponent<PlayerProgress>() : null;
             if (me != null)
             {
-                // Renown counts the act bosses (a Warden is half of one): the run is twice as long as it was.
                 int bosses = ((won ? DungeonDirector.FloorsPerRun : Mathf.Max(0, d.Floor.Value.y)) + 1) / 2;
                 int got = Cosmetics.AwardRun(d.RunStartedAt.Value, bosses, me.Kills.Value, me.CombosTriggered.Value, won, d.DifficultyIndex.Value, DungeonDirector.OmenRenown(d.RunOmen), me.Gold.Value);
                 if (got >= 0) { renownEarned = got; Legacy.SaveRelics(me); }
-                // The Hall of Records: anything this run beat is carved at camp (once per run).
+
                 string party = string.Join(", ", System.Linq.Enumerable.Select(System.Linq.Enumerable.Where(PlayerLife.All, p => p != null), p => p.name));
                 foreach (var line in Records.SubmitRun(d.RunStartedAt.Value, floor, me.Kills.Value, me.GoldEarned.Value, won, d.DailyRun.Value ? d.DailyDate.Value : 0, party, endless))
                     GameHud.Feed("NEW RECORD - " + line, new Color(1f, 0.85f, 0.4f));
                 GUI.Label(new Rect(panel.x + 30, panel.yMax - 104, pw - 60, 28), Epitaph(me, won, floor),
-                    new GUIStyle(UiSkin.Body) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Italic, wordWrap = true, normal = { textColor = new Color(0.85f, 0.8f, 0.72f) } });
+                    UiSkin.Derive(UiSkin.Body, new Color(0.85f, 0.8f, 0.72f), fontStyle: FontStyle.Italic, align: TextAnchor.MiddleCenter, wrap: true));
                 GUI.Label(new Rect(panel.x, panel.yMax - 72, pw, 26),
                     "RENOWN  +" + renownEarned + (Cosmetics.TitheFor(me.Gold.Value) > 0 ? "  (+" + Cosmetics.TitheFor(me.Gold.Value) + " tithed from " + me.Gold.Value + " gold left)" : "") + "      (" + Cosmetics.Renown + " to spend at the tailor)",
-                    new GUIStyle(UiSkin.Body) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold, normal = { textColor = UiSkin.Gold } });
+                    UiSkin.Derive(UiSkin.Body, UiSkin.Gold, fontStyle: FontStyle.Bold, align: TextAnchor.MiddleCenter));
             }
 
             GUI.Label(new Rect(panel.x, panel.yMax - 40, pw, 24), "Returning to camp in " + left + "...",
-                new GUIStyle(UiSkin.Small) { alignment = TextAnchor.MiddleCenter, fontSize = 14 });
+                UiSkin.Derive(UiSkin.Small, UiSkin.Small.normal.textColor, fontSize: 14, align: TextAnchor.MiddleCenter));
         }
 
-        /// <summary>The camp's verdict on your run, in one line, from the most notable thing you did.</summary>
-        /// <summary>The ending (2026-10-20): the lore's open thread answered. The party brought the Last Morning.</summary>
         public static readonly string[] EpilogueLines =
         {
             "The Unsung falls, and for the first time in four hundred years there is no song beneath Cathedra.",
@@ -139,17 +126,15 @@ namespace Deepbound.UI
 
         public const float EpilogueSeconds = 14f;
 
-        /// <summary>For the screenshot run: draw the epilogue at this time (seconds in), -1 off.</summary>
         public static float DebugEpilogueAt = -1f;
 
-        /// <summary>True while the epilogue holds the screen.</summary>
         private static bool DrawEpilogue(float w, float h, float t)
         {
             if (t < 0f || t > EpilogueSeconds) return false;
             UiSkin.Rect(new Rect(0, 0, w, h), new Color(0f, 0f, 0f, Mathf.Clamp01(t * 1.5f)));
-            // Dawn: a pale band rising at the bottom as the lines go by.
+
             float dawn = Mathf.Clamp01((t - 7f) / 6f);
-            // Soft, in strips that fade upward, warmest at the horizon.
+
             const int strips = 24;
             float band = h * 0.45f * dawn;
             for (int i = 0; i < strips; i++)
@@ -165,13 +150,13 @@ namespace Deepbound.UI
                 if (a <= 0f) break;
                 bool last = i == EpilogueLines.Length - 1;
                 var c = last ? new Color(UiSkin.Gold.r, UiSkin.Gold.g, UiSkin.Gold.b, a) : new Color(0.88f, 0.84f, 0.76f, a);
-                GUI.Label(new Rect(w * 0.15f, y + i * 44f, w * 0.7f, 40), EpilogueLines[i], new GUIStyle(style) { normal = { textColor = c }, fontStyle = last ? FontStyle.BoldAndItalic : FontStyle.Italic });
+                GUI.Label(new Rect(w * 0.15f, y + i * 44f, w * 0.7f, 40), EpilogueLines[i], UiSkin.Derive(style, c, fontStyle: last ? FontStyle.BoldAndItalic : FontStyle.Italic));
             }
             float title = Mathf.Clamp01((t - 11f) / 1.5f);
             if (title > 0f)
             {
-                UiSkin.Shadowed(new Rect(0, h * 0.72f, w, 60), "DEEPBOUND", new GUIStyle(UiSkin.Title) { fontSize = 46, normal = { textColor = new Color(UiSkin.Gold.r, UiSkin.Gold.g, UiSkin.Gold.b, title) } });
-                GUI.Label(new Rect(0, h * 0.72f + 62, w, 24), "Thank you for playing.", new GUIStyle(UiSkin.Small) { alignment = TextAnchor.MiddleCenter, fontSize = 15, normal = { textColor = new Color(0.85f, 0.8f, 0.72f, title) } });
+                UiSkin.Shadowed(new Rect(0, h * 0.72f, w, 60), "DEEPBOUND", UiSkin.Derive(UiSkin.Title, new Color(UiSkin.Gold.r, UiSkin.Gold.g, UiSkin.Gold.b, title), fontSize: 46));
+                GUI.Label(new Rect(0, h * 0.72f + 62, w, 24), "Thank you for playing.", UiSkin.Derive(UiSkin.Small, new Color(0.85f, 0.8f, 0.72f, title), fontSize: 15, align: TextAnchor.MiddleCenter));
             }
             return true;
         }
@@ -194,10 +179,6 @@ namespace Deepbound.UI
             return "Here lies " + name + ", who went down to floor " + floor + " and is still there, in a way.";
         }
 
-        /// <summary>
-        /// One title each, for what they did most: the party's butcher, its guardian angel,
-        /// its pincushion. A player who tops nothing still gets an honest one.
-        /// </summary>
         private static System.Collections.Generic.Dictionary<PlayerProgress, string> Titles()
         {
             var players = new System.Collections.Generic.List<PlayerProgress>();
@@ -230,7 +211,6 @@ namespace Deepbound.UI
             return titles;
         }
 
-        /// <summary>"Longsword +3 (Cleave) · Ossuary Plate · Hunter's Tooth · Frost Rune · Q2 E1"</summary>
         private static string BuildLine(PlayerProgress prog)
         {
             var id = prog.ClassId.Value;

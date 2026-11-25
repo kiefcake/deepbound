@@ -6,28 +6,27 @@ using Deepbound.Player;
 using Deepbound.Progression;
 using Unity.Netcode;
 using UnityEngine;
+using Deepbound.Core;
 
 namespace Deepbound.World
 {
-    /// <summary>What a quest asks. Append only: synced.</summary>
     public enum Contract : byte
     {
         None, Slayer, ChampionHunt, Untouchable, TreasureHunt, SwiftBlade,
-        // 2026-11-08: the camp folk's own work.
+
         Exorcist, EliteHunter, Salvage, Ironmonger, RoomSweep, GoldRun, UrnBreaker,
-        // 2026-11-08 (the user: "way too easy ... be more creative"): things put on the floor for the quest.
+
         Cargo, Gather, Mark,
     }
 
-    /// <summary>One line of the party's quest log (synced).</summary>
     public struct QuestSlot : IEquatable<QuestSlot>, INetworkSerializeByMemcpy
     {
         public byte Kind, Giver, State;
         public bool Special;
         public int Progress, Goal;
-        /// <summary>Gather: finds picked up and held by the party, counted only once they ride the lift out.</summary>
+
         public byte Held;
-        /// <summary>The condition the job carries (<see cref="DungeonDirector.QuestClause"/>), 2026-11-13: none can be done by just playing on.</summary>
+
         public byte Clause;
 
         public Contract Contract => (Contract)Kind;
@@ -39,44 +38,33 @@ namespace Deepbound.World
         public override int GetHashCode() => Kind | Giver << 8 | State << 16 | Progress << 20;
     }
 
-    /// <summary>
-    /// QUESTS (2026-11-08, the user: "they should give out quests that can be found on the quest board or in
-    /// dialogue"; party-shared, three at once, favour and unique items). Every camp person who gives work offers
-    /// one quest a camp visit (<see cref="OfferOf"/>, the same on every peer); the board shows three of those same
-    /// offers. A taken quest rides down with the party, goes live when the next floor starts, and is settled by the
-    /// time its guardian falls. Fulfilled: gold and embers for everyone (a Sigil for the hard ones), favour with the
-    /// giver (a discount at their stall and new things to say), and from favour 2 their SPECIAL quest, which also
-    /// gives every player that person's own relic once a run.
-    /// </summary>
     public partial class DungeonDirector
     {
         public enum ContractStatus : byte { None, Taken, Active, Fulfilled, Failed }
 
         public const int MaxQuests = 3;
-        /// <summary>Favour with a giver at which their special quest is offered (once a run).</summary>
+
         public const int SpecialFavour = 2;
-        /// <summary>Price cut per favour level at their stall, up to <see cref="MaxFavourDiscount"/> levels.</summary>
+
         public const float FavourDiscount = 0.03f;
         public const int MaxFavourDiscount = 5;
 
         public NetworkList<QuestSlot> Quests = new NetworkList<QuestSlot>();
-        /// <summary>Givers who gave out work this camp visit (bit per FolkId).</summary>
+
         public readonly NetworkVariable<ushort> QuestTakenMask = new NetworkVariable<ushort>();
-        /// <summary>Givers whose relic the party had this run (bit per FolkId).</summary>
+
         public readonly NetworkVariable<ushort> GiftMask = new NetworkVariable<ushort>();
-        /// <summary>Favour, 4 bits per FolkId (0..15), the host's save.</summary>
+
         public readonly NetworkVariable<ulong> FavourBits = new NetworkVariable<ulong>();
         private float questsStartedAt;
         private bool favourLoaded;
 
-        /// <summary>Everyone who hands out work, in board order.</summary>
         public static readonly FolkId[] QuestGivers = { FolkId.Silas, FolkId.Hobb, FolkId.Aldric, FolkId.Vey, FolkId.Corwin, FolkId.Brann, FolkId.Ysolde, FolkId.Marta };
 
         public static bool GivesQuests(FolkId who) => Array.IndexOf(QuestGivers, who) >= 0;
 
         private static Contract[] PoolOf(FolkId who) => who switch
         {
-            // Each person: their own errand on the floor (cargo or finds), their own mark to hunt, and one harder job of the old kind.
             FolkId.Silas => new[] { Contract.Cargo, Contract.Mark, Contract.Salvage },
             FolkId.Hobb => new[] { Contract.Cargo, Contract.Mark, Contract.Ironmonger },
             FolkId.Aldric => new[] { Contract.Gather, Contract.Mark, Contract.Exorcist },
@@ -88,10 +76,9 @@ namespace Deepbound.World
             _ => new[] { Contract.Slayer },
         };
 
-        /// <summary>The relic a giver hands over for their special quest.</summary>
         public static Relic SignatureRelic(FolkId who) => who switch
         {
-            FolkId.Silas => Relic.TallymansLedger,   // was the Gilded Skull (now the Bone Hoarder's alone)
+            FolkId.Silas => Relic.TallymansLedger,
             FolkId.Hobb => Relic.WhettedFang,
             FolkId.Aldric => Relic.IronPsalter,
             FolkId.Vey => Relic.LongShadow,
@@ -111,7 +98,6 @@ namespace Deepbound.World
             _ => "",
         };
 
-        /// <summary>The task as the quest log and the panels say it (the new kinds name what and whose).</summary>
         public static string QuestTask(QuestSlot q) => (q.Contract switch
         {
             Contract.Cargo => CargoTask(q.Who),
@@ -120,12 +106,6 @@ namespace Deepbound.World
             _ => QuestTask(q.Contract, q.Goal),
         }) + ClauseText((QuestClause)q.Clause);
 
-        /// <summary>
-        /// HARDER QUESTS (2026-11-13, the user: "quests can be forgotten about and completed with ease"): every job that would
-        /// fill itself while you play (kills, chests, rooms, gold, urns, marks, finds) now carries a CLAUSE - beat the bell,
-        /// nobody goes down, or no potions - that breaks it the moment it is broken. Goals are higher, a failed job costs a
-        /// point of the giver's favour, and a clause pays x<see cref="ClauseReward"/>.
-        /// </summary>
         public enum QuestClause : byte { None = 0, BeforeBell = 1, Unbowed = 2, Dry = 3 }
         public const float ClauseReward = 1.3f, PassiveGoalScale = 1.35f;
 
@@ -145,10 +125,8 @@ namespace Deepbound.World
                 if (Quests[i].Status == ContractStatus.Active && Quests[i].Clause == (byte)c) FailQuest(i);
         }
 
-        /// <summary>Server: someone drank from the pouch (breaks a no-potions clause).</summary>
         public void QuestOnPotion() { if (Quests.Count > 0) FailClause(QuestClause.Dry); }
 
-        /// <summary>The task, for a goal (counts in the text).</summary>
         public static string QuestTask(Contract c, int goal) => c switch
         {
             Contract.Slayer => "Slay " + goal + " of the dead",
@@ -176,7 +154,6 @@ namespace Deepbound.World
             float t = Tier(depth), k = special ? 1.4f : 1f;
             return c switch
             {
-                // Harder than the first pass (2026-11-08: "way too easy").
                 Contract.Slayer => Mathf.RoundToInt((45 + 14 * t) * k * PassiveGoalScale),
                 Contract.Exorcist => Mathf.RoundToInt((6 + 2 * t) * k * PassiveGoalScale),
                 Contract.EliteHunter => Mathf.RoundToInt((3 + t * 0.6f) * k * PassiveGoalScale),
@@ -190,10 +167,8 @@ namespace Deepbound.World
             };
         }
 
-        /// <summary>Same numbers on every peer (not System.HashCode: that is seeded per process).</summary>
         private static uint Mix(uint h, uint v) { unchecked { h ^= v; h *= 16777619u; h ^= h >> 13; return h; } }
 
-        /// <summary>What <paramref name="who"/> offers this camp visit.</summary>
         public QuestSlot OfferOf(FolkId who)
         {
             var pool = PoolOf(who);
@@ -213,7 +188,6 @@ namespace Deepbound.World
             return -1;
         }
 
-        /// <summary>Why <paramref name="who"/> cannot hand out work right now (null: they can).</summary>
         public string CannotTakeQuest(FolkId who)
         {
             if (!InLobby) return "Work is handed out at camp.";
@@ -224,7 +198,6 @@ namespace Deepbound.World
             return null;
         }
 
-        /// <summary>Server: the party takes <paramref name="who"/>'s offer (from the board or in conversation).</summary>
         public bool ServerTakeQuest(FolkId who, string takenBy)
         {
             EnsureFavourLoaded();
@@ -244,7 +217,6 @@ namespace Deepbound.World
             UI.GameHud.Feed(by + " takes " + UI.Dialogue.NameOf((FolkId)who) + "'s quest: " + ContractName((Contract)kind), new Color(0.95f, 0.8f, 0.5f));
         }
 
-        /// <summary>Server: a floor begins - taken quests go live.</summary>
         private void BeginContract(int depth)
         {
             for (int i = 0; i < Quests.Count; i++)
@@ -281,7 +253,6 @@ namespace Deepbound.World
         private static bool IsCaster(EnemyBrain b) => b is NecromancerBrain || b is WraithBrain || b is HexerBrain || b is ChoirAcolyteBrain || b is CantorBrain || b is RimeMagusBrain || b is WitheringHagBrain || b is BonePiperBrain || b is OrbweaverBrain;
         private static bool IsHeavy(EnemyBrain b) => b is BruteBrain || b is ShieldbearerBrain || b is FrostWightBrain || b is PlaguebearerBrain || b is GargoyleBrain;
 
-        /// <summary>Server: called on every death on a floor (enemies and players).</summary>
         private void ContractOnKill(Health target)
         {
             if (Quests.Count == 0 || target == null) return;
@@ -296,24 +267,21 @@ namespace Deepbound.World
             if (IsHeavy(b)) Advance(Contract.Ironmonger);
         }
 
-        /// <summary>Server: a secret wall was smashed open.</summary>
         public void ContractOnSecret() => Advance(Contract.TreasureHunt);
-        /// <summary>Server: a chest was opened (not a mimic).</summary>
+
         public void QuestOnChest() => Advance(Contract.Salvage);
-        /// <summary>Server: an urn broke.</summary>
+
         public void QuestOnUrn() => Advance(Contract.UrnBreaker);
-        /// <summary>Server: a room's last enemy fell.</summary>
+
         public void QuestOnRoomClear() => Advance(Contract.RoomSweep);
-        /// <summary>Server: gold picked up on a floor.</summary>
+
         public void QuestOnGold(int amount) { if (amount > 0) Advance(Contract.GoldRun, amount); }
 
         private void TickContract()
         {
-            // Swift Blade: beat the bell (the Tallyman's warning, which comes later on a bigger floor).
             if (Quests.Count > 0 && Time.time - questsStartedAt > TallyWarnSeconds) { FailQuests(Contract.SwiftBlade); FailClause(QuestClause.BeforeBell); }
         }
 
-        /// <summary>Server: the floor's guardian fell - settle what is still open.</summary>
         private void ContractOnFloorCleared()
         {
             for (int i = 0; i < Quests.Count; i++)
@@ -321,7 +289,7 @@ namespace Deepbound.World
                 var q = Quests[i];
                 if (q.Status != ContractStatus.Active) continue;
                 if (q.Contract == Contract.Untouchable || q.Contract == Contract.SwiftBlade) FulfilQuest(i);
-                // Cargo and finds are settled as the grave lift rises (they have to be carried out).
+
                 else if (q.Contract == Contract.Cargo || q.Contract == Contract.Gather) continue;
                 else FailQuest(i);
             }
@@ -347,7 +315,7 @@ namespace Deepbound.World
                 if (q.Special) prog.ServerAddRelic(relic);
             }
             if (q.Special) GiftMask.Value |= (ushort)(1 << q.Giver);
-            // The camp remembers what came home (a keepsake goes up for good).
+
             if (q.Contract == Contract.Cargo || q.Contract == Contract.Gather) CampKeeps.Value |= CampMemory.Remember(q.Who, q.Contract == Contract.Cargo);
             ServerAddFavour(q.Who);
             TitleCardRpc("QUEST COMPLETE", UI.Dialogue.NameOf(q.Who) + ": " + ContractName(q.Contract) + "  -  " + QuestReward(q));
@@ -362,14 +330,13 @@ namespace Deepbound.World
             ServerLoseFavour(q.Who);
         }
 
-        /// <summary>Server: a job let slide costs a point of that person's favour (never below 0).</summary>
         private void ServerLoseFavour(FolkId who)
         {
             EnsureFavourLoaded();
             int was = Favour(who);
             if (was <= 0) return;
             ServerDebugFavour(who, was - 1);
-            if (!Cosmetics.TestMode) { PlayerPrefs.SetInt(FavourKey(who), was - 1); PlayerPrefs.Save(); }
+            if (!Cosmetics.TestMode) { Prefs.SetInt(FavourKey(who), was - 1); Prefs.Save(); }
             FavourLostRpc((byte)who, was - 1);
         }
 
@@ -380,7 +347,6 @@ namespace Deepbound.World
         [Rpc(SendTo.ClientsAndHost)]
         private void ContractFailedRpc(string name) => UI.GameHud.Feed("Quest failed: " + name, new Color(0.85f, 0.4f, 0.35f));
 
-        /// <summary>Server: back at camp - settled and unfinished quests come off the log; everyone has work again.</summary>
         private void ClearSettledContract(bool keepRun)
         {
             EnsureFavourLoaded();
@@ -390,7 +356,6 @@ namespace Deepbound.World
             if (!keepRun) GiftMask.Value = 0;
         }
 
-        /// <summary>Server, tests: a live Cellar Money quest from Marta fed its goal in gold settles, pays favour and leaves the log.</summary>
         public bool ServerDebugQuestFlow(out string why)
         {
             int fav0 = Favour(FolkId.Marta);
@@ -407,10 +372,8 @@ namespace Deepbound.World
             return partial && done && favoured;
         }
 
-        /// <summary>Server, tests: empty the log and the visit's offers.</summary>
         public void ServerDebugClearQuests() { Quests.Clear(); QuestTakenMask.Value = 0; GiftMask.Value = 0; }
 
-        // ---- Favour (the host's save; tests never read or write it) ----
         public int Favour(FolkId who) => (int)((FavourBits.Value >> ((int)who * 4)) & 15);
 
         public static float FavourPriceScale(FolkId who)
@@ -427,11 +390,10 @@ namespace Deepbound.World
             favourLoaded = true;
             if (Cosmetics.TestMode) return;
             ulong bits = 0;
-            foreach (var who in QuestGivers) bits |= (ulong)Mathf.Clamp(PlayerPrefs.GetInt(FavourKey(who), 0), 0, 15) << ((int)who * 4);
+            foreach (var who in QuestGivers) bits |= (ulong)Mathf.Clamp(Prefs.GetInt(FavourKey(who), 0), 0, 15) << ((int)who * 4);
             FavourBits.Value = bits;
         }
 
-        /// <summary>Server, tests: set one person's favour without touching the save.</summary>
         public void ServerDebugFavour(FolkId who, int level)
         {
             int shift = (int)who * 4;
@@ -443,7 +405,7 @@ namespace Deepbound.World
             EnsureFavourLoaded();
             int now = Mathf.Min(15, Favour(who) + 1);
             ServerDebugFavour(who, now);
-            if (!Cosmetics.TestMode) { PlayerPrefs.SetInt(FavourKey(who), now); PlayerPrefs.Save(); }
+            if (!Cosmetics.TestMode) { Prefs.SetInt(FavourKey(who), now); Prefs.Save(); }
             FavourRpc((byte)who, now);
         }
 

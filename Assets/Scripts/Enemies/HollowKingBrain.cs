@@ -5,21 +5,6 @@ using Unity.Netcode;
 
 namespace Deepbound.Enemies
 {
-    /// <summary>
-    /// Ossric, the Hollow King: the final boss, on floor 3.
-    ///
-    /// <list type="bullet">
-    /// <item><b>Royal Cleave</b> — slow, very wide melee swing. Answer: block it, or step out.</item>
-    /// <item><b>Grave Slam</b> — a red circle fills on the floor around him; when it is full,
-    ///   everything inside takes heavy damage and is thrown back. Answer: get out of the
-    ///   circle, or put a pillar between you. Shield Bash during the wind-up cancels it.</item>
-    /// <item><b>Raise the Dead</b> — at 66% and 33% health he calls skeletons out of the
-    ///   floor. Answer: the tank War Cries to hold them while the party burns the King.</item>
-    /// </list>
-    /// Below 25% he enrages: every wind-up is 30% shorter, and (2026-10-27) he issues ROYAL DECREES in turn:
-    /// BE STILL (whoever is still moving when the crown falls is struck) and BEGONE (whoever he can see is
-    /// struck: put a pillar between you).
-    /// </summary>
     public class HollowKingBrain : BossBrain
     {
         [SerializeField] private float slamRadius = 6.5f;
@@ -30,7 +15,6 @@ namespace Deepbound.Enemies
 
         public override string DisplayName => "Ossric, the Hollow King";
 
-        /// <summary>Black royal plate round a hollow chest of light (2026-11-20 visual pass: not "just a skeleton").</summary>
         protected override void DressRig(HumanoidRig rig) => GuardianKit.HollowKing(rig);
         public override string Epithet => "Sovereign of the Empty Throne";
         protected override byte EntranceStyle => 3;
@@ -41,9 +25,8 @@ namespace Deepbound.Enemies
         private float nextSlam;
         private bool slamming;
         private float slamAt;
-        private bool summoned66, summoned33, guardCalled;
+        private bool summoned66, summoned33;
 
-        // ---- Crown's Judgement: a marked player is crushed; the blow is shared by all who stand with them. ----
         private float nextJudgement;
         private Player.PlayerLife judged;
         private float judgeTelegraphAt = -1f, judgeAt = -1f;
@@ -58,9 +41,8 @@ namespace Deepbound.Enemies
             nextJudgement = Time.time + 8f;
         }
 
-        private bool Enraged => health.Fraction < 0.25f;
+        private bool Desperate => health.Fraction < 0.25f;
 
-        // ---- Phases ----
         protected override float[] PhaseGates => new[] { 0.5f, 0.25f };
 
         protected override void OnPhaseGate(int index)
@@ -68,7 +50,6 @@ namespace Deepbound.Enemies
             if (index == 0)
             {
                 var guards = guardPrefab != null ? SummonOf(guardPrefab, 2, 3.5f, 1.4f) : new System.Collections.Generic.List<EnemyBrain>();
-                guardCalled = true;
                 GuardFxRpc();
                 InvulnerableWhile("Throne Ward", null, "The Royal Guard wards the King: kick their shields aside and cut them down", guards, 25f,
                     () => Taunt("Traitors. All of you. Then I will do it myself."));
@@ -76,9 +57,8 @@ namespace Deepbound.Enemies
             else
                 Transition("The Last Crown", "I was a king before your gods were born!", 2.2f, () => { nextBlades = Time.time + 2f; nextDecree = Time.time + 6f; });
         }
-        private float WindupScale => (Enraged ? 0.7f : 1f) * Tell(1f);
+        private float WindupScale => (Desperate ? 0.7f : 1f) * Tell(1f);
 
-        // ---- Crown of Blades: spectral swords wheel out of him while he keeps walking at you ----
         private float nextBlades = -1f;
         protected override ProjectileKind? QuickKind => ProjectileKind.Smite;
 
@@ -114,7 +94,6 @@ namespace Deepbound.Enemies
             base.Update();
         }
 
-        // Crown's Fall: the King hammers the dais and a shockwave rolls out; faster when enraged.
         protected override float ShockwaveCooldown => health.Fraction < 0.25f ? 7f : 11f;
         protected override Color ShockwaveColor => new Color(0.45f, 0.75f, 1f);
 
@@ -135,7 +114,6 @@ namespace Deepbound.Enemies
 
         protected override void BeginAttack()
         {
-            // Royal Cleave replaces the basic swing: wider, slower, harder.
             windup = cleaveWindup * WindupScale;
             attackArc = 170f;
             base.BeginAttack();
@@ -156,7 +134,6 @@ namespace Deepbound.Enemies
             slamming = false;
             foreach (var victim in CombatQuery.Circle(transform.position, slamRadius, Team.Players))
             {
-                // Pillars are cover: a slam does not go through stone.
                 if (!CombatQuery.ClearLine(transform.position + Vector3.up * 0.8f, victim)) continue;
 
                 victim.ServerDamage(Signature(slamDamage), transform.position, NetworkObjectId);
@@ -172,7 +149,7 @@ namespace Deepbound.Enemies
             var pool = Player.PlayerLife.All.FindAll(p => p != null && p.Targetable);
             if (pool.Count == 0) return false;
             judged = pool[Random.Range(0, pool.Count)];
-            nextJudgement = Time.time + (Enraged ? 12f : 17f);
+            nextJudgement = Time.time + (Desperate ? 12f : 17f);
             judgeTelegraphAt = Time.time + 1.2f;
             judgeAt = Time.time + 2.9f;
             JudgementMarkRpc(judged.NetworkObjectId);
@@ -194,8 +171,7 @@ namespace Deepbound.Enemies
                 judgeAt = -1f;
                 judged = null;
                 var inside = new System.Collections.Generic.List<Health>(CombatQuery.Circle(judgeSpot, JudgeRadius, Team.Players));
-                // A shared blow is meant to be split: alone there is no one to share it with, so it lands
-                // lighter (45% with one player, the full weight with four).
+
                 float partyWeight = Mathf.Lerp(0.45f, 1f, (StandingParty - 1) / 3f);
                 float share = Signature(JudgeDamage) * partyWeight / Mathf.Max(1, inside.Count);
                 foreach (var v in inside) v.ServerDamage(share, judgeSpot + Vector3.up, NetworkObjectId);
@@ -209,7 +185,7 @@ namespace Deepbound.Enemies
         {
             if (!NetworkManager.SpawnManager.SpawnedObjects.TryGetValue(who, out var obj)) return;
             bool me = Player.NetworkPlayer.Local != null && obj.gameObject == Player.NetworkPlayer.Local.gameObject;
-            // Alone there is no one to share it with: then it is a blow to block or dodge.
+
             bool alone = Player.PlayerLife.All.Count <= 1;
             UI.GameHud.Feed((me ? "YOU are" : obj.name + " is") + " judged by the Crown. " + (alone ? "Block or dodge as it falls!" : "Stand together to share the blow!"), new Color(0.55f, 0.75f, 1f));
             UI.GameHud.ShowCombo(obj.transform.position + Vector3.up * 2.6f, "JUDGED", new Color(0.55f, 0.75f, 1f));
@@ -230,11 +206,10 @@ namespace Deepbound.Enemies
             if (local != null && Vector3.Distance(local.transform.position, at) < 10f) local.AddShake(0.5f);
         }
 
-        // ---- Royal Decrees (the Last Crown): BE STILL, then BEGONE, in turn ----
         private float nextDecree = -1f, decreeAt = -1f;
         private int decreeKind;
         public const float DecreeWarning = 2.6f, DecreeEvery = 15f, StillSpeed = 1.5f;
-        /// <summary>For tests: decrees that fell, and how many players the last one struck.</summary>
+
         public int DecreesFallen { get; private set; }
         public int LastDecreeStruck { get; private set; }
 
@@ -280,7 +255,6 @@ namespace Deepbound.Enemies
             Taunt(kind == 0 ? "KNEEL. Not one step in my presence." : "BEGONE from my sight!");
         }
 
-        /// <summary>For tests: issue a decree now (0 be still, 1 begone).</summary>
         public void ServerDebugDecree(int kind) { decreeAt = -1f; BeginDecree(kind); }
 
         [Unity.Netcode.Rpc(Unity.Netcode.SendTo.ClientsAndHost)]
@@ -315,7 +289,6 @@ namespace Deepbound.Enemies
 
         protected override void OnBroken()
         {
-            // A broken king cannot finish his sentence.
             if (decreeAt > 0f) { decreeAt = -1f; decreeKind = 1 - decreeKind; }
             if (!slamming) return;
             slamming = false;
@@ -324,7 +297,6 @@ namespace Deepbound.Enemies
 
         public override void ServerStun(float seconds)
         {
-            // Heavy: a bash only staggers him briefly — but it does cancel the slam.
             if (slamming)
             {
                 slamming = false;

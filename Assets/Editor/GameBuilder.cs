@@ -19,18 +19,6 @@ using UnityEngine.Rendering.Universal;
 
 namespace Deepbound.EditorTools
 {
-    /// <summary>
-    /// Generates the game's prefabs, its one scene and the build settings — then,
-    /// optionally, a Windows player. Menu: <c>Deepbound/Build Game</c>; command line:
-    /// <c>-executeMethod Deepbound.EditorTools.GameBuilder.BuildWithPlayer</c>.
-    ///
-    /// <para>
-    /// Everything is generated rather than hand-authored so it can be reviewed as code and
-    /// rebuilt identically anywhere. Re-running overwrites the outputs: change this file,
-    /// not the prefabs. Runs <see cref="ArtBaker"/> first, since prefabs and the scene
-    /// reference its materials and post-processing profile.
-    /// </para>
-    /// </summary>
     public static class GameBuilder
     {
         private const string ScenePath = "Assets/Scenes/Deepbound.unity";
@@ -76,13 +64,13 @@ namespace Deepbound.EditorTools
             var lamprey = BuildEnemyPrefab("InkLamprey", EnemyType.InkLamprey, loot);
             var hag = BuildEnemyPrefab("WitheringHag", EnemyType.WitheringHag, loot);
             var ringer = BuildEnemyPrefab("Bellringer", EnemyType.Bellringer, loot);
-            // The Wardens: one per act, at the end of the act's first floor.
+
             var wardens = new GameObject[5];
             for (int a = 0; a < wardens.Length; a++) wardens[a] = BuildEnemyPrefab("Warden" + a, EnemyType.Warden, loot, a);
-            // The lairs' keepers (2026-11-14), one per act 0-3.
+
             var lairs = new[] { BuildEnemyPrefab("MotherMarrow", EnemyType.MotherMarrow, loot), BuildEnemyPrefab("LanternFisher", EnemyType.LanternFisher, loot),
                 BuildEnemyPrefab("TwiceCrowned", EnemyType.TwiceCrowned, loot), BuildEnemyPrefab("MirrorNun", EnemyType.MirrorNun, loot) };
-            // The Cinder Pit's lord and the rift that leads to it (2026-11-14).
+
             var vharoth = BuildEnemyPrefab("Vharoth", EnemyType.Vharoth, loot);
             var rift = BuildObjectPrefab<EmberRift>("EmberRift", Vector3.zero);
             var dummy = BuildDummyPrefab();
@@ -112,7 +100,6 @@ namespace Deepbound.EditorTools
             var anvil = BuildObjectPrefab<Anvil>("Anvil", new Vector3(0.8f, 0.9f, 0.6f));
             var gearDrop = BuildObjectPrefab<GearDrop>("GearDrop", Vector3.zero);
             var crackedWall = BuildCrackedWallPrefab();
-            var diceTable = BuildObjectPrefab<DiceTable>("DiceTable", new Vector3(1.5f, 0.95f, 1.5f));
             var coffer = BuildObjectPrefab<MysteryCoffer>("MysteryCoffer", new Vector3(1.2f, 1f, 0.8f));
             var cat = BuildCatPrefab();
             var slots = BuildObjectPrefab<SlotMachine>("SlotMachine", new Vector3(1.1f, 1.9f, 0.8f));
@@ -192,7 +179,6 @@ namespace Deepbound.EditorTools
             dso.FindProperty("reliquaryPrefab").objectReferenceValue = reliquary.GetComponent<NetworkObject>();
             dso.FindProperty("lorePagePrefab").objectReferenceValue = lorePage.GetComponent<NetworkObject>();
             dso.FindProperty("crackedWallPrefab").objectReferenceValue = crackedWall.GetComponent<NetworkObject>();
-            dso.FindProperty("diceTablePrefab").objectReferenceValue = diceTable.GetComponent<NetworkObject>();
             dso.FindProperty("cofferPrefab").objectReferenceValue = coffer.GetComponent<NetworkObject>();
             dso.FindProperty("catPrefab").objectReferenceValue = cat.GetComponent<NetworkObject>();
             dso.FindProperty("slotMachinePrefab").objectReferenceValue = slots.GetComponent<NetworkObject>();
@@ -233,7 +219,7 @@ namespace Deepbound.EditorTools
             RegisterNetworkPrefabs(lairs);
             RegisterNetworkPrefabs(vharoth, rift);
             RegisterNetworkPrefabs(wardens);
-            RegisterNetworkPrefabs(player, skeleton, archer, warden, lich, king, director, loot, dummy, ghoul, brute, necro, chest, altar, trap, breakable, gate, lever, fountain, sarcophagus, anvil, gearDrop, crackedWall, diceTable, coffer, gong, shrine, rangeTarget, wraith, cardinal, unsung, shieldbearer, mimic, hoarder, fateWheel, bountyNotice, gargoyle, omenStone, plaguebearer, frostWight, hexer, soulSkull, mourner, reliquary, cat, slots, blackjack, lorePage, folkBody, phoenix, handTorch, questCargo, questTrinket, poker, oilSlick, chandelier, vigilCandle, prisoner, puzzleRoom, puzzleStatue, wellFishing, knifeBoard, bellFrame, armWrestle, puzzleMirror, scaleWeight, statDraught, bargainAltar, soulRift, cellarHatch, hearth, remains);
+            RegisterNetworkPrefabs(player, skeleton, archer, warden, lich, king, director, loot, dummy, ghoul, brute, necro, chest, altar, trap, breakable, gate, lever, fountain, sarcophagus, anvil, gearDrop, crackedWall, coffer, gong, shrine, rangeTarget, wraith, cardinal, unsung, shieldbearer, mimic, hoarder, fateWheel, bountyNotice, gargoyle, omenStone, plaguebearer, frostWight, hexer, soulSkull, mourner, reliquary, cat, slots, blackjack, lorePage, folkBody, phoenix, handTorch, questCargo, questTrinket, poker, oilSlick, chandelier, vigilCandle, prisoner, puzzleRoom, puzzleStatue, wellFishing, knifeBoard, bellFrame, armWrestle, puzzleMirror, scaleWeight, statDraught, bargainAltar, soulRift, cellarHatch, hearth, remains);
             BuildScene(player, director);
 
             EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
@@ -244,12 +230,10 @@ namespace Deepbound.EditorTools
         [MenuItem("Deepbound/Build Game + Windows Player")]
         public static void BuildWithPlayer()
         {
-            // Spread garbage collection over frames instead of stopping the world for it.
             PlayerSettings.gcIncremental = true;
-            // CPU/GPU frame timings for the perf samples (FrameTimingManager); a negligible cost.
+
             PlayerSettings.enableFrameTimingStats = true;
-            // DirectX 11 only (2026-10-31): Unity 6 picks DirectX 12 on discrete GPUs, and there the world came in
-            // piecemeal (unlit walls, the title backdrop half dark). Every test machine here ran DX11.
+
             PlayerSettings.SetUseDefaultGraphicsAPIs(BuildTarget.StandaloneWindows64, false);
             PlayerSettings.SetGraphicsAPIs(BuildTarget.StandaloneWindows64, new[] { UnityEngine.Rendering.GraphicsDeviceType.Direct3D11 });
             Build();
@@ -257,17 +241,15 @@ namespace Deepbound.EditorTools
             var report = BuildPipeline.BuildPlayer(new BuildPlayerOptions
             {
                 scenes = new[] { ScenePath },
-                // DEEPBOUND_BUILD_PATH lets a build go elsewhere while the usual copy is
-                // running (Windows locks a running exe).
+
                 locationPathName = System.Environment.GetEnvironmentVariable("DEEPBOUND_BUILD_PATH") ?? StandalonePath,
                 target = BuildTarget.StandaloneWindows64,
-                // Release by default: faster, and no "Development Build" stamp on the screen. Logs still
-                // go to Player.log (the smoke test reads them). DEEPBOUND_DEV=1 for a debuggable build.
+
                 options = System.Environment.GetEnvironmentVariable("DEEPBOUND_DEV") == "1" ? BuildOptions.Development : BuildOptions.None,
             });
 
             Debug.Log("[Build] Player build " + report.summary.result + " -> " + StandalonePath);
-            // Steam (2026-10-26): run as Valve's Spacewar test app until Deepbound has its own app id.
+
             string exePath = System.Environment.GetEnvironmentVariable("DEEPBOUND_BUILD_PATH") ?? StandalonePath;
             if (report.summary.result == UnityEditor.Build.Reporting.BuildResult.Succeeded)
                 System.IO.File.WriteAllText(System.IO.Path.Combine(System.IO.Path.GetDirectoryName(System.IO.Path.GetFullPath(exePath)), "steam_appid.txt"), Deepbound.Networking.SteamPlatform.AppId.ToString());
@@ -277,13 +259,8 @@ namespace Deepbound.EditorTools
             }
         }
 
-        // ------------------------------------------------------------------
-        // Prefabs
-        // ------------------------------------------------------------------
-
         private static GameObject BuildPlayerPrefab()
         {
-            // Origin at the feet: spawn points and teleports mean "stand here".
             var root = new GameObject("Player");
 
             var controller = root.AddComponent<CharacterController>();
@@ -321,9 +298,6 @@ namespace Deepbound.EditorTools
             pivot.SetParent(root.transform, false);
             pivot.localPosition = new Vector3(0f, 1.62f, 0f);
 
-            // The camera is a child of the pivot, not the pivot itself: the motor moves the
-            // pivot (look, kneeling height) and damage shake moves the camera, and each
-            // needs its own transform so neither overwrites the other.
             var camGo = new GameObject("Camera");
             camGo.transform.SetParent(pivot, false);
             var camera = camGo.AddComponent<Camera>();
@@ -352,7 +326,6 @@ namespace Deepbound.EditorTools
 
         private enum EnemyType { Skeleton, Archer, Gravewarden, TideLich, HollowKing, Ghoul, Brute, Necromancer, Wraith, Cardinal, Shieldbearer, Mimic, Hoarder, Gargoyle, Plaguebearer, FrostWight, Hexer, Mourner, Unsung, Warden, Entling, Orbweaver, ChoirAcolyte, AbyssEye, BonePiper, Cantor, RimeMagus, InkLamprey, WitheringHag, Bellringer, MotherMarrow, LanternFisher, TwiceCrowned, MirrorNun, Vharoth }
 
-        // A Warden is a giant of its act's rank and file.
         private static readonly Art.CharacterArt.SkeletonKind[] WardenKinds =
         {
             Art.CharacterArt.SkeletonKind.Brute, Art.CharacterArt.SkeletonKind.FrostWight, Art.CharacterArt.SkeletonKind.Shieldbearer,
@@ -376,7 +349,7 @@ namespace Deepbound.EditorTools
             capsule.height = 1.8f * scale;
             capsule.radius = 0.35f * scale;
             capsule.center = new Vector3(0f, 0.9f * scale, 0f);
-            // Shapes that are not a standing skeleton get a body to match.
+
             if (type == EnemyType.Mimic) { capsule.height = 1.1f; capsule.radius = 0.55f; capsule.center = new Vector3(0f, 0.55f, 0f); }
             if (type == EnemyType.Mourner) { capsule.height = 2.2f; capsule.radius = 0.38f; capsule.center = new Vector3(0f, 1.1f, 0f); }
             if (type == EnemyType.Gargoyle) { capsule.height = 2.7f; capsule.radius = 0.45f; capsule.center = new Vector3(0f, 1.35f, 0f); }
@@ -439,13 +412,13 @@ namespace Deepbound.EditorTools
             switch (type)
             {
                 case EnemyType.Archer:
-                    // Fragile and slow to fire, but it hurts from range: kill it first.
+
                     Kind(Art.CharacterArt.SkeletonKind.Archer);
                     Set("maxHealth", 60f); Set("damage", 14f); Set("attackRange", 15f); Set("windup", 1.0f);
                     Set("recovery", 1.5f); Set("aggroRange", 17f); Set("moveSpeed", 3.2f);
                     break;
                 case EnemyType.Ghoul:
-                    // Fast and fragile, in pairs. Dies to anything; dangerous in numbers.
+
                     Kind(Art.CharacterArt.SkeletonKind.Ghoul);
                     Set("maxHealth", 55f); Set("damage", 11f); Set("defense", 0f); Set("moveSpeed", 5.4f);
                     Set("attackRange", 1.8f); Set("windup", 0.35f); Set("recovery", 0.6f); Set("aggroRange", 15f);
@@ -461,13 +434,13 @@ namespace Deepbound.EditorTools
                     Set("attackRange", 2.2f); Set("windup", 0.6f); Set("recovery", 1.1f); Set("aggroRange", 15f);
                     break;
                 case EnemyType.AbyssEye:
-                    // Floats, keeps its distance and stares; the beam is the threat.
+
                     Kind(Art.CharacterArt.SkeletonKind.AbyssEye);
                     Set("maxHealth", 120f); Set("damage", 9f); Set("defense", 2f); Set("moveSpeed", 2.6f);
                     Set("attackRange", 14f); Set("windup", 0.6f); Set("recovery", 1.8f); Set("aggroRange", 20f);
                     break;
                 case EnemyType.ChoirAcolyte:
-                    // Fragile and slow to anger; it hangs back behind the others and sings.
+
                     Kind(Art.CharacterArt.SkeletonKind.ChoirAcolyte);
                     Set("maxHealth", 100f); Set("damage", 7f); Set("defense", 0f); Set("moveSpeed", 3.1f);
                     Set("attackRange", 12f); Set("windup", 0.8f); Set("recovery", 2.2f); Set("aggroRange", 17f);
@@ -478,7 +451,7 @@ namespace Deepbound.EditorTools
                     Set("attackRange", 13f); Set("windup", 0.8f); Set("recovery", 1.9f); Set("aggroRange", 18f);
                     break;
                 case EnemyType.Mourner:
-                    // Moves only unseen, and then fast. Sturdy stone; hits hard.
+
                     Kind(Art.CharacterArt.SkeletonKind.Mourner);
                     Set("maxHealth", 170f); Set("damage", 24f); Set("defense", 3f); Set("moveSpeed", 7.5f);
                     Set("attackRange", 1.9f); Set("windup", 0.3f); Set("recovery", 1.2f); Set("aggroRange", 30f); Set("leashRange", 80f);
@@ -489,19 +462,19 @@ namespace Deepbound.EditorTools
                     Set("attackRange", 2.2f); Set("windup", 0.55f); Set("recovery", 1f); Set("aggroRange", 18f);
                     break;
                 case EnemyType.Hoarder:
-                    // Quick, fragile-ish, never fights: a chase.
+
                     Kind(Art.CharacterArt.SkeletonKind.Hoarder);
                     Set("maxHealth", 170f); Set("damage", 0f); Set("defense", 2f); Set("moveSpeed", 4.6f);
                     Set("attackRange", 0.1f); Set("aggroRange", 15f); Set("leashRange", 80f);
                     break;
                 case EnemyType.Mimic:
-                    // Fast, bitey, tough for its size: a mini-fight that pays out.
+
                     Kind(Art.CharacterArt.SkeletonKind.Mimic);
                     Set("maxHealth", 240f); Set("damage", 24f); Set("defense", 4f); Set("moveSpeed", 4.4f);
                     Set("attackRange", 1.9f); Set("windup", 0.4f); Set("recovery", 0.8f); Set("aggroRange", 18f);
                     break;
                 case EnemyType.Shieldbearer:
-                    // Slow, turns slowly, and very hard to hurt from the front.
+
                     Kind(Art.CharacterArt.SkeletonKind.Shieldbearer);
                     Set("maxHealth", 150f); Set("damage", 18f); Set("defense", 3f); Set("moveSpeed", 2.6f);
                     Set("attackRange", 2.2f); Set("windup", 0.75f); Set("recovery", 1.2f); Set("aggroRange", 14f);
@@ -517,7 +490,7 @@ namespace Deepbound.EditorTools
                     Set("attackRange", 14f); Set("windup", 0.7f); Set("recovery", 1.6f); Set("aggroRange", 18f);
                     break;
                 case EnemyType.Wraith:
-                    // Fragile on paper, but Ethereal: needs pinning down to kill quickly.
+
                     Kind(Art.CharacterArt.SkeletonKind.Wraith);
                     Set("maxHealth", 70f); Set("damage", 12f); Set("defense", 0f); Set("moveSpeed", 3.4f);
                     Set("attackRange", 12f); Set("windup", 0.8f); Set("recovery", 1.7f); Set("aggroRange", 18f);
@@ -528,13 +501,13 @@ namespace Deepbound.EditorTools
                     Set("attackRange", 3.6f); Set("recovery", 1.2f); Set("aggroRange", 20f); Set("leashRange", 60f);
                     break;
                 case EnemyType.TideLich:
-                    // Squishier than the others; the difficulty is catching it.
+
                     Kind(Art.CharacterArt.SkeletonKind.Lich);
                     Set("maxHealth", 2600f); Set("damage", 18f); Set("defense", 2f); Set("moveSpeed", 3.4f);
                     Set("attackRange", 2.8f); Set("recovery", 1.0f); Set("aggroRange", 22f); Set("leashRange", 60f);
                     break;
                 case EnemyType.Unsung:
-                    // The secret final boss: patterns more than reach; the toughest fight in the game.
+
                     Kind(Art.CharacterArt.SkeletonKind.Unsung);
                     Set("maxHealth", 4150f); Set("damage", 34f); Set("defense", 7f); Set("moveSpeed", 1.7f);
                     Set("attackRange", 3.6f); Set("windup", 1.0f); Set("recovery", 1.2f); Set("aggroRange", 26f); Set("leashRange", 70f);
@@ -545,13 +518,13 @@ namespace Deepbound.EditorTools
                     Set("attackRange", 3.4f); Set("recovery", 1.1f); Set("aggroRange", 22f); Set("leashRange", 60f);
                     break;
                 case EnemyType.RimeMagus:
-                    // Hangs back: its blizzard is the threat. Frail; reach it and the storm dies.
+
                     Kind(Art.CharacterArt.SkeletonKind.RimeMagus);
                     Set("maxHealth", 110f); Set("damage", 11f); Set("defense", 0f); Set("moveSpeed", 3.1f);
                     Set("attackRange", 13f); Set("windup", 0.8f); Set("recovery", 1.8f); Set("aggroRange", 19f);
                     break;
                 case EnemyType.InkLamprey:
-                    // Closer than the casters: it spits from mid range and bites up close.
+
                     Kind(Art.CharacterArt.SkeletonKind.InkLamprey);
                     Set("maxHealth", 135f); Set("damage", 13f); Set("defense", 1f); Set("moveSpeed", 3.6f);
                     Set("attackRange", 2.2f); Set("windup", 0.6f); Set("recovery", 1.1f); Set("aggroRange", 18f);
@@ -561,7 +534,7 @@ namespace Deepbound.EditorTools
                     Set("maxHealth", 120f); Set("damage", 12f); Set("defense", 0f); Set("moveSpeed", 2.9f);
                     Set("attackRange", 12f); Set("windup", 0.8f); Set("recovery", 1.8f); Set("aggroRange", 18f);
                     break;
-                // The lairs' keepers (2026-11-14): about 60% of their act's Warden (a bot took 11 minutes on Mother Marrow at 1400): an optional side fight.
+
                 case EnemyType.MotherMarrow:
                     Kind(Art.CharacterArt.SkeletonKind.WitheringHag);
                     Set("maxHealth", 800f); Set("damage", 22f); Set("defense", 3f); Set("moveSpeed", 2.7f);
@@ -578,7 +551,7 @@ namespace Deepbound.EditorTools
                     Set("attackRange", 3f); Set("recovery", 1.1f); Set("aggroRange", 22f); Set("leashRange", 40f);
                     break;
                 case EnemyType.Vharoth:
-                    // A floor guardian of the deep acts (the Pit opens on floors 5-8).
+
                     Kind(Art.CharacterArt.SkeletonKind.Gargoyle);
                     Set("maxHealth", 3600f); Set("damage", 31f); Set("defense", 5f); Set("moveSpeed", 3.0f);
                     Set("attackRange", 3.4f); Set("recovery", 1.1f); Set("aggroRange", 22f); Set("leashRange", 60f);
@@ -589,42 +562,40 @@ namespace Deepbound.EditorTools
                     Set("attackRange", 2.8f); Set("recovery", 1.1f); Set("aggroRange", 22f); Set("leashRange", 40f);
                     break;
                 case EnemyType.Bellringer:
-                    // A sturdy brawler: the toll is the trick, the clapper the threat.
+
                     Kind(Art.CharacterArt.SkeletonKind.Bellringer);
                     Set("maxHealth", 180f); Set("damage", 20f); Set("defense", 2f); Set("moveSpeed", 2.8f);
                     Set("attackRange", 2.6f); Set("windup", 0.75f); Set("recovery", 1.2f); Set("aggroRange", 18f);
                     break;
                 case EnemyType.Cantor:
-                    // Frail and far back: its hush is the threat, not its bolt.
+
                     Kind(Art.CharacterArt.SkeletonKind.Cantor);
                     Set("maxHealth", 90f); Set("damage", 9f); Set("defense", 0f); Set("moveSpeed", 3.2f);
                     Set("attackRange", 12f); Set("windup", 0.8f); Set("recovery", 2f); Set("aggroRange", 18f);
                     break;
                 case EnemyType.BonePiper:
-                    // Stands still to play: punish it then. Its tunes do the damage, not its bones.
+
                     Kind(Art.CharacterArt.SkeletonKind.BonePiper);
                     Set("maxHealth", 120f); Set("damage", 13f); Set("defense", 1f); Set("moveSpeed", 3.0f);
                     Set("attackRange", 13f); Set("windup", 0.6f); Set("recovery", 1.4f); Set("aggroRange", 21f);
                     break;
                 case EnemyType.Orbweaver:
-                    // A caster that hangs back behind its orbs: fragile, so reach it.
+
                     Kind(Art.CharacterArt.SkeletonKind.Orbweaver);
                     Set("maxHealth", 105f); Set("damage", 12f); Set("defense", 0f); Set("moveSpeed", 3.1f);
                     Set("attackRange", 14f); Set("windup", 0.7f); Set("recovery", 1.6f); Set("aggroRange", 20f);
                     break;
                 case EnemyType.Entling:
-                    // Fragile and fast: kill it on the way in, or it holds you down.
+
                     Kind(Art.CharacterArt.SkeletonKind.Entling);
                     Set("maxHealth", 70f); Set("damage", 9f); Set("defense", 1f); Set("moveSpeed", 6f);
                     Set("attackRange", 2.0f); Set("windup", 0.35f); Set("recovery", 0.6f); Set("aggroRange", 18f);
                     break;
                 case EnemyType.Warden:
                 {
-                    // Lighter than the act's own boss on the floor after; health climbs with the floor's tier.
                     so.FindProperty("act").intValue = act;
                     Kind(WardenKinds[act]);
-                    // 2026-11-14: stronger (the user: "make mini bosses stronger and more threatening"); Sir Aldous and the Choirmaster are
-                    // guardians now, at an act boss's weight.
+
                     float[] hp = { 1250f, 2000f, 3000f, 3500f, 3500f }, dmg = { 25f, 28f, 30f, 32f, 34f }, def = { 4f, 4f, 6f, 5f, 6f }, spd = { 2.6f, 3.0f, 2.7f, 2.9f, 2.4f };
                     Set("maxHealth", hp[act]); Set("damage", dmg[act]); Set("defense", def[act]); Set("moveSpeed", spd[act]);
                     Set("attackRange", 3.3f); Set("recovery", 1.2f); Set("aggroRange", 20f); Set("leashRange", 60f);
@@ -641,7 +612,6 @@ namespace Deepbound.EditorTools
             return SavePrefab(root, name);
         }
 
-        /// <summary>Loot never moves once dropped, so it needs no NetworkTransform — just an identity.</summary>
         private static GameObject BuildLootPrefab()
         {
             var root = new GameObject("LootDrop");
@@ -650,7 +620,6 @@ namespace Deepbound.EditorTools
             return SavePrefab(root, "LootDrop");
         }
 
-        /// <summary>A static networked object; a box collider when it should block movement.</summary>
         private static GameObject BuildObjectPrefab<T>(string name, Vector3 collider) where T : Component
         {
             var root = new GameObject(name);
@@ -665,7 +634,6 @@ namespace Deepbound.EditorTools
             return SavePrefab(root, name);
         }
 
-        /// <summary>A doorway gate: blocks players with a box, enemies with a carving obstacle.</summary>
         private static GameObject BuildPortcullisPrefab()
         {
             var root = new GameObject("Portcullis");
@@ -685,7 +653,6 @@ namespace Deepbound.EditorTools
             return SavePrefab(root, "Portcullis");
         }
 
-        /// <summary>The plug in a hollow wall: solid, carves the navmesh, and has health (Props team) to smash.</summary>
         private static GameObject BuildCrackedWallPrefab()
         {
             var root = new GameObject("CrackedWall");
@@ -704,7 +671,6 @@ namespace Deepbound.EditorTools
             return SavePrefab(root, "CrackedWall");
         }
 
-        /// <summary>The Test of Might: a hittable (Props team) gong that never breaks.</summary>
         private static GameObject BuildGongPrefab()
         {
             var root = new GameObject("Gong");
@@ -717,7 +683,6 @@ namespace Deepbound.EditorTools
             return SavePrefab(root, "Gong");
         }
 
-        /// <summary>An archery target: a hittable (Props team) straw butt that never breaks.</summary>
         private static GameObject BuildRangeTargetPrefab()
         {
             var root = new GameObject("RangeTarget");
@@ -730,7 +695,6 @@ namespace Deepbound.EditorTools
             return SavePrefab(root, "RangeTarget");
         }
 
-        /// <summary>A necromancer's rift: a body that every attack can hit (Team.Enemies), no brain.</summary>
         private static GameObject BuildSoulRiftPrefab()
         {
             var root = new GameObject("SoulRift");
@@ -744,7 +708,6 @@ namespace Deepbound.EditorTools
             return SavePrefab(root, "SoulRift");
         }
 
-        /// <summary>A cellar's cracked tile (any blow breaks it: Team.Props) and its rope.</summary>
         private static GameObject BuildCellarHatchPrefab()
         {
             var root = new GameObject("CellarHatch");
@@ -784,8 +747,6 @@ namespace Deepbound.EditorTools
             AssetDatabase.SaveAssets();
         }
 
-        /// <summary>The Tome of the Phoenix's bird: on the players' side (Team.Allies), so the dead's blows and bolts can bring it down.</summary>
-        /// <summary>The caged prisoner / freed delver: an ally body (a trigger capsule, so it never blocks a shot or a step).</summary>
         private static GameObject BuildPrisonerPrefab()
         {
             var root = new GameObject("PrisonerCage");
@@ -802,7 +763,7 @@ namespace Deepbound.EditorTools
             var root = new GameObject("Phoenix");
             root.AddComponent<NetworkObject>();
             var body = root.AddComponent<CapsuleCollider>();
-            body.radius = 0.45f; body.height = 0.9f; body.center = Vector3.zero; body.isTrigger = true; // blocks no shot, no step
+            body.radius = 0.45f; body.height = 0.9f; body.center = Vector3.zero; body.isTrigger = true;
             SetTeam(root.AddComponent<Health>(), Team.Allies, 0f);
             root.AddComponent<Deepbound.Player.Phoenix>();
             return SavePrefab(root, "Phoenix");
@@ -870,7 +831,6 @@ namespace Deepbound.EditorTools
 
         private static void YawOnly(NetworkTransform t)
         {
-            // Bodies only ever turn about Y; pitch lives on the local camera.
             t.SyncRotAngleX = false;
             t.SyncRotAngleZ = false;
             t.SyncScaleX = false;
@@ -894,16 +854,6 @@ namespace Deepbound.EditorTools
             return prefab;
         }
 
-        /// <summary>
-        /// Gives a prefab's NetworkObject the id peers use to agree which prefab to spawn.
-        ///
-        /// NGO derives it from the asset GUID inside <c>NetworkObject.OnValidate</c>. When
-        /// the component is added from script, OnValidate runs while the object is still an
-        /// unsaved scene object with no GUID, and the hash is left at 0 — clients would then
-        /// fail to spawn it. Calling it again once the asset exists fixes that. It is
-        /// internal, hence the reflection; if a future NGO renames it, this throws here
-        /// rather than failing quietly at runtime.
-        /// </summary>
         private static void AssignGlobalObjectIdHash(NetworkObject networkObject)
         {
             var onValidate = typeof(NetworkObject).GetMethod("OnValidate",
@@ -935,10 +885,6 @@ namespace Deepbound.EditorTools
             }
             EditorUtility.SetDirty(list);
         }
-
-        // ------------------------------------------------------------------
-        // Scene
-        // ------------------------------------------------------------------
 
         private static void BuildScene(GameObject playerPrefab, GameObject directorPrefab)
         {

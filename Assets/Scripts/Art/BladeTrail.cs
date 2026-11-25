@@ -3,13 +3,6 @@ using UnityEngine;
 
 namespace Deepbound.Art
 {
-    /// <summary>
-    /// First-person cut feedback (replaced 2026-10-20: the user disliked the swept ribbon). No trail
-    /// any more: at the heart of the cut a hard glint of light runs up the blade from the guard to the
-    /// tip (steel catching the torchlight), and three faint hairline "air cuts" streak off the tip in
-    /// the direction it is travelling and vanish in a tenth of a second. It reads as speed and edge,
-    /// not as a shape pasted in front of the camera.
-    /// </summary>
     public class BladeTrail
     {
         private readonly Transform space, tip, edge;
@@ -45,7 +38,6 @@ namespace Deepbound.Art
             return r;
         }
 
-        /// <summary>The cut is happening for <paramref name="seconds"/>.</summary>
         public void Arm(float seconds)
         {
             armedAt = Time.time;
@@ -60,7 +52,6 @@ namespace Deepbound.Art
             var tipNow = space.InverseTransformPoint(tip.position);
             var edgeNow = space.InverseTransformPoint(edge.position);
 
-            // The glint: in the middle of the cut it runs from the edge mark to the tip and flares.
             float mid = armedAt + (armedUntil - armedAt) * 0.35f;
             float g = (now - mid) / GlintLife;
             bool glow = armedAt > 0f && g >= 0f && g <= 1f;
@@ -75,7 +66,6 @@ namespace Deepbound.Art
                 ArtLibrary.SetGlow(glintB, color * (2.2f * flare));
             }
 
-            // The air cuts: once per swing, as the tip moves fastest, three hairlines off its path.
             var vel = tipNow - lastTip;
             if (!streaked && now < armedUntil && now > mid && vel.magnitude > 0.012f)
             {

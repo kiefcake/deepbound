@@ -2,12 +2,6 @@ using UnityEngine;
 
 namespace Deepbound.Art
 {
-    /// <summary>
-    /// A boss gathering itself before a blow (2026-10-20). Added at runtime to the boss on every
-    /// peer: during a wind-up the body crouches and draws in (squash), a core of light swells at
-    /// its chest and embers stream into it; on release it stretches up and snaps back, throwing
-    /// dust. Purely visual, driven by <see cref="Anticipate"/> and <see cref="Release"/>.
-    /// </summary>
     public class BossWindup : MonoBehaviour
     {
         private Transform body;
@@ -33,7 +27,6 @@ namespace Deepbound.Art
             return w;
         }
 
-        /// <summary>Gather for <paramref name="seconds"/>; <paramref name="k"/> 0..1 scales how big the tell is.</summary>
         public void Anticipate(float seconds, float k)
         {
             start = Time.time;
@@ -66,14 +59,14 @@ namespace Deepbound.Art
             if (end > 0f)
             {
                 float t = Mathf.Clamp01((Time.time - start) / Mathf.Max(0.01f, end - start));
-                // Ease in: most of the gathering comes late, so the last instant reads as "now".
+
                 float e = t * t;
                 squash = e * 0.07f * strength;
                 glow = e;
                 if (Time.time >= nextEmber)
                 {
                     nextEmber = Time.time + Mathf.Lerp(0.14f, 0.04f, e);
-                    // Embers drawn in from a wide ring towards the chest.
+
                     var dir = Quaternion.Euler(0f, Random.Range(0f, 360f), 0f) * Vector3.forward;
                     Vfx.Mote(transform.position + dir * Random.Range(1.5f, 3.2f) + Vector3.up * Random.Range(0.2f, height), color);
                 }

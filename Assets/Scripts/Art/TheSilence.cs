@@ -2,11 +2,6 @@ using UnityEngine;
 
 namespace Deepbound.Art
 {
-    /// <summary>
-    /// The Abyss's darkness: for a few seconds the light fails. Fog thickens, the ambient light
-    /// drops, and every light in the level gutters low; then it all comes back. Local only, run
-    /// on every peer at the same time (the floor gimmick and the Unsung's Silence both use it).
-    /// </summary>
     public class TheSilence : MonoBehaviour
     {
         private static TheSilence current;
@@ -38,7 +33,7 @@ namespace Deepbound.Art
         private void Update()
         {
             float t = Time.time - start;
-            // Darkens over a second, holds, recovers over the last second and a half.
+
             float k = Mathf.Clamp01(Mathf.Min(t / 1f, (length - t) / 1.5f));
             RenderSettings.fogDensity = Mathf.Lerp(fog0, fog0 * 2.6f, k);
             RenderSettings.ambientSkyColor = Color.Lerp(sky0, sky0 * 0.3f, k);
@@ -49,7 +44,6 @@ namespace Deepbound.Art
             if (t >= length) End();
         }
 
-        /// <summary>Restore everything now (the floor is being rebuilt).</summary>
         public static void Cancel()
         {
             if (current != null) current.End();

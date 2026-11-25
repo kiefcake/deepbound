@@ -2,7 +2,6 @@ using UnityEngine;
 
 namespace Deepbound.Art
 {
-    /// <summary>Sparks rising off a relic on the ground, so it catches the eye across a room.</summary>
     public class RelicSparks : MonoBehaviour
     {
         public Color Color = Color.white;

@@ -7,21 +7,6 @@ using UnityEngine;
 
 namespace Deepbound.Enemies
 {
-    /// <summary>
-    /// VHAROTH, THE EMBER ARCHON - lord of the Cinder Pit (2026-11-14). The one guardian built on the shape of a classic
-    /// stage-cycling dungeon boss (the user named RotMG's Malphas as the example): his fight is a fixed loop of stages
-    /// that does not care how hurt he is, he grows and shrinks between them, and four cinder wards orbit him and fire
-    /// through all of it.
-    /// <list type="number">
-    /// <item><b>Striding</b> (huge): he walks you down, throwing three-bolt spreads.</item>
-    /// <item><b>Kindling</b> (smaller): a breath of fire where he cannot be touched, then bellows-imps crawl out of the
-    /// floor; they burn out when the stage ends. Rings of fire pulse from him.</item>
-    /// <item><b>Ember</b> (small, fast, hard to hit): he races round the pit spilling slow spirals.</item>
-    /// <item><b>Seekers</b> (smaller): cinder mines that drift after you and burst when they reach you - lead them apart.</item>
-    /// </list>
-    /// Two thirds: the loop quickens. One third: the Furnace Heart (a stage of spirals he cannot be hurt in), then all
-    /// of it faster still. Every stage reads on his body: his size, and the colour of his fire.
-    /// </summary>
     public class VharothBrain : BossBrain
     {
         public override string DisplayName => "Vharoth";
@@ -36,7 +21,7 @@ namespace Deepbound.Enemies
         public static readonly Color Fire = new Color(1f, 0.45f, 0.12f), Cinder = new Color(1f, 0.75f, 0.3f);
 
         public enum Stage : byte { Striding, Kindling, Ember, Seekers }
-        /// <summary>Any peer: the stage, and his size (1 huge .. 0.5 small).</summary>
+
         public readonly NetworkVariable<byte> StageValue = new NetworkVariable<byte>();
         public readonly NetworkVariable<float> Size = new NetworkVariable<float>(1f);
         public Stage CurrentStage => (Stage)StageValue.Value;
@@ -45,7 +30,7 @@ namespace Deepbound.Enemies
         private readonly List<EnemyBrain> imps = new List<EnemyBrain>();
         private Vector3 arena;
         private float circleAngle;
-        /// <summary>For tests: stages entered, seekers burst.</summary>
+
         public int StagesEntered { get; private set; }
         public int SeekersBurst { get; private set; }
 
@@ -77,7 +62,6 @@ namespace Deepbound.Enemies
 
         private void EnterStage(Stage s)
         {
-            // The imps of the last Kindling burn out as the stage turns.
             foreach (var imp in imps) if (imp != null && imp.IsSpawned && !imp.IsDead) { BurnOutRpc(imp.transform.position); imp.NetworkObject.Despawn(); }
             imps.Clear();
             StageValue.Value = (byte)s;
@@ -85,7 +69,7 @@ namespace Deepbound.Enemies
             stageEnds = Time.time + StageSeconds[(int)s] * pace / Cadence;
             StagesEntered++;
             StageFxRpc((byte)s, transform.position);
-            // The four cinder wards: always circling, always firing at every one of you.
+
             StopPatterns();
             for (int w = 0; w < 4; w++)
                 StartPattern(new Pattern
@@ -145,7 +129,7 @@ namespace Deepbound.Enemies
                     }
                     break;
                 case Stage.Ember:
-                    // Racing round the pit, not at you.
+
                     if (agent != null && agent.enabled && agent.isOnNavMesh)
                     {
                         circleAngle += 70f * Time.deltaTime;
@@ -187,8 +171,6 @@ namespace Deepbound.Enemies
             HurlFxRpc(origin);
             return true;
         }
-
-        // ---- Seekers: cinder mines that drift after the nearest of you and burst ----
 
         private struct Seeker { public Vector3 Pos; public float Born, Fuse; }
         private readonly List<Seeker> seekers = new List<Seeker>();
@@ -234,7 +216,6 @@ namespace Deepbound.Enemies
             }
         }
 
-        /// <summary>Tests: a seeker now, at <paramref name="at"/>.</summary>
         public void ServerDebugSeeker(Vector3 at) => seekers.Add(new Seeker { Pos = at, Born = Time.time, Fuse = -1f });
 
         [Rpc(SendTo.ClientsAndHost)]
@@ -267,7 +248,6 @@ namespace Deepbound.Enemies
             Vfx.Ring(at - Vector3.up * 1.2f, SeekerBurst, Fire, 0.4f);
         }
 
-        /// <summary>READABILITY (2026-11-19): a lit seeker only flickered; now the ground it will burn shows, and it hisses.</summary>
         [Rpc(SendTo.ClientsAndHost)]
         private void SeekerLitRpc(Vector3 at)
         {
@@ -278,7 +258,6 @@ namespace Deepbound.Enemies
         [Rpc(SendTo.ClientsAndHost)]
         private void SeekerFizzleRpc(Vector3 at) { Vfx.Smoke(at, 2, 0.3f, 1f); }
 
-        /// <summary>READABILITY (2026-11-19): the striding fan left his hand in silence.</summary>
         [Rpc(SendTo.ClientsAndHost)]
         private void HurlFxRpc(Vector3 at) => Sfx.Play(Sound.Fire, at, 0.8f, 1.3f);
 
@@ -316,8 +295,6 @@ namespace Deepbound.Enemies
             foreach (var imp in imps) if (imp != null && imp.IsSpawned && !imp.IsDead) imp.NetworkObject.Despawn();
         }
 
-        // ---- His body: the size of the stage, and four cinders circling him (any peer) ----
-
         private Vector3 baseRigScale;
         private float shownSize = 1f, capsuleH, capsuleR, capsuleY;
         private CapsuleCollider capsule;
@@ -336,7 +313,7 @@ namespace Deepbound.Enemies
             }
             shownSize = Mathf.MoveTowards(shownSize, IsDead ? shownSize : Size.Value, Time.deltaTime * 1.2f);
             Rig.transform.localScale = baseRigScale * shownSize;
-            // He is hard to hit small: the body you can strike shrinks with him.
+
             if (capsule != null) { capsule.height = capsuleH * shownSize; capsule.radius = capsuleR * shownSize; capsule.center = new Vector3(0f, capsuleY * shownSize, 0f); }
             if (wards == null)
             {
@@ -351,7 +328,7 @@ namespace Deepbound.Enemies
             }
             wards.gameObject.SetActive(!IsDead && !Dormant);
             wards.localRotation = Quaternion.Euler(0f, Time.time * 110f, 0f);
-            // His fire: deep orange striding, white-gold racing as an ember.
+
             Rig.GlowColor = CurrentStage == Stage.Ember ? Cinder : Fire;
         }
 
@@ -365,7 +342,7 @@ namespace Deepbound.Enemies
         protected override void DressRig(HumanoidRig rig)
         {
             if (rig.Head == null || rig.Torso == null) return;
-            // Horns of black iron, a crown of flame, and cracks of fire across the chest.
+
             foreach (float s in new[] { -1f, 1f })
                 ArtLibrary.Tint(MeshKit.Part(rig.Head, "Horn", MeshKit.Cylinder(0.05f, 0f, 0.42f, 6), Mat.Steel, new Vector3(s * 0.11f, 0.2f, -0.02f), new Vector3(-25f, 0f, s * -28f)).GetComponent<Renderer>(), new Color(0.12f, 0.1f, 0.1f));
             for (int i = 0; i < 6; i++)

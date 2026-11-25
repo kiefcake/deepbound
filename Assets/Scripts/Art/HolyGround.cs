@@ -2,10 +2,6 @@ using UnityEngine;
 
 namespace Deepbound.Art
 {
-    /// <summary>
-    /// Consecrated ground: a gold rune circle with slowly rising motes of light and a warm
-    /// glow, fading out over its lifetime. Purely visual; the healing is on the server.
-    /// </summary>
     public class HolyGround : MonoBehaviour
     {
         private float life, age;
@@ -13,7 +9,6 @@ namespace Deepbound.Art
         private Transform[] motes;
         private Renderer ring;
 
-        /// <summary>Holy Stride (2026-11-20): the ground walks with this transform.</summary>
         public Transform Follow;
 
         public static HolyGround Spawn(Vector3 at, float radius, float seconds)

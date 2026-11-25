@@ -3,23 +3,10 @@ using UnityEngine;
 
 namespace Deepbound.UI
 {
-    /// <summary>
-    /// LOADING SCREENS (2026-11-19, the user: "work on loading screens"). Every hard cut - the carriage's descent, the
-    /// grave lift and the climbing rope back to camp, joining a party - ends on a card instead of a black frame while the
-    /// level is built: where you are going (FLOOR 6 - THE EMPTY THRONE, the act, the Endless lap), a line of the dungeon's
-    /// lore or a hint, two counter-turning rune rings round a pulsing core in the act's colour, embers rising, and a bar
-    /// that crawls through the builder's stages and fills when the level is up. It shows for at least
-    /// <see cref="MinShow"/> s so the line can be read, then fades into the arrival.
-    /// <para>
-    /// Drawing only: it never waits on anything the game does, and it lets go on <see cref="DungeonDirector.ArenaBuilt"/>
-    /// (or after <see cref="GiveUp"/> s whatever happens). Test runs keep it but never hold the player for it.
-    /// </para>
-    /// </summary>
     public class LoadingScreen : MonoBehaviour
     {
         public enum Kind { Descent, Camp, Joining, Hosting }
 
-        /// <summary>Test runs never see a card (their screenshots and timings stay as they were) unless a shot run asks.</summary>
         public static bool AllowInTests;
 
         private static LoadingScreen instance;
@@ -31,7 +18,6 @@ namespace Deepbound.UI
 
         public const float MinShow = 2.4f, FadeIn = 0.35f, FadeOut = 0.7f, GiveUp = 25f;
 
-        /// <summary>Any peer: a loading card for <paramref name="kind"/>, appearing after <paramref name="delay"/> s (once the transition's own fade has covered the screen).</summary>
         public static void Begin(Kind k, float delay)
         {
             if (Networking.NetworkLauncher.TestRun && !AllowInTests) return;
@@ -45,10 +31,8 @@ namespace Deepbound.UI
             line = Lines[lineIndex];
         }
 
-        /// <summary>Gone at once (tests, and anything that knows better).</summary>
         public static void Cancel() => beginAt = -1f;
 
-        /// <summary>Any peer: showing (or about to).</summary>
         public static bool Active => beginAt >= 0f;
 
         private void Awake()
@@ -63,7 +47,7 @@ namespace Deepbound.UI
         {
             if (beginAt < 0f || builtAt >= 0f) return;
             builtAt = Time.time;
-            // Read for at least MinShow, counted from when the card appeared.
+
             endAt = Mathf.Max(builtAt + 0.6f, visibleAt + (kind == Kind.Hosting ? 1.3f : MinShow));
             if (!Networking.NetworkLauncher.TestRun) GameHud.HoldStill(endAt - Time.time + 0.3f);
         }
@@ -72,12 +56,10 @@ namespace Deepbound.UI
         {
             if (beginAt < 0f) return;
             bool connected = Unity.Netcode.NetworkManager.Singleton != null && (Unity.Netcode.NetworkManager.Singleton.IsClient || Unity.Netcode.NetworkManager.Singleton.IsServer);
-            // A failed join (or leaving mid-load) lets go at once; nothing hangs on a card forever.
+
             if (((kind == Kind.Joining || kind == Kind.Hosting) && !connected && Time.time - beginAt > 1f) || Time.time - beginAt > GiveUp) { endAt = Mathf.Min(endAt < 0f ? Time.time : endAt, Time.time); if (builtAt < 0f) builtAt = Time.time; }
             if (endAt >= 0f && Time.time >= endAt + FadeOut) beginAt = -1f;
         }
-
-        // ---- What it says ----
 
         private static readonly string[] ActNames = { "THE OSSUARY", "THE DROWNED VAULTS", "THE HOLLOW THRONE", "THE BLACK CATHEDRAL", "THE ABYSS" };
         private static readonly Color[] ActColors =
@@ -86,7 +68,6 @@ namespace Deepbound.UI
         };
         private static readonly Color CampColor = new Color(1f, 0.62f, 0.3f);
 
-        /// <summary>Lore first, a few hard-won hints after (the user: fewer tips - these only show while nothing else can).</summary>
         private static readonly string[] Lines =
         {
             "“Sleep, you who were carried down. Sleep, you who carried.”  - the Cardinal's hymn",
@@ -138,8 +119,6 @@ namespace Deepbound.UI
 
         private static readonly string[] Stages = { "Carving the halls", "Laying the bones", "Hanging the torches", "Waking the dead", "Hiding the gold" };
 
-        // ---- Drawing ----
-
         private void OnGUI()
         {
             if (beginAt < 0f || Time.time < visibleAt) return;
@@ -153,7 +132,6 @@ namespace Deepbound.UI
             string title = Title(out string sub, out Color tint);
             float t = Time.time - visibleAt;
 
-            // Ground: near-black, warmed toward the act's colour at the middle, a slow breathing vignette.
             UiSkin.Rect(new Rect(0, 0, w, h), new Color(0.015f, 0.012f, 0.018f, a));
             if (glow == null) glow = MakeGlow();
             float breathe = 0.85f + 0.15f * Mathf.Sin(t * 1.3f);
@@ -163,7 +141,6 @@ namespace Deepbound.UI
             GUI.DrawTexture(new Rect(w / 2f - gs / 2f, h * 0.42f - gs / 2f, gs, gs), glow);
             GUI.color = Color.white;
 
-            // Embers rising from the bottom of the card.
             for (int i = 0; i < 46; i++)
             {
                 float seed = i * 12.9898f;
@@ -176,7 +153,6 @@ namespace Deepbound.UI
                 UiSkin.Rect(new Rect(x, y, s, s), new Color(Mathf.Lerp(tint.r, 1f, 0.4f), Mathf.Lerp(tint.g, 0.6f, 0.3f), tint.b * 0.5f, ea));
             }
 
-            // The sigil: two rune rings turning against each other round a pulsing core.
             if (ringOuter == null) { ringOuter = MakeRing(256, 0.46f, 0.5f, 24, 0.42f); ringInner = MakeRing(256, 0.3f, 0.34f, 12, 0.24f); }
             var c = new Vector2(w / 2f, h * 0.4f);
             float rs = Mathf.Min(w, h) * 0.3f;
@@ -195,17 +171,14 @@ namespace Deepbound.UI
             GUI.DrawTexture(new Rect(c.x - cs / 2f, c.y - cs / 2f, cs, cs), glow);
             GUI.color = Color.white;
 
-            // Where you are going.
             var titleStyle = new GUIStyle(UiSkin.Title) { fontSize = 40, alignment = TextAnchor.MiddleCenter };
             UiSkin.Shadowed(new Rect(0, h * 0.6f, w, 52), title, titleStyle, a);
             UiSkin.Ornament(w / 2f - 210f, h * 0.6f + 56f, 420f, a);
-            GUI.Label(new Rect(0, h * 0.6f + 64, w, 26), sub, new GUIStyle(UiSkin.Heading) { fontSize = 17, alignment = TextAnchor.MiddleCenter, normal = { textColor = new Color(tint.r, tint.g, tint.b, a) } });
+            GUI.Label(new Rect(0, h * 0.6f + 64, w, 26), sub, UiSkin.Derive(UiSkin.Heading, new Color(tint.r, tint.g, tint.b, a), fontSize: 17, align: TextAnchor.MiddleCenter));
 
-            // The line, word-wrapped under it.
             GUI.Label(new Rect(w / 2f - 380f, h * 0.6f + 104, 760f, 60), line,
-                new GUIStyle(UiSkin.Body) { fontSize = 16, fontStyle = FontStyle.Italic, wordWrap = true, alignment = TextAnchor.UpperCenter, normal = { textColor = new Color(0.86f, 0.82f, 0.74f, a) } });
+                UiSkin.Derive(UiSkin.Body, new Color(0.86f, 0.82f, 0.74f, a), fontSize: 16, fontStyle: FontStyle.Italic, align: TextAnchor.UpperCenter, wrap: true));
 
-            // The bar: crawls through the stages toward 90%, fills when the level is up.
             float p = builtAt >= 0f ? Mathf.Clamp01(0.9f + (Time.time - builtAt) / 0.45f * 0.1f) : 0.9f * (1f - Mathf.Exp(-(Time.time - beginAt) / 1.6f));
             float bw = Mathf.Min(520f, w * 0.5f), bx = w / 2f - bw / 2f, by = h - 74f;
             UiSkin.Rect(new Rect(bx - 1, by - 1, bw + 2, 8), new Color(0f, 0f, 0f, 0.8f * a));
@@ -214,12 +187,11 @@ namespace Deepbound.UI
             float sheen = Frac(t * 0.6f);
             UiSkin.Rect(new Rect(bx + bw * p * sheen, by, 18f, 6), new Color(1f, 1f, 1f, 0.35f * a * (p < 1f ? 1f : 0f)));
             string stage = builtAt >= 0f ? "Ready" : Stages[Mathf.Min(Stages.Length - 1, (int)(p / 0.9f * Stages.Length))] + new string('.', 1 + (int)(t * 2.5f) % 3);
-            GUI.Label(new Rect(bx, by + 10, bw, 20), stage, new GUIStyle(UiSkin.Small) { alignment = TextAnchor.UpperCenter, normal = { textColor = new Color(0.75f, 0.7f, 0.62f, a) } });
+            GUI.Label(new Rect(bx, by + 10, bw, 20), stage, UiSkin.Derive(UiSkin.Small, new Color(0.75f, 0.7f, 0.62f, a), align: TextAnchor.UpperCenter));
         }
 
         private static float Frac(float v) => v - Mathf.Floor(v);
 
-        /// <summary>A soft round glow (white, alpha falling off).</summary>
         private static Texture2D MakeGlow()
         {
             const int n = 128;
@@ -237,7 +209,6 @@ namespace Deepbound.UI
             return tex;
         }
 
-        /// <summary>A rune ring: a band from <paramref name="r0"/> to <paramref name="r1"/> (fractions of the size), notched by <paramref name="runes"/> marks inside it.</summary>
         private static Texture2D MakeRing(int n, float r0, float r1, int runes, float markInner)
         {
             var tex = new Texture2D(n, n, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp };
@@ -249,11 +220,11 @@ namespace Deepbound.UI
                     float d = Mathf.Sqrt(dx * dx + dy * dy);
                     float ang = Mathf.Atan2(dy, dx) / (Mathf.PI * 2f) + 0.5f;
                     float alpha = 0f;
-                    // The band, edged on both sides.
+
                     float edge = 1.2f / n;
                     alpha = Mathf.Max(alpha, Mathf.Clamp01(1f - Mathf.Abs(d - r1) / edge) , Mathf.Clamp01(1f - Mathf.Abs(d - r0) / edge) * 0.8f);
                     if (d > r0 && d < r1) alpha = Mathf.Max(alpha, 0.18f);
-                    // Rune marks: short ticks and dots spaced round, every third one a little cross.
+
                     float slot = ang * runes;
                     float f = slot - Mathf.Floor(slot);
                     int which = (int)slot;

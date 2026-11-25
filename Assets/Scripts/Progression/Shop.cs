@@ -4,16 +4,8 @@ using Deepbound.Loot;
 
 namespace Deepbound.Progression
 {
-    /// <summary>
-    /// The merchant's catalogue. Everything bought is run-scoped, like everything else.
-    ///
-    /// Gold has one job — turn a good floor into a stronger next floor — so the shop sells
-    /// healing, embers for the anvil next door, small stat bonuses, and two relics.
-    /// Prices are fixed so players can plan around them.
-    /// </summary>
     public static class Shop
     {
-        /// <summary>Value 1 was the retired stat potion.</summary>
         public enum ItemKind : byte { Heal, Embers = 1, Bonus = 2, Relic = 3, Gear = 4, Sigil = 5, Flasks = 6, Potion = 7, Prayer = 8, Drill = 9, Map = 10, Salts = 11, Restock = 12, Rope = 13, Blessing = 14, ShrineRestock = 15, Rare = 16, Picks = 17, Lantern = 18 }
 
         public struct Item
@@ -24,25 +16,19 @@ namespace Deepbound.Progression
             public ItemKind Kind;
             public StatType Stat;
             public float Amount;
-            /// <summary>For bonuses: the most this stat can be raised by purchases.</summary>
+
             public float Cap;
-            /// <summary>For gear: the piece on offer.</summary>
+
             public Loot.GearItem Gear;
-            /// <summary>Which camp vendor sells it.</summary>
+
             public Vendor Seller;
-            /// <summary>Drills: which regimens teach it (bits of <see cref="Regimen"/>; 0 = everyone).</summary>
+
             public byte Regimens;
         }
 
         public const float MerchantRange = 3.2f;
         public const float StallRange = 3.6f;
 
-        /// <summary>
-        /// Who sells it. Camp trade is split by craft: the merchant keeps provisions, the smith sells
-        /// what the anvil eats (embers, plate, a fitted piece, sigils), the shrine keeps holy water and
-        /// relics. Down in the dungeon the travelling peddler carries only potions, marked up.
-        /// </summary>
-        /// <remarks>Yard: the training yard's drill board (stats for gold). Carriage: Corwin, at the carriage (maps, salts).</remarks>
         public enum Vendor : byte { Merchant = 0, Smith = 1, Shrine = 2, Yard = 3, Carriage = 4, Runewright = 5 }
 
         public static string VendorTitle(Vendor v) => v == Vendor.Smith ? "HOBB'S WARES" : v == Vendor.Shrine ? "THE SHRINE'S OFFERINGS"
@@ -56,8 +42,6 @@ namespace Deepbound.Progression
             : v == Vendor.Carriage ? "\"I've driven folk to the door of every floor. I know a thing or two about the way down.\""
             : World.DungeonDirector.InLobby ? "\"Coin for courage, friend. It all spends the same down there.\"" : "\"Long way down to carry glass. Prices reflect it.\"";
 
-        /// <summary>Where a vendor stands right now (null: not here). At camp that is the PERSON, wherever their errands
-        /// have taken them (<see cref="World.FolkPlaces"/>); below, the peddler at his spot.</summary>
         public static UnityEngine.Vector3? Position(Vendor v) => World.DungeonDirector.InLobby ? World.FolkPlaces.Now(PlayerProgress.VendorFolk(v))
             : v == Vendor.Merchant ? World.DungeonDirector.MerchantPosition : (UnityEngine.Vector3?)null;
 
@@ -70,10 +54,6 @@ namespace Deepbound.Progression
             return p != null && UnityEngine.Vector3.Distance(at, p.Value) <= Range(v) + slack;
         }
 
-        /// <summary>
-        /// Today's common stock for a vendor: its share of the catalogue (two relics at the shrine,
-        /// chosen from the floor's seed so every peer sees the same two; the relic id rides in Amount).
-        /// </summary>
         public static Item[] Current(Vendor vendor)
         {
             var director = World.DungeonDirector.Instance;
@@ -83,7 +63,6 @@ namespace Deepbound.Progression
             var list = new List<Item>();
             foreach (var it in Items)
             {
-                // The peddler carries every flask and nothing else.
                 if (camp ? it.Seller == vendor : vendor == Vendor.Merchant && it.Kind == ItemKind.Potion) list.Add(it);
             }
             if (camp && vendor == Vendor.Shrine)
@@ -115,10 +94,6 @@ namespace Deepbound.Progression
             return list.ToArray();
         }
 
-        /// <summary>
-        /// One player's stock at a vendor: the common stock plus, at the smith, a gear piece picked for
-        /// them alone (seeded by floor and player, so it is stable and differs between players).
-        /// </summary>
         public static Item[] For(ulong clientId, Vendor vendor)
         {
             var director = World.DungeonDirector.Instance;
@@ -129,7 +104,7 @@ namespace Deepbound.Progression
             {
                 var buyerP = PlayerProgress.ForClient(clientId);
                 var rng = new System.Random(seed * 31 + (int)clientId * 7919 + 5 + (buyerP != null ? buyerP.StockRerolls.Value * 104729 : 0));
-                // The smith's trade is armour: a piece fitted for you.
+
                 var armours = Loot.Gear.RollableOf(Loot.GearSlot.Armor);
                 var id = armours[rng.Next(armours.Length)];
                 double r = rng.NextDouble();
@@ -139,11 +114,10 @@ namespace Deepbound.Progression
             }
             if (vendor == Vendor.Merchant && World.DungeonDirector.InLobby)
             {
-                // Silas keeps a tray of pendants and charms: two, picked for you this visit.
                 var buyerM = PlayerProgress.ForClient(clientId);
                 var rng = new System.Random(seed * 17 + (int)clientId * 6007 + 11 + (buyerM != null ? buyerM.StockRerolls.Value * 7919 : 0));
                 var charms = new List<Loot.GearId>(Loot.Gear.RollableOf(Loot.GearSlot.Charm));
-                // And one rare draught or tome under the counter, dear (2026-10-24).
+
                 var rareM = RareItems.FromSeed(new System.Random(seed * 23 + (int)clientId * 911 + (buyerM != null ? buyerM.StockRerolls.Value * 31 : 0)));
                 list.Add(new Item { Name = RareItems.Name(rareM), Description = RareItems.Describe(rareM) + " (pouch slot 5, one at a time)", Price = RareItems.Price(depth), Kind = ItemKind.Rare, Amount = (int)rareM, Seller = Vendor.Merchant });
                 for (int k = 0; k < 2 && charms.Count > 0; k++)
@@ -159,8 +133,6 @@ namespace Deepbound.Progression
             }
             if (vendor == Vendor.Shrine && World.DungeonDirector.InLobby)
             {
-                // Two relics picked for you (2026-10-23: they were one pair for the whole party), and a gold
-                // reroll; relics you carry can be bought again to empower them.
                 var buyerS = PlayerProgress.ForClient(clientId);
                 var rng = new System.Random(seed * 13 + (int)clientId * 389 + (buyerS != null ? buyerS.ShrineRerolls.Value * 7717 : 0));
                 var a = Relics.FromSeed(rng);
@@ -179,7 +151,7 @@ namespace Deepbound.Progression
                     list.Add(new Item { Name = Blessings.Name(bl), Description = "For the next floor: " + Blessings.Describe(bl), Price = Blessings.Price(depth), Kind = ItemKind.Blessing, Amount = (int)bl, Seller = Vendor.Shrine });
             }
             var buyer = PlayerProgress.ForClient(clientId);
-            // The second potion is the buyer's class draught (2026-10-28).
+
             if (buyer != null)
                 for (int i = 0; i < list.Count; i++)
                     if (list[i].Kind == ItemKind.Potion && (int)list[i].Amount == 1)
@@ -190,7 +162,7 @@ namespace Deepbound.Progression
                         it.Description = "For the pouch (2): " + Player.Flasks.DraughtText(cls) + ". Up to 5";
                         list[i] = it;
                     }
-            // Potions cost more the deeper the run (2026-10-23: 18 gold on floor 10 was no price at all).
+
             for (int i = 0; i < list.Count; i++)
                 if (list[i].Kind == ItemKind.Potion)
                 {
@@ -198,13 +170,13 @@ namespace Deepbound.Progression
                     it.Price = UnityEngine.Mathf.RoundToInt(it.Price * (1f + 0.25f * depth));
                     list[i] = it;
                 }
-            // Brann drills each class in its own regimen (2026-11-08, the user: casters who live on mana and WIS were left out).
+
             if (vendor == Vendor.Yard && buyer != null)
             {
                 byte mine = (byte)RegimenOf(buyer.ClassId.Value);
                 list.RemoveAll(it => it.Kind == ItemKind.Drill && it.Regimens != 0 && (it.Regimens & mine) == 0);
             }
-            // Drills cost more each time you take one.
+
             if (vendor == Vendor.Yard && buyer != null)
                 for (int i = 0; i < list.Count; i++)
                     if (list[i].Kind == ItemKind.Drill)
@@ -213,7 +185,7 @@ namespace Deepbound.Progression
                         it.Price += DrillStep * buyer.DrillCount(it.Stat);
                         list[i] = it;
                     }
-            // The peddler charges for the trip; a vendor you have hit charges you for that.
+
             float mult = !World.DungeonDirector.InLobby ? PeddlerMarkup : 1f;
             if (buyer != null) mult *= buyer.PriceMultiplier(vendor);
             if (mult != 1f)
@@ -226,11 +198,6 @@ namespace Deepbound.Progression
             return list.ToArray();
         }
 
-        /// <summary>
-        /// The training yard's drills: a stat for the run, each one dearer than the last (Cap = how many
-        /// times). Gold's long-term sink: there is always one more drill to pay for.
-        /// </summary>
-        /// <summary>Brann's three regimens: the front line, the skirmishers, and the casters.</summary>
         [System.Flags] public enum Regimen : byte { Martial = 1, Skirmish = 2, Arcane = 4 }
 
         public static Regimen RegimenOf(Classes.ClassId c) => c switch
@@ -249,20 +216,18 @@ namespace Deepbound.Progression
 
         public static readonly Item[] Drills =
         {
-            // Everyone runs.
             new Item { Name = "Endurance Run", Description = "Laps of the wall in full kit. +25 max HP for the run", Price = 50, Kind = ItemKind.Drill, Stat = StatType.HP, Amount = 25f, Cap = 6, Seller = Vendor.Yard },
-            // 2026-11-12 (the user: "allow stamina training at sargeant", tankier builds from camp): wind for everyone (a
-            // Knight's stamina comes back faster with VIT), and hardening for those who never learned the shield.
+
             new Item { Name = "Roadwork", Description = "Ten miles with a sack of stones. +5 VIT for the run (health back faster; a Knight's stamina too)", Price = 45, Kind = ItemKind.Drill, Stat = StatType.VIT, Amount = 5f, Cap = 6, Seller = Vendor.Yard },
             new Item { Name = "Hardening", Description = "Brann's sparring, no padding. +2 DEF for the run", Price = 55, Kind = ItemKind.Drill, Stat = StatType.DEF, Amount = 2f, Cap = 4, Seller = Vendor.Yard, Regimens = (byte)(Regimen.Skirmish | Regimen.Arcane) },
-            // The line.
+
             new Item { Name = "Sword Drill", Description = "The pell, a thousand cuts. +2 ATT for the run", Price = 60, Kind = ItemKind.Drill, Stat = StatType.ATT, Amount = 2f, Cap = 6, Seller = Vendor.Yard, Regimens = (byte)Regimen.Martial },
             new Item { Name = "Shield Drill", Description = "Brann hits you with a plank until you stop flinching. +2 DEF for the run", Price = 55, Kind = ItemKind.Drill, Stat = StatType.DEF, Amount = 2f, Cap = 6, Seller = Vendor.Yard, Regimens = (byte)Regimen.Martial },
             new Item { Name = "Footwork", Description = "Ladder steps in the sawdust. +3 DEX for the run (faster attacks)", Price = 50, Kind = ItemKind.Drill, Stat = StatType.DEX, Amount = 3f, Cap = 6, Seller = Vendor.Yard, Regimens = (byte)(Regimen.Martial | Regimen.Skirmish) },
-            // The skirmish.
+
             new Item { Name = "Target Practice", Description = "The butts at forty paces, then sixty. +2 ATT for the run", Price = 60, Kind = ItemKind.Drill, Stat = StatType.ATT, Amount = 2f, Cap = 6, Seller = Vendor.Yard, Regimens = (byte)Regimen.Skirmish },
             new Item { Name = "Hill Sprints", Description = "Up the rampart stairs until your legs lie to you. +2 SPD for the run", Price = 45, Kind = ItemKind.Drill, Stat = StatType.SPD, Amount = 2f, Cap = 4, Seller = Vendor.Yard, Regimens = (byte)Regimen.Skirmish },
-            // The vigil.
+
             new Item { Name = "Casting Forms", Description = "The gestures, slow then fast, until the hand knows them. +2 ATT for the run (spells hit harder)", Price = 60, Kind = ItemKind.Drill, Stat = StatType.ATT, Amount = 2f, Cap = 6, Seller = Vendor.Yard, Regimens = (byte)Regimen.Arcane },
             new Item { Name = "Breathing", Description = "Hold it under the cold well water. +12 max MP for the run", Price = 45, Kind = ItemKind.Drill, Stat = StatType.MP, Amount = 12f, Cap = 6, Seller = Vendor.Yard, Regimens = (byte)Regimen.Arcane },
             new Item { Name = "Meditation", Description = "An hour still in the yard, Brann shouting the whole time. +3 WIS for the run (ultimate charges 4.5% faster; mana and reagents return faster; Cleric heals stronger)", Price = 55, Kind = ItemKind.Drill, Stat = StatType.WIS, Amount = 3f, Cap = 6, Seller = Vendor.Yard, Regimens = (byte)Regimen.Arcane },
@@ -270,20 +235,17 @@ namespace Deepbound.Progression
         };
         public const int DrillStep = 30;
 
-        /// <summary>Deep in the dungeon, the peddler charges for the trip.</summary>
         public const float PeddlerMarkup = 1.35f;
-
 
         public static readonly Item[] Items =
         {
-            // Silas: provisions.
             new Item { Name = "Health Potion", Description = "For the pouch (1): mends 45% of your health over 3 s. Carry up to 5", Price = 18, Kind = ItemKind.Potion, Amount = 0f },
             new Item { Name = "Frost Flask", Description = "For the pouch (2): thrown, chills everything it splashes. Up to 5", Price = 25, Kind = ItemKind.Potion, Amount = 2f },
             new Item { Name = "Swift Boots", Description = "+5 SPD for the run (max +10)", Price = 50, Kind = ItemKind.Bonus, Stat = StatType.SPD, Amount = 5f, Cap = 10f },
-            // Hobb: what the anvil eats, and plate.
+
             new Item { Name = "Ember Pouch", Description = "10 embers for the anvil", Price = 45, Kind = ItemKind.Embers, Amount = 10f, Seller = Vendor.Smith },
             new Item { Name = "Ember Sack", Description = "25 embers for the anvil", Price = 100, Kind = ItemKind.Embers, Amount = 25f, Seller = Vendor.Smith },
-            // The shrine: holy water from the font.
+
             new Item { Name = "Holy Water", Description = "For the pouch (3): thrown, stuns the dead, cleanses and mends allies. Up to 5", Price = 30, Kind = ItemKind.Potion, Amount = 3f, Seller = Vendor.Shrine },
         };
     }

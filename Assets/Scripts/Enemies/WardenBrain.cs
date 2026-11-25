@@ -8,34 +8,13 @@ using UnityEngine.AI;
 
 namespace Deepbound.Enemies
 {
-    /// <summary>
-    /// The Wardens: the guardians at the end of the first floor of every act (floors 1, 3, 5, 7, 9),
-    /// a step below the act's own boss on the floor after. One brain, five of them: each prefab sets
-    /// <see cref="act"/>, which picks its name, look (a giant of that act's rank and file) and its
-    /// signature move. All of them swing wide, roll a jumpable shockwave, and at half health call
-    /// their act's dead to their side.
-    ///
-    /// <list type="bullet">
-    /// <item><b>Ossuary</b> - Marrowgut, the Bone Colossus: Bone Quake, a red circle round it that
-    ///   throws everyone inside. Get out, or bash it during the wind-up.</item>
-    /// <item><b>Drowned Vaults</b> - the Drowned Knight: Black Tide nova that frostbites (40% slower).</item>
-    /// <item><b>Hollow Throne</b> - Sir Aldous Vane, the King's Shield: blocks most of what hits it
-    ///   from the front, and charges down a red lane; into a wall, it is dazed and open.</item>
-    /// <item><b>Black Cathedral</b> - the Choirmaster: a fan of hex bolts, and a curse on its prey.</item>
-    /// <item><b>Abyss</b> - Gorr, the Rot Below: spits a spray of plague and leaves poison pools.</item>
-    /// </list>
-    /// Below half (2026-10-26) each learns a second move: Marrowgut hurls bone at whoever keeps away (Bone
-    /// Toss), the Drowned Knight drags everyone in before the Black Tide breaks (Undertow), Sir Aldous charges
-    /// again if the first one finds no wall, the Choirmaster sings a Second Verse after each hymn, and Gorr's
-    /// slams leave pools of rot behind.
-    /// </summary>
     public class WardenBrain : BossBrain
     {
         [SerializeField] private int act;
         public int Act => act;
 
         private static readonly string[] Names = { "Marrowgut, the Bone Colossus", "The Drowned Knight", "Sir Aldous Vane", "The Choirmaster", "Gorr, the Rot Below" };
-        private static readonly string[] Epithets = { "Warden of the Upper Crypts", "Warden of the Flooded Stair", "The King's Shield", "Warden of the Nave", "Warden of the Last Stair" };
+        private static readonly string[] WardenTitles = { "Warden of the Upper Crypts", "Warden of the Flooded Stair", "The King's Shield", "Warden of the Nave", "Warden of the Last Stair" };
         private static readonly string[] Hints =
         {
             "When the red circle fills around it, get out (or bash it). Jump its shockwaves.",
@@ -62,24 +41,18 @@ namespace Deepbound.Enemies
         };
 
         public override string DisplayName => Names[Mathf.Clamp(act, 0, 4)];
-        public override string Epithet => Promoted ? PromotedEpithets[act] : Epithets[Mathf.Clamp(act, 0, 4)];
+        public override string Epithet => Promoted ? PromotedEpithets[act] : WardenTitles[Mathf.Clamp(act, 0, 4)];
 
-        /// <summary>
-        /// 2026-11-14 (the user: "make mini bosses stronger and more threatening. lets change some of the wardens into actual
-        /// bosses"): Sir Aldous Vane and the Choirmaster are guardians in their own right now - three phase gates, a fight of
-        /// four movements, a eulogy and a deed of their own. The other three Wardens get a third, furious movement.
-        /// </summary>
         public bool Promoted => act == 2 || act == 3;
         private static readonly string[] PromotedEpithets = { "", "", "The King's Shield, Who Never Knelt", "Master of the Black Choir" };
-        /// <summary>The last movement: faster specials, double charges, endless hymns.</summary>
+
         private bool fury;
-        private float Pace => fury ? 0.6f : 1f;
+        private float FuryPace => fury ? 0.6f : 1f;
         public override string Hint => Hints[Mathf.Clamp(act, 0, 4)];
-        /// <summary>Below half every Warden knows its second move.</summary>
+
         private bool Second => forceSecond || (health != null && health.Fraction < 0.5f);
         private bool forceSecond;
 
-        /// <summary>For tests: use the second move now, wounded or not. False if it could not start.</summary>
         public bool ServerDebugSecond()
         {
             forceSecond = true;
@@ -96,7 +69,7 @@ namespace Deepbound.Enemies
                 default: BeginSlam(); return true;
             }
         }
-        /// <summary>For tests: second moves used (toss, undertow, recharge, verse, rot pool).</summary>
+
         public int SecondMoves { get; private set; }
         public override string LastWords => Words[Mathf.Clamp(act, 0, 4)];
         public override Progression.Deeds.Deed Deed => act == 2 ? Progression.Deeds.Deed.AldousVane : act == 3 ? Progression.Deeds.Deed.Choirmaster : Progression.Deeds.Deed.Warden;
@@ -110,11 +83,9 @@ namespace Deepbound.Enemies
         private float slamAt = -1f;
         private const float SlamRadius = 5.5f, SlamWindup = 1.3f;
 
-        // Built at each kind's own size (Brute 1.45, Plaguebearer 1.15, the rest 1): these make them giants.
         private static readonly float[] Giant = { 1.45f, 1.9f, 2.1f, 1.95f, 1.5f };
         protected override float VisualScale => Giant[Mathf.Clamp(act, 0, 4)];
 
-        /// <summary>Each Warden's own look on top of its kind: trophies, weed, a plume, a candle halo, plague sacs.</summary>
         protected override void DressRig(HumanoidRig rig)
         {
             var t = rig.Torso; var head = rig.Head;
@@ -123,9 +94,9 @@ namespace Deepbound.Enemies
             switch (act)
             {
                 case 0:
-                    // Marrowgut (2026-11-20 visual pass: "not just a skeleton"): a hunched colossus of fused bone.
+
                     GuardianKit.Colossus(rig);
-                    // A ridge of bone spikes down the back and a string of skulls across the chest.
+
                     for (int i = 0; i < 6; i++)
                         MeshKit.Part(t, "BackSpike", MeshKit.Lathe("wardenSpike", new[] { new Vector2(0.05f, 0f), new Vector2(0f, 0.32f) }, 5), Mat.Bone,
                             new Vector3(0f, 0.12f + i * 0.09f, -0.2f), new Vector3(-55f, 0f, (i % 2 == 0 ? 10f : -10f)));
@@ -138,9 +109,9 @@ namespace Deepbound.Enemies
                     }
                     break;
                 case 1:
-                    // The Drowned Knight (2026-11-20): corroded plate, a weed cloak, barnacles, an anchor chain.
+
                     GuardianKit.Drowned(rig);
-                    // Weed hanging from shoulders and arms, barnacles, a corroded crest.
+
                     for (int i = 0; i < 10; i++)
                     {
                         float x = -0.24f + i * 0.053f;
@@ -153,8 +124,6 @@ namespace Deepbound.Enemies
                     break;
                 case 2:
                 {
-                    // Sir Aldous Vane (2026-11-19, the user: "not just like a skeleton"): full war plate under the King's
-                    // tabard, a closed great helm with a burning slit and a crimson plume, and a bigger tower shield.
                     var kettle = head.Find("Helm");
                     if (kettle != null) DestroyImmediate(kettle.gameObject);
                     var aglow = PlateKit.Armour(rig, new PlateKit.Look { Plate = new Color(0.55f, 0.55f, 0.6f), Trim = new Color(0.8f, 0.62f, 0.28f), Glow = new Color(1f, 0.3f, 0.15f), ClosedHelm = true, Horns = false });
@@ -172,8 +141,6 @@ namespace Deepbound.Enemies
                 }
                 case 3:
                 {
-                    // The Choirmaster: no hood (a boss never hides its face under one); a choir circlet and
-                    // a slow halo of floating candles, an open hymnal in the off hand.
                     var hood = head.Find("Hood");
                     if (hood != null) DestroyImmediate(hood.gameObject);
                     MeshKit.Part(head, "Circlet", MeshKit.Cylinder(0.14f, 0.14f, 0.03f, 12), Mat.Gold, new Vector3(0f, 0.2f, 0f));
@@ -197,9 +164,8 @@ namespace Deepbound.Enemies
                 }
                 default:
                 {
-                    // Gorr (2026-11-20): a bloated hulk with a torn jaw and butcher's hooks in his back.
                     GuardianKit.Rot(rig);
-                    // Bloated, glowing plague sacs on its back and belly (the weak points), and a cloud of flies.
+
                     foreach (var (at, r) in new[] { (new Vector3(-0.1f, 0.42f, -0.22f), 0.12f), (new Vector3(0.12f, 0.3f, -0.24f), 0.1f), (new Vector3(0f, 0.12f, 0.2f), 0.14f) })
                     {
                         var sac = MeshKit.Part(t, "PlagueSac", MeshKit.Ball(r, 9, 7), Mat.Glow, at);
@@ -228,18 +194,18 @@ namespace Deepbound.Enemies
         protected override void OnPhaseGate(int index)
         {
             if (index > 0) { LaterMovement(index); return; }
-            // The second move, named as it is learned.
+
             HintFeedRpc(SecondHints[Mathf.Clamp(act, 0, 4)]);
             string[] taunts = { "More bones for the pile!", "Rise, drowned ones. Rise!", "To me, the King's guard!", "Sing, my choir. SING!", "Wake, all of you. Feed." };
             string taunt = taunts[Mathf.Clamp(act, 0, 4)];
             switch (act)
             {
                 case 0:
-                    // The first boss of the game: a breather and a few skeletons, nothing more.
+
                     Transition("Called to Arms", taunt, 1.8f, () => Summon(1 + scaledPlayers, 4f));
                     break;
                 case 1:
-                    // The Undertow: rings of black water with a gap that shifts each time.
+
                     Transition("The Undertow", taunt, 1.4f, () =>
                     {
                         Summon(scaledPlayers, 4f, 0.8f);
@@ -247,13 +213,13 @@ namespace Deepbound.Enemies
                     });
                     break;
                 case 2:
-                    // Shield Wall: invulnerable until its guard falls.
+
                     var guards = Summon(1 + scaledPlayers, 4.5f);
                     InvulnerableWhile("Shield Wall", taunt, "The King's guard shields Sir Aldous: kick their shields aside and cut them down", guards, 22f,
                         () => Taunt("Then I hold the line alone."));
                     break;
                 case 3:
-                    // The Choir Sings: immune while two counter-turning spirals sweep the nave.
+
                     Survive("The Choir Sings", taunt, "Survive the hymn: the spirals turn both ways, so keep moving", 9f, () => Summon(1 + scaledPlayers, 4f, 0.8f));
                     for (int e = 0; e < 2; e++)
                         StartPattern(new Pattern
@@ -263,7 +229,7 @@ namespace Deepbound.Enemies
                         });
                     break;
                 default:
-                    // Rot Rising: immune while a poison spiral spits out, flipping as it goes.
+
                     Survive("Rot Rising", taunt, "Survive the rot: move with the spiral and slip its gaps", 8f, () => Summon(1 + scaledPlayers, 4f, 0.8f));
                     StartPattern(new Pattern
                     {
@@ -275,31 +241,29 @@ namespace Deepbound.Enemies
             }
         }
 
-        // What it throws at a fleeing party: the spear of the King's Shield, hex bolts, spit.
         protected override ProjectileKind? QuickKind => act == 2 ? ProjectileKind.Arrow : act == 3 ? ProjectileKind.ShadowBolt : act == 4 ? ProjectileKind.Spit : act == 1 ? ProjectileKind.Frostbolt : (ProjectileKind?)null;
 
-        /// <summary>The movements after the first: the promoted two get two set pieces each; the rest go into a fury.</summary>
         private void LaterMovement(int index)
         {
             switch (act)
             {
                 case 2 when index == 1:
-                    // The Royal Lance: three fans of lances, each aimed where you are going, then a fresh guard.
+
                     Survive("The Royal Lance", "Down, all of you. DOWN!", "Lances follow your feet", 8.5f, () => Summon(scaledPlayers, 4f, 0.8f));
                     StartCoroutine(LanceVolleys(3, 2.6f));
                     break;
                 case 2:
-                    // Last of the King's Guard: no wall to hide behind any more. Every charge comes twice.
-                    Transition("Last of the King's Guard", "I have held this door four hundred years. I can hold it one more hour.", 1.8f, Rage);
+
+                    Transition("Last of the King's Guard", "I have held this door four hundred years. I can hold it one more hour.", 1.8f, EnterFury);
                     break;
                 case 3 when index == 1:
-                    // The Second Choir: acolytes sing a ward round him; he is untouchable while any of them still sing.
+
                     var choir = SummonOf(guardPrefab != null ? guardPrefab : minionPrefab, 2 + scaledPlayers, 5f, 1.2f);
                     InvulnerableWhile("The Second Choir", "Sing for me. Sing!", "His choir wards him", choir, 24f, () => Taunt("Alone, then. A solo."));
                     break;
                 case 3:
-                    // Requiem: rings that close in from the walls, and his shadow bolts through them.
-                    Survive("Requiem", "Hear how it ends.", "The rings close in: slip through the gaps", 9f, Rage);
+
+                    Survive("Requiem", "Hear how it ends.", "The rings close in: slip through the gaps", 9f, EnterFury);
                     for (int e = 0; e < 2; e++)
                         StartPattern(new Pattern
                         {
@@ -308,14 +272,14 @@ namespace Deepbound.Enemies
                         });
                     break;
                 default:
-                    // The other Wardens: their last stand is a fury - its own dead at its side, and no rest between moves.
+
                     string[] furyTaunts = { "BONES! MORE BONES!", "Down. Into. The. DARK.", "", "", "Rot... with... me..." };
-                    Transition("Fury", furyTaunts[Mathf.Clamp(act, 0, 4)], 1.5f, () => { Summon(1 + scaledPlayers, 4f, 0.8f); Rage(); });
+                    Transition("Fury", furyTaunts[Mathf.Clamp(act, 0, 4)], 1.5f, () => { Summon(1 + scaledPlayers, 4f, 0.8f); EnterFury(); });
                     break;
             }
         }
 
-        private void Rage()
+        private void EnterFury()
         {
             fury = true;
             ServerEnrage(9999f);
@@ -348,29 +312,29 @@ namespace Deepbound.Enemies
                     if (distanceToTarget < 4.5f || !CombatQuery.ClearLine(transform.position + Vector3.up * 1.2f, target)) return false;
                     rechargeLeft = Second || fury ? 1 : 0;
                     BeginChargeWindup(fury ? 0.8f : 1.1f);
-                    nextSpecial = Time.time + 9f * Pace;
+                    nextSpecial = Time.time + 9f * FuryPace;
                     return true;
                 case 3:
-                    // Alternates: a fan of hex bolts (and a curse on its prey), then the Hymn of Madness.
-                    if (hymnNext) { BeginHymn(); nextSpecial = Time.time + 7f * Pace; hymnNext = fury; return true; }
+
+                    if (hymnNext) { BeginHymn(); nextSpecial = Time.time + 7f * FuryPace; hymnNext = fury; return true; }
                     BeginVolley(ProjectileKind.ShadowBolt, 5, 14f, 15f, true);
-                    nextSpecial = Time.time + 6.5f * Pace;
+                    nextSpecial = Time.time + 6.5f * FuryPace;
                     hymnNext = true;
                     return true;
                 case 4:
-                    if (distanceToTarget > SlamRadius + 3f) { BeginVolley(ProjectileKind.Spit, fury ? 7 : 5, 12f, 13f, false); nextSpecial = Time.time + 6f * Pace; return true; }
+                    if (distanceToTarget > SlamRadius + 3f) { BeginVolley(ProjectileKind.Spit, fury ? 7 : 5, 12f, 13f, false); nextSpecial = Time.time + 6f * FuryPace; return true; }
                     BeginSlam();
-                    nextSpecial = Time.time + 8f * Pace;
+                    nextSpecial = Time.time + 8f * FuryPace;
                     return true;
                 default:
                     if (distanceToTarget > SlamRadius + 1.5f)
                     {
                         if (!Second || !BoneToss()) return false;
-                        nextSpecial = Time.time + 6f * Pace;
+                        nextSpecial = Time.time + 6f * FuryPace;
                         return true;
                     }
                     BeginSlam();
-                    nextSpecial = Time.time + 8f * Pace;
+                    nextSpecial = Time.time + 8f * FuryPace;
                     return true;
             }
         }
@@ -409,7 +373,6 @@ namespace Deepbound.Enemies
 
         public override void ServerStun(float seconds)
         {
-            // A bash in the wind-up snuffs the slam or the charge, as with the rank and file.
             if (slamAt > 0f) { slamAt = -1f; CancelTelegraphRpc(); }
             if (charge == 1) { charge = 0; CancelTelegraphRpc(); }
             volleyAt = -1f;
@@ -417,7 +380,6 @@ namespace Deepbound.Enemies
             base.ServerStun(Mathf.Min(seconds, 0.8f));
         }
 
-        // ---- The Hymn of Madness: violet circles open where each player is heading; inside, madness ----
         private bool hymnNext;
         private readonly List<(Vector3 at, float when)> hymns = new List<(Vector3, float)>();
         private const float HymnRadius = 2.6f, HymnWindup = 1.4f;
@@ -429,7 +391,7 @@ namespace Deepbound.Enemies
             PlayActionRpc(RigAction.Channel, 1f);
             busyUntil = Time.time + 1f;
             SingVerse();
-            // The Second Verse: as the first circles break, a second set opens where everyone is heading next.
+
             if (Second) secondVerseAt = Time.time + Tell(HymnWindup) + 0.25f;
         }
 
@@ -476,12 +438,10 @@ namespace Deepbound.Enemies
             Vfx.Embers(at, 16, c, 3f, 0.06f, 0.9f);
         }
 
-        // ---- Slam / nova / pools: a red circle round it fills, then breaks ----
-
         private void BeginSlam()
         {
             slamAt = Time.time + Tell(SlamWindup);
-            // The Undertow: wounded, the Drowned Knight drags the party in first, and gives them a breath longer to run.
+
             if (act == 1 && Second)
             {
                 slamAt += 0.4f;
@@ -539,7 +499,6 @@ namespace Deepbound.Enemies
             if (act == 1) Vfx.Ring(Vfx.Floor(transform.position) + Vector3.up * 0.05f, 14f, c, 0.7f);
         }
 
-        // ---- Bone Toss (Marrowgut, wounded): a lump of bone lobbed at whoever keeps away ----
         private readonly List<(Vector3 at, float when)> tosses = new List<(Vector3, float)>();
         private const float TossRadius = 2.4f, TossFlight = 1.3f;
 
@@ -597,11 +556,10 @@ namespace Deepbound.Enemies
             if (rock != null) Destroy(rock);
         }
 
-        // ---- Rot pools (Gorr, wounded): each slam leaves a churning pool of rot that poisons whoever stands in it ----
         private readonly List<(Vector3 at, float until)> rot = new List<(Vector3, float)>();
         private float nextRotTick;
         public const float RotRadius = 3.2f, RotSeconds = 8f;
-        /// <summary>For tests: pools of rot on the floor right now.</summary>
+
         public int RotPools => rot.Count;
 
         private void AddRot(Vector3 at)
@@ -625,13 +583,11 @@ namespace Deepbound.Enemies
             }
         }
 
-        /// <summary>For tests: drop a pool of rot right here.</summary>
         public void ServerDebugRot() => AddRot(transform.position);
 
         [Rpc(SendTo.ClientsAndHost)]
         private void RotFxRpc(Vector3 at, float radius, float seconds)
         {
-            // Low and flat (AoE stays quiet): a sickly film on the floor and a faint rim, a little smoke as it lands.
             var pool = MeshKit.Part(null, "Rot Pool", MeshKit.Cylinder(radius, radius, 0.02f, 28), Mat.Telegraph, at + Vector3.up * 0.04f);
             if (pool.TryGetComponent<Collider>(out var col)) Destroy(col);
             var rend = pool.GetComponent<Renderer>();
@@ -674,12 +630,6 @@ namespace Deepbound.Enemies
             }
         }
 
-        // ---- Volley: a fan of bolts or spit at its prey ----
-
-        /// <summary>
-        /// READABILITY (2026-11-19): the fans used to leave its hand the instant it chose them (and the Choirmaster's curse landed
-        /// with no tell at all). Now it rears back and gathers, heard and seen, and the curse goes with the release.
-        /// </summary>
         public const float VolleyTell = 0.6f;
         private float volleyAt = -1f, volleySpeed, volleyRange;
         private ProjectileKind volleyKind;
@@ -730,9 +680,7 @@ namespace Deepbound.Enemies
         private void VolleyFxRpc(Vector3 origin, Vector3 dir, byte kind, float speed, float range) =>
             Arrows.SpawnVisual(origin, dir, (ProjectileKind)kind, speed, range);
 
-        // ---- The King's Shield: guard from the front, and the charge ----
-
-        private int charge; // 0 none, 1 wind-up, 2 running
+        private int charge;
         private int rechargeLeft;
         private Vector3 chargeDir;
         private float chargeAt, chargeLength, charged, dazedUntil;
@@ -757,7 +705,6 @@ namespace Deepbound.Enemies
 
         private void BeginChargeWindup(float windup)
         {
-            // Aimed where its quarry is going, not where it stands.
             chargeDir = (target.TryGetComponent<PlayerLife>(out var quarry) ? PredictedFeet(quarry, Tell(windup)) : target.transform.position) - transform.position;
             chargeDir.y = 0f;
             chargeDir.Normalize();
@@ -798,7 +745,7 @@ namespace Deepbound.Enemies
             {
                 charge = 0;
                 busyUntil = Time.time + 0.8f;
-                // Wounded, a charge that finds no wall turns and comes again, quicker.
+
                 if (rechargeLeft > 0 && target != null && target.IsAlive)
                 {
                     rechargeLeft--;

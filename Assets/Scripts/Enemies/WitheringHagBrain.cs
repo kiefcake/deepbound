@@ -6,13 +6,6 @@ using UnityEngine;
 
 namespace Deepbound.Enemies
 {
-    /// <summary>
-    /// The Withering Hag (2026-11-13; the user: the Hexer's curse is now WEAKNESS, and a new CURSE means "player takes 40%
-    /// more damage"). A bent crone of the Hollow Throne and below, mossy shawl, hair to her knees, a charm of knotted
-    /// bone. She fixes her EVIL EYE on you: a sickly lane opens from her toward where you stood, LOCKED once drawn; when it
-    /// fills, whoever is in it is CURSED (+40% damage taken) until she dies or the curse runs out. Step out of the lane
-    /// (dodge, sidestep), break her cast with a stun, or kill her to lift it. Holy Water washes it off.
-    /// </summary>
     public class WitheringHagBrain : EnemyBrain
     {
         [SerializeField] private float preferredRange = 10f, eyeCooldown = 10f, eyeWindup = 1.3f;
@@ -20,7 +13,7 @@ namespace Deepbound.Enemies
         public static readonly Color EyeColor = new Color(0.62f, 0.85f, 0.25f);
         private float nextEye, eyeAt = -1f;
         private Vector3 eyeFrom, eyeDir;
-        /// <summary>For tests: gazes that landed, and players they cursed.</summary>
+
         public int Gazes { get; private set; }
         public int Cursed { get; private set; }
 
@@ -62,10 +55,8 @@ namespace Deepbound.Enemies
             GazeWarnRpc(eyeFrom, eyeDir, windup);
         }
 
-        /// <summary>For tests: fix the eye on <paramref name="at"/> now.</summary>
         public void ServerDebugGaze(Vector3 at, float windup) => BeginGaze(at, windup);
 
-        /// <summary>Is <paramref name="p"/> inside the lane (flat distance to the segment, body included)?</summary>
         private bool InLane(Health h)
         {
             var d = h.transform.position - eyeFrom; d.y = 0f;

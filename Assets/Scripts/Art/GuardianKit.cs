@@ -3,14 +3,6 @@ using UnityEngine;
 
 namespace Deepbound.Art
 {
-    /// <summary>
-    /// Bodies for the guardians that still read as a thin skeleton blown up (2026-11-20 visual pass, the user's notes: bosses
-    /// must not look "just like a skeleton", they should be "chunky", "bigger", "scary"). Each one gets a silhouette of its own
-    /// on top of its kind's rig: Marrowgut a hunched mass of fused bone, the Drowned Knight corroded plate under weed, the
-    /// Hollow King black royal plate round an open chest of light, Gorr a bloated hulk hung with hooks. Every peer runs these
-    /// before the rig is merged, so the detail costs a few meshes. Coordinates are the stock skeleton's (shoulders at torso
-    /// y 0.58, head pivot 0.66, arm and leg pivots hanging down), as in <see cref="PlateKit"/>.
-    /// </summary>
     public static class GuardianKit
     {
         private static Renderer Tint(GameObject g, Color c) { var r = g.GetComponent<Renderer>(); ArtLibrary.Tint(r, c); return r; }
@@ -41,7 +33,6 @@ namespace Deepbound.Art
             foreach (var g in doomed) if (g != null) Object.DestroyImmediate(g);
         }
 
-        /// <summary>A curved horn or tusk in three tapering segments.</summary>
         private static void Horn(Transform parent, string name, Vector3 at, Vector3 euler, float length, float root, float curl, Color c, string mat)
         {
             var a = MeshKit.Pivot(parent, name, at, euler);
@@ -52,15 +43,6 @@ namespace Deepbound.Art
             Tint(MeshKit.Part(t, name + "C", MeshKit.Cylinder(root * 0.45f, 0f, length * 0.9f, 6), mat, Vector3.zero), c);
         }
 
-        // ------------------------------------------------------------------
-        // Marrowgut, the Bone Colossus (on a Brute)
-        // ------------------------------------------------------------------
-
-        /// <summary>
-        /// A hunched mountain of fused bone: a humped carapace of packed bone over the back, great curved ribs round a chest
-        /// that burns through the gaps, shoulders of fused skulls, forearms swollen into bone clubs, and a beast's skull for a
-        /// face with tusks and curling horns.
-        /// </summary>
         public static void Colossus(HumanoidRig rig)
         {
             var t = rig.Torso; var head = rig.Head;
@@ -70,17 +52,15 @@ namespace Deepbound.Art
             var old = new Color(0.58f, 0.5f, 0.4f);
             var fire = new Color(1f, 0.45f, 0.12f);
 
-            // The hump: a great carapace of bone over the shoulders and back.
             Tint(MeshKit.Part(t, "BoneHump", MeshKit.Lathe("colossusHump", new[]
             {
                 new Vector2(0.2f, 0f), new Vector2(0.27f, 0.15f), new Vector2(0.33f, 0.36f), new Vector2(0.34f, 0.52f), new Vector2(0.26f, 0.68f), new Vector2(0.1f, 0.76f), new Vector2(0f, 0.77f),
             }, 10), Mat.Bone, new Vector3(0f, 0.02f, -0.1f), new Vector3(-12f, 0f, 0f), new Vector3(1.25f, 1f, 0.95f)), old);
-            // Plates of bone overlapping down the hump like a shell.
+
             for (int i = 0; i < 4; i++)
                 Tint(MeshKit.Part(t, "HumpPlate", MeshKit.Cylinder(0.3f - i * 0.035f, 0.33f - i * 0.035f, 0.06f, 9), Mat.Bone,
                     new Vector3(0f, 0.22f + i * 0.13f, -0.2f + i * 0.02f), new Vector3(-62f, 0f, 0f), new Vector3(1.2f, 1f, 0.55f)), i % 2 == 0 ? bone : old);
 
-            // A furnace in the chest, seen through great ribs.
             Glow(MeshKit.Part(t, "ChestFire", MeshKit.Ball(0.17f, 9, 7), Mat.Glow, new Vector3(0f, 0.36f, 0.06f), Vector3.zero, new Vector3(1.3f, 1.2f, 0.8f)), fire * 1.3f, glow);
             for (int i = 0; i < 5; i++)
             {
@@ -92,7 +72,6 @@ namespace Deepbound.Art
             }
             Tint(MeshKit.Part(t, "Keel", MeshKit.Box(new Vector3(0.07f, 0.42f, 0.05f)), Mat.Bone, new Vector3(0f, 0.38f, 0.27f), new Vector3(-8f, 0f, 0f)), bone);
 
-            // Shoulders of fused skulls, staring every way.
             foreach (float s in new[] { -1f, 1f })
                 for (int k = 0; k < 3; k++)
                 {
@@ -102,7 +81,6 @@ namespace Deepbound.Art
                     Glow(MeshKit.Part(t, "ShoulderEye", MeshKit.Ball(0.016f, 5, 4), Mat.Glow, eyeAt), fire * 1.6f, glow);
                 }
 
-            // Forearms swollen into clubs of bone, knuckled with spurs.
             foreach (var arm in new[] { rig.ArmL, rig.ArmR })
             {
                 if (arm == null) continue;
@@ -123,7 +101,6 @@ namespace Deepbound.Art
                 Tint(MeshKit.Part(arm, "ShoulderKnot", MeshKit.Ball(0.13f, 8, 6), Mat.Bone, new Vector3(0.02f * s, -0.02f, 0f)), old);
             }
 
-            // Thick legs: knotted bone round the thighs and shins.
             foreach (var leg in new[] { rig.LegL, rig.LegR })
             {
                 if (leg == null) continue;
@@ -132,7 +109,6 @@ namespace Deepbound.Art
                 Tint(MeshKit.Part(leg, "Hoof", MeshKit.Box(new Vector3(0.16f, 0.08f, 0.24f)), Mat.Bone, new Vector3(0f, -0.86f, 0.04f)), old);
             }
 
-            // The face: a beast's skull with tusks and great curling horns over the man's.
             Tint(MeshKit.Part(head, "BeastSkull", MeshKit.Ball(0.15f, 10, 8), Mat.Bone, new Vector3(0f, 0.15f, 0.04f), new Vector3(-8f, 0f, 0f), new Vector3(1.05f, 0.95f, 1.35f)), bone);
             Tint(MeshKit.Part(head, "Snout", MeshKit.Box(new Vector3(0.16f, 0.1f, 0.14f)), Mat.Bone, new Vector3(0f, 0.08f, 0.17f), new Vector3(10f, 0f, 0f)), old);
             MeshKit.Part(head, "Maw", MeshKit.Box(new Vector3(0.13f, 0.035f, 0.02f)), Mat.Dark, new Vector3(0f, 0.04f, 0.245f));
@@ -153,15 +129,6 @@ namespace Deepbound.Art
             AddGlow(rig, glow);
         }
 
-        // ------------------------------------------------------------------
-        // The Drowned Knight (on a Frost Wight)
-        // ------------------------------------------------------------------
-
-        /// <summary>
-        /// A knight who walked into the sea in full plate and came back: corroded verdigris armour, a great helm with a
-        /// drowned-green light behind the slit, a cloak gone to rotten weed, barnacles crusting every plate, an anchor chain
-        /// wound round the chest.
-        /// </summary>
         public static void Drowned(HumanoidRig rig)
         {
             var t = rig.Torso; var head = rig.Head;
@@ -171,7 +138,7 @@ namespace Deepbound.Art
             var sea = new Color(0.3f, 0.95f, 0.85f);
             var glow = PlateKit.Armour(rig, new PlateKit.Look { Plate = new Color(0.3f, 0.4f, 0.36f), Trim = new Color(0.52f, 0.4f, 0.2f), Glow = sea, ClosedHelm = true });
             GothicKit.Cloak(t, new Color(0.1f, 0.2f, 0.15f), 1.2f, 0.32f, new Color(0.3f, 0.32f, 0.2f), true);
-            // Barnacles and rust blooms crusting the plate.
+
             var rng = new System.Random(7);
             foreach (var part in new[] { t, rig.ArmL, rig.ArmR, rig.LegL, rig.LegR, head })
             {
@@ -187,7 +154,7 @@ namespace Deepbound.Art
                         at, Quaternion.LookRotation(new Vector3(at.x, 0f, at.z).normalized + Vector3.up * 0.01f).eulerAngles + new Vector3(90f, 0f, 0f)), new Color(0.72f, 0.7f, 0.6f));
                 }
             }
-            // An anchor chain wound round the chest, the anchor hanging at the hip.
+
             for (int i = 0; i < 14; i++)
             {
                 float a = i * 360f / 14f;
@@ -201,28 +168,20 @@ namespace Deepbound.Art
                 Tint(MeshKit.Part(anchor, "Fluke", MeshKit.Lathe("anchorFluke", new[] { new Vector2(0.17f, 0f), new Vector2(0.19f, 0.03f), new Vector2(0.17f, 0.05f) }, 10, true, 160f), Mat.Steel,
                     new Vector3(0f, -0.38f, 0f), new Vector3(90f, 0f, 100f)), new Color(0.3f, 0.36f, 0.32f));
             }
-            // Water pouring from the helm's slit: a thin glowing sheet, the sea still in him.
+
             Glow(MeshKit.Part(head, "Spill", MeshKit.Box(new Vector3(0.12f, 0.1f, 0.006f)), Mat.Glow, new Vector3(0f, 0.07f, 0.17f)), sea * 0.35f, glow);
             AddGlow(rig, glow);
             rig.GlowColor = sea;
             rig.StrideLength = 1.4f;
         }
 
-        // ------------------------------------------------------------------
-        // Ossric, the Hollow King (on the King)
-        // ------------------------------------------------------------------
-
-        /// <summary>
-        /// Black royal plate with gold, the crowned skull bare above it, and the breastplate torn open on a hollow where his
-        /// heart was: cold light pours out of it. Great spiked pauldrons and a skirt of plate make the silhouette a wall.
-        /// </summary>
         public static void HollowKing(HumanoidRig rig)
         {
             var t = rig.Torso;
             if (t == null || rig.Head == null) return;
             var cold = new Color(0.4f, 0.75f, 1f);
             var glow = PlateKit.Armour(rig, new PlateKit.Look { Plate = new Color(0.17f, 0.17f, 0.2f), Trim = new Color(0.82f, 0.62f, 0.25f), Glow = cold, NoHelm = true });
-            // The hollow: a ring of torn plate round a pit of light.
+
             Glow(MeshKit.Part(t, "Hollow", MeshKit.Ball(0.1f, 9, 7), Mat.Glow, new Vector3(0f, 0.4f, 0.17f), Vector3.zero, new Vector3(1f, 1.2f, 0.5f)), cold * 2f, glow);
             for (int i = 0; i < 7; i++)
             {
@@ -230,7 +189,7 @@ namespace Deepbound.Art
                 Tint(MeshKit.Part(t, "TornEdge", MeshKit.Lathe("tornEdge", new[] { new Vector2(0.025f, 0f), new Vector2(0f, 0.08f) }, 4), Mat.Steel,
                     new Vector3(0f, 0.4f, 0.2f) + Quaternion.Euler(0f, 0f, a) * new Vector3(0f, 0.12f, 0f), new Vector3(0f, 0f, a + 180f)), new Color(0.17f, 0.17f, 0.2f));
             }
-            // A crown-of-thorns gorget and a high collar standing behind the skull.
+
             Tint(MeshKit.Part(t, "HighCollar", MeshKit.Lathe("kingCollar", new[] { new Vector2(0.16f, 0f), new Vector2(0.2f, 0.12f), new Vector2(0.24f, 0.24f) }, 12, true, 200f), Mat.Steel,
                 new Vector3(0f, 0.6f, -0.02f), new Vector3(0f, 170f, 0f)), new Color(0.17f, 0.17f, 0.2f));
             for (int i = 0; i < 5; i++)
@@ -243,15 +202,6 @@ namespace Deepbound.Art
             rig.StrideLength = 1.5f;
         }
 
-        // ------------------------------------------------------------------
-        // The Unsung (its own floating rig)
-        // ------------------------------------------------------------------
-
-        /// <summary>
-        /// The last song no one sang: great curved ribs closing round the dark heart, shoulder blades like shields, a black
-        /// shroud torn to ribbons hanging from the shoulders, heavy bone arms, and behind it a fan of cracked organ pipes
-        /// rising like wings, violet light breathing from their mouths. Coordinates are those of CharacterArt.BuildUnsung.
-        /// </summary>
         public static void Unsung(HumanoidRig rig)
         {
             var t = rig.Torso; var head = rig.Head;
@@ -260,7 +210,7 @@ namespace Deepbound.Art
             var bone = new Color(0.62f, 0.6f, 0.66f);
             var dark = new Color(0.36f, 0.34f, 0.4f);
             var violet = new Color(0.6f, 0.3f, 1f);
-            // The thin ribs give way to great curved ones.
+
             Strip(t, "Rib");
             for (int i = 0; i < 6; i++)
             {
@@ -270,7 +220,7 @@ namespace Deepbound.Art
                     new Vector2(r, 0f), new Vector2(r + 0.045f, 0.02f), new Vector2(r, 0.04f),
                 }, 10, true, 250f), Mat.Bone, new Vector3(0f, y, -0.04f), new Vector3(-8f, -35f, 0f), new Vector3(1.15f, 1f, 1f)), bone);
             }
-            // Shoulder blades like shields, a collar of vertebrae.
+
             foreach (float s in new[] { -1f, 1f })
             {
                 Tint(MeshKit.Part(t, "Blade", MeshKit.Box(new Vector3(0.24f, 0.32f, 0.04f)), Mat.Bone, new Vector3(s * 0.17f, 0.56f, -0.2f), new Vector3(10f, s * -20f, s * 8f)), dark);
@@ -278,7 +228,7 @@ namespace Deepbound.Art
             }
             for (int i = 0; i < 5; i++)
                 Tint(MeshKit.Part(t, "Collar", MeshKit.Ball(0.05f, 6, 5), Mat.Bone, new Vector3(-0.16f + i * 0.08f, 0.72f, -0.02f - Mathf.Abs(i - 2) * 0.02f), Vector3.zero, new Vector3(1f, 0.7f, 1f)), bone);
-            // The shroud: black ribbons from the shoulders, the torn hem trailing below the spine.
+
             for (int i = 0; i < 11; i++)
             {
                 float x = -0.3f + i * 0.06f;
@@ -286,7 +236,7 @@ namespace Deepbound.Art
                 Tint(MeshKit.Part(t, "Shroud", MeshKit.Box(new Vector3(0.07f, len, 0.012f)), Mat.Cloth,
                     new Vector3(x, 0.66f - len / 2f, -0.24f - Mathf.Abs(i - 5) * 0.012f), new Vector3(6f, 0f, (i - 5) * 2.5f)), new Color(0.06f, 0.05f, 0.08f));
             }
-            // Heavier arms: thick bone over the stick limbs, a knuckled claw.
+
             foreach (var arm in new[] { rig.ArmL, rig.ArmR })
             {
                 if (arm == null) continue;
@@ -295,7 +245,7 @@ namespace Deepbound.Art
                 Tint(MeshKit.Part(arm, "ForeBone", MeshKit.Cylinder(0.045f, 0.035f, 0.5f, 7), Mat.Bone, new Vector3(0f, -1.0f, 0.05f)), bone);
                 Tint(MeshKit.Part(arm, "Knuckles", MeshKit.Box(new Vector3(0.14f, 0.06f, 0.08f)), Mat.Bone, new Vector3(0f, -1.0f, 0.07f)), dark);
             }
-            // The pipes: a fan of cracked organ pipes rising behind it, violet breath in their mouths.
+
             var fan = MeshKit.Pivot(t, "PipeFan", new Vector3(0f, 0.5f, -0.3f), new Vector3(-12f, 0f, 0f));
             for (int i = 0; i < 9; i++)
             {
@@ -309,7 +259,7 @@ namespace Deepbound.Art
                 Glow(MeshKit.Part(pipe, "PipeBreath", MeshKit.Box(new Vector3(rr * 1.1f, rr * 1.3f, 0.01f)), Mat.Glow, new Vector3(0f, len * 0.22f, rr + 0.006f)), violet * 1.2f, glow);
                 Tint(MeshKit.Part(pipe, "PipeTip", MeshKit.Cylinder(rr, 0f, rr * 3f, 8), Mat.Steel, new Vector3(0f, len, 0f)), new Color(0.62f, 0.6f, 0.68f));
             }
-            // A crown of broken bell-rims round the skull.
+
             for (int i = 0; i < 6; i++)
             {
                 float a = i * 60f;
@@ -319,14 +269,6 @@ namespace Deepbound.Art
             AddGlow(rig, glow);
         }
 
-        // ------------------------------------------------------------------
-        // Mother Marrow (a lair keeper, on a Withering Hag)
-        // ------------------------------------------------------------------
-
-        /// <summary>
-        /// The bone-knitter: a great hump of woven bone on her back like a basket she never puts down, a headdress of long
-        /// finger bones, a heavy layered shawl, and a cradle of small skulls held to her chest, their eyes lit like hers.
-        /// </summary>
         public static void Marrow(HumanoidRig rig, Color light)
         {
             var t = rig.Torso; var head = rig.Head;
@@ -334,7 +276,7 @@ namespace Deepbound.Art
             var glow = new List<Renderer>();
             var bone = new Color(0.8f, 0.74f, 0.62f);
             var old = new Color(0.6f, 0.54f, 0.44f);
-            // The hump: a basket of woven bone, ribbed.
+
             Tint(MeshKit.Part(t, "BoneBasket", MeshKit.Lathe("marrowBasket", new[]
             {
                 new Vector2(0.16f, 0f), new Vector2(0.26f, 0.12f), new Vector2(0.3f, 0.3f), new Vector2(0.27f, 0.46f), new Vector2(0.18f, 0.56f), new Vector2(0f, 0.6f),
@@ -342,16 +284,15 @@ namespace Deepbound.Art
             for (int i = 0; i < 4; i++)
                 Tint(MeshKit.Part(t, "BasketRib", MeshKit.Cylinder(0.25f + Mathf.Sin(i / 3f * Mathf.PI) * 0.06f, 0.25f + Mathf.Sin(i / 3f * Mathf.PI) * 0.06f, 0.03f, 10), Mat.Bone,
                     new Vector3(0f, 0.28f + i * 0.11f, -0.25f + i * 0.03f), new Vector3(-20f, 0f, 0f), new Vector3(1.12f, 1f, 0.88f)), bone);
-            // Long bones sticking out of the basket.
+
             for (int i = 0; i < 5; i++)
                 Tint(MeshKit.Part(t, "BasketBone", MeshKit.Cylinder(0.022f, 0.016f, 0.5f + i * 0.06f, 5), Mat.Bone,
                     new Vector3(-0.16f + i * 0.08f, 0.62f, -0.36f), new Vector3(-35f + i * 4f, 0f, (i - 2) * 14f)), bone);
-            // A heavy shawl in three layers.
+
             for (int k = 0; k < 3; k++)
                 Tint(MeshKit.Part(t, "Shawl", MeshKit.Cylinder(0.27f - k * 0.025f, 0.3f - k * 0.02f, 0.09f, 12), Mat.Cloth,
                     new Vector3(0f, 0.5f - k * 0.08f, 0f), Vector3.zero, new Vector3(1.05f, 1f, 0.9f)), new Color(0.22f - k * 0.03f, 0.18f - k * 0.02f, 0.15f));
-            // A headdress of long finger bones fanned behind the head like a crown seen from the front (2026-11-20: the
-            // first cut was too short to clear the head; now they rise well above it, jointed, knuckle-tipped).
+
             for (int i = 0; i < 9; i++)
             {
                 float a = -72f + i * 18f;
@@ -361,12 +302,12 @@ namespace Deepbound.Art
                 Tint(MeshKit.Part(finger, "Knuckle", MeshKit.Ball(0.02f, 5, 4), Mat.Bone, Vector3.up * len * 0.55f), old);
                 Tint(MeshKit.Part(finger, "Phalanx", MeshKit.Cylinder(0.012f, 0.005f, len * 0.45f, 5), Mat.Bone, Vector3.up * len * 0.55f, new Vector3(-12f, 0f, 0f)), bone);
             }
-            // Shoulder spurs: three curved ribs on each shoulder, rising and splaying out (her silhouette from the front).
+
             foreach (float side in new[] { -1f, 1f })
                 for (int k = 0; k < 3; k++)
                     Tint(MeshKit.Part(t, "ShoulderRib", MeshKit.Lathe("marrowSpur", new[] { new Vector2(0.3f, 0f), new Vector2(0.32f, 0.014f), new Vector2(0.3f, 0.028f) }, 8, true, 80f), Mat.Bone,
                         new Vector3(side * (0.2f + k * 0.03f), 0.5f + k * 0.05f, -0.04f - k * 0.05f), new Vector3(0f, side > 0 ? 180f : 0f, side * (70f + k * 8f))), k == 1 ? old : bone);
-            // Strands of knitted vertebrae hanging from the shawl's hem, swinging as she walks.
+
             for (int i = 0; i < 8; i++)
             {
                 float a = (-100f + i * 28.5f) * Mathf.Deg2Rad;
@@ -375,7 +316,7 @@ namespace Deepbound.Art
                 for (int k = 0; k < beads; k++)
                     Tint(MeshKit.Part(t, "Strand", MeshKit.Box(new Vector3(0.04f, 0.035f, 0.035f)), Mat.Bone, top + new Vector3(0f, -0.055f * k, 0.01f * k), new Vector3(0f, a * Mathf.Rad2Deg + k * 30f, 0f)), k % 2 == 0 ? bone : old);
             }
-            // The cradle of skulls held to her chest.
+
             Tint(MeshKit.Part(t, "Cradle", MeshKit.Lathe("marrowCradle", new[] { new Vector2(0.05f, 0f), new Vector2(0.16f, 0.03f), new Vector2(0.18f, 0.08f) }, 10), Mat.Bone,
                 new Vector3(0f, 0.28f, 0.2f), new Vector3(10f, 0f, 0f), new Vector3(1.2f, 1f, 0.8f)), old);
             for (int i = 0; i < 3; i++)
@@ -388,14 +329,6 @@ namespace Deepbound.Art
             AddGlow(rig, glow);
         }
 
-        // ------------------------------------------------------------------
-        // The Lantern Fisher (a lair keeper)
-        // ------------------------------------------------------------------
-
-        /// <summary>
-        /// An angler of the drowned dark: a hunched, scaled back with a ridge of fin spines webbed between them, long arms
-        /// webbed to the elbow ending in hooked claws, and a net of rusted chain and hooks hanging from its belt.
-        /// </summary>
         public static void Fisher(HumanoidRig rig)
         {
             var t = rig.Torso;
@@ -403,16 +336,16 @@ namespace Deepbound.Art
             var hide = new Color(0.16f, 0.22f, 0.2f);
             var fin = new Color(0.3f, 0.4f, 0.36f);
             var rust = new Color(0.36f, 0.24f, 0.16f);
-            // The hunch: a scaled hump over the shoulders.
+
             Tint(MeshKit.Part(t, "Hump", MeshKit.Ball(0.28f, 10, 8), Mat.Leather, new Vector3(0f, 0.52f, -0.16f), Vector3.zero, new Vector3(1.25f, 0.9f, 1f)), hide);
-            // A ridge of spines down the back, webbed between.
+
             for (int i = 0; i < 6; i++)
             {
                 float y = 0.75f - i * 0.11f, len = 0.36f - Mathf.Abs(i - 1.5f) * 0.05f;
                 Tint(MeshKit.Part(t, "FinSpine", MeshKit.Cylinder(0.018f, 0.004f, len, 5), Mat.Bone, new Vector3(0f, y, -0.36f + i * 0.02f), new Vector3(-60f + i * 6f, 0f, 0f)), new Color(0.7f, 0.68f, 0.58f));
                 Tint(MeshKit.Part(t, "FinWeb", MeshKit.Box(new Vector3(0.012f, len * 0.8f, 0.12f)), Mat.Cloth, new Vector3(0f, y - 0.02f, -0.42f + i * 0.02f), new Vector3(-60f + i * 6f, 0f, 0f)), fin);
             }
-            // Long arms, webbed to the elbow, with hooked claws.
+
             foreach (var arm in new[] { rig.ArmL, rig.ArmR })
             {
                 if (arm == null) continue;
@@ -422,7 +355,7 @@ namespace Deepbound.Art
                     Tint(MeshKit.Part(arm, "HookClaw", MeshKit.Lathe("fisherClaw", new[] { new Vector2(0.016f, 0f), new Vector2(0f, 0.13f) }, 4), Mat.Bone,
                         new Vector3((k - 1) * 0.03f, -0.68f, 0.05f), new Vector3(150f, 0f, (k - 1) * 12f)), new Color(0.7f, 0.68f, 0.58f));
             }
-            // The net: a skirt of rusted chain links and hooks from the belt.
+
             var belt = rig.Hips != null ? rig.Hips : t;
             for (int i = 0; i < 9; i++)
             {
@@ -436,14 +369,6 @@ namespace Deepbound.Art
             }
         }
 
-        // ------------------------------------------------------------------
-        // Gorr, the Rot Below (on a Plaguebearer)
-        // ------------------------------------------------------------------
-
-        /// <summary>
-        /// A bloated hulk of rot: a gut that hangs to the knees in folds, slabs of grey flesh over the shoulders, arms thick as a
-        /// man, a lower jaw torn wide on a mouthful of teeth, and the butcher's hooks still sunk in his back, trailing chain.
-        /// </summary>
         public static void Rot(HumanoidRig rig)
         {
             var t = rig.Torso; var head = rig.Head;
@@ -452,17 +377,17 @@ namespace Deepbound.Art
             var flesh = new Color(0.46f, 0.5f, 0.34f);
             var dark = new Color(0.3f, 0.32f, 0.22f);
             var bile = new Color(0.5f, 0.95f, 0.2f);
-            // A head that holds its own over the bulk; then the gut, in folds.
+
             head.localScale *= 1.4f;
             head.localPosition += new Vector3(0f, 0.04f, 0.06f);
             Tint(MeshKit.Part(t, "Gut", MeshKit.Ball(0.33f, 12, 9), Mat.Leather, new Vector3(0f, 0.1f, 0.12f), Vector3.zero, new Vector3(1.15f, 1f, 1f)), flesh);
             Tint(MeshKit.Part(t, "GutFold", MeshKit.Cylinder(0.37f, 0.33f, 0.05f, 12), Mat.Leather, new Vector3(0f, 0.02f, 0.12f), new Vector3(8f, 0f, 0f), new Vector3(1.15f, 1f, 1f)), dark);
             Tint(MeshKit.Part(t, "Chest", MeshKit.Ball(0.3f, 10, 8), Mat.Leather, new Vector3(0f, 0.45f, 0f), Vector3.zero, new Vector3(1.25f, 0.85f, 0.95f)), flesh);
-            // Stitches across the gut, as if someone tried to close it once.
+
             for (int i = 0; i < 6; i++)
                 Tint(MeshKit.Part(t, "Stitch", MeshKit.Box(new Vector3(0.012f, 0.07f, 0.01f)), Mat.Leather, new Vector3(-0.12f + i * 0.05f, 0.14f, 0.48f), new Vector3(-10f, 0f, i % 2 == 0 ? 20f : -20f)), new Color(0.15f, 0.1f, 0.08f));
             Glow(MeshKit.Part(t, "Wound", MeshKit.Box(new Vector3(0.28f, 0.025f, 0.02f)), Mat.Glow, new Vector3(0f, 0.14f, 0.475f), new Vector3(-10f, 0f, 0f)), bile * 0.9f, glow);
-            // Slabs of flesh over the shoulders and thick arms.
+
             foreach (float s in new[] { -1f, 1f })
                 Tint(MeshKit.Part(t, "ShoulderSlab", MeshKit.Ball(0.17f, 9, 7), Mat.Leather, new Vector3(s * 0.26f, 0.6f, -0.02f), Vector3.zero, new Vector3(1.1f, 0.8f, 1f)), flesh);
             foreach (var arm in new[] { rig.ArmL, rig.ArmR })
@@ -477,13 +402,13 @@ namespace Deepbound.Art
                 Tint(MeshKit.Part(leg, "FatLeg", MeshKit.Cylinder(0.11f, 0.14f, 0.35f, 9), Mat.Leather, new Vector3(0f, -0.42f, 0f)), flesh);
                 Tint(MeshKit.Part(leg, "FatShin", MeshKit.Cylinder(0.09f, 0.12f, 0.3f, 9), Mat.Leather, new Vector3(0f, -0.85f, 0f)), dark);
             }
-            // The jaw torn wide, teeth all the way round.
+
             Tint(MeshKit.Part(head, "TornJaw", MeshKit.Box(new Vector3(0.18f, 0.04f, 0.14f)), Mat.Bone, new Vector3(0f, -0.04f, 0.1f), new Vector3(28f, 0f, 0f)), new Color(0.62f, 0.62f, 0.45f));
             Glow(MeshKit.Part(head, "Gullet", MeshKit.Box(new Vector3(0.12f, 0.05f, 0.02f)), Mat.Glow, new Vector3(0f, 0.02f, 0.11f)), bile * 1.2f, glow);
             for (int i = 0; i < 6; i++)
                 Tint(MeshKit.Part(head, "Tooth", MeshKit.Lathe("rotTooth", new[] { new Vector2(0.01f, 0f), new Vector2(0f, 0.04f) }, 4), Mat.Bone,
                     new Vector3(-0.07f + i * 0.028f, -0.01f, 0.17f), new Vector3(-62f, 0f, 0f)), new Color(0.75f, 0.72f, 0.5f));
-            // The butcher's hooks in his back, each trailing a length of chain.
+
             for (int h = 0; h < 3; h++)
             {
                 var at = new Vector3(-0.16f + h * 0.16f, 0.5f - (h % 2) * 0.12f, -0.27f);

@@ -8,31 +8,17 @@ using UnityEngine;
 
 namespace Deepbound.World
 {
-    /// <summary>
-    /// A SPIKE BED (rebuilt 2026-11-12, the user: "make spike traps larger, and please change their visual. the spike
-    /// trap should be activated by a pressure plate in front and behind it, and should be hidden enough if players run
-    /// past it they get spiked, but if they see it they can get past"). A stretch of floor <see cref="Length"/> m long and
-    /// as wide as the corridor (or <see cref="RoomWidth"/> in a room), laid in flagstone with rows of small dark holes,
-    /// and a PRESSURE PLATE at each end (a slab a hair proud of the floor, its seams a shade dark). Tread on either plate
-    /// and it clicks; <see cref="Delay"/> s later rusted spikes a metre tall punch up through the whole bed and stay up
-    /// a moment, impaling whoever is on it (skeletons too) - and someone running through is on it by then. Seen in time,
-    /// it is passed by jumping each plate: the bed itself only fires from the plates.
-    /// The transform's forward is the way through. From the second act some are HIDDEN: no seams, no holes, until
-    /// something treads on a plate (<see cref="HiddenChance"/>).
-    /// </summary>
     public class SpikeTrap : NetworkBehaviour
     {
         public const float Length = 3f, PlateLength = 0.9f, RoomWidth = 3.4f;
         public const float Delay = 0.35f, Damage = 75f, Rearm = 1.4f, ImpaleSeconds = 0.8f, UpSeconds = 0.6f;
-        /// <summary>Kept for the pets' warning radius and old callers: half the bed's length.</summary>
+
         public const float Radius = Length / 2f;
-        /// <summary>From a bed's centre to the far edge of a plate.</summary>
+
         public const float Reach = Length / 2f + PlateLength;
-        /// <summary>Clear floor kept between any two traps (2026-11-23, the user: "make sure corridor traps cannot spawn on top of
-        /// each other or very nearby another"): bed to bed and bed to flame vent, edge to edge.</summary>
+
         public const float MinGap = 3f;
 
-        /// <summary>Is a bed centred at <paramref name="at"/> clear of every vent and every bed already laid?</summary>
         public static bool ClearOfTraps(Vector3 at, System.Collections.Generic.IList<Vector3> beds, System.Collections.Generic.IList<DungeonLayout.FlameTrap> vents)
         {
             at.y = 0f;
@@ -42,24 +28,17 @@ namespace Deepbound.World
             return true;
         }
 
-        /// <summary>No seams, no holes: only a tread shows it.</summary>
         public readonly NetworkVariable<bool> Hidden = new NetworkVariable<bool>();
-        /// <summary>Across the way (a corridor's width, or <see cref="RoomWidth"/>). Set before Spawn.</summary>
+
         public readonly NetworkVariable<float> Width = new NetworkVariable<float>(RoomWidth);
-        /// <summary>
-        /// JAMMED (2026-11-13, the user: "Rogues (or anyone with a tool) can kneel on a plate for two seconds to jam it"):
-        /// stand on a plate and hold F for <see cref="JamSeconds"/>; a Rogue needs nothing, anyone else spends one of their
-        /// Tinker's Picks. A jammed bed never fires again; wedges show in its plates.
-        /// </summary>
+
         public readonly NetworkVariable<bool> Jammed = new NetworkVariable<bool>();
         public const float JamSeconds = 2f, GlintRange = 7f;
         private float jamHeld;
         private float nextGlint;
 
-        /// <summary>Server: how often a bed on this floor is hidden (none in the first act, half by the fifth).</summary>
         public static float HiddenChance(int depth) => Mathf.Clamp01(0.14f * (DungeonDirector.Tier(depth) - 0.5f));
 
-        /// <summary>Every bed on this peer (pets look for hidden ones).</summary>
         public static readonly System.Collections.Generic.List<SpikeTrap> All = new System.Collections.Generic.List<SpikeTrap>();
 
         private Transform spikes;
@@ -68,10 +47,8 @@ namespace Deepbound.World
         private float spikeOut, pressed;
         private readonly System.Collections.Generic.HashSet<Health> struck = new System.Collections.Generic.HashSet<Health>();
 
-        /// <summary>Where plate 0 (behind) or 1 (in front) lies, world space.</summary>
         public Vector3 PlateCenter(int i) => transform.position + transform.forward * ((i == 0 ? -1f : 1f) * (Length / 2f + PlateLength / 2f));
 
-        /// <summary>Is <paramref name="p"/> on the bed (<paramref name="along"/> 0) or a plate (the plate's centre offset)?</summary>
         private bool Inside(Vector3 p, float along, float halfLen)
         {
             var d = transform.InverseTransformPoint(p);
@@ -85,7 +62,7 @@ namespace Deepbound.World
         {
             if (!All.Contains(this)) All.Add(this);
             BuildVisual();
-            // Hidden can change after spawn (a test shot, a late value): the look follows.
+
             Hidden.OnValueChanged += (_, _) => Rebuild();
             Jammed.OnValueChanged += (_, _) => Rebuild();
         }
@@ -144,7 +121,6 @@ namespace Deepbound.World
             FireRpc();
         }
 
-        /// <summary>Server, while the spikes are up: each one on the bed is struck once.</summary>
         private void Strike()
         {
             int depth = Mathf.Max(0, DungeonDirector.Instance != null ? DungeonDirector.Instance.Floor.Value.y : 0);
@@ -167,14 +143,13 @@ namespace Deepbound.World
             Sfx.Play(Sound.Bash, transform.position, 0.35f, 2.2f);
         }
 
-        /// <summary>Local: kneeling on a plate with F held jams it; a Rogue sees hidden plates glint.</summary>
         private void LocalJam()
         {
             var me = NetworkPlayer.Local;
             if (me == null || Jammed.Value) { jamHeld = 0f; return; }
             var prog = me.GetComponent<PlayerProgress>();
             if (prog == null) return;
-            // Light fingers: a Rogue near a hidden plate catches its glint.
+
             if (Hidden.Value && prog.ClassId.Value == Classes.ClassId.Rogue && Time.time >= nextGlint && (me.transform.position - transform.position).sqrMagnitude < GlintRange * GlintRange)
             {
                 nextGlint = Time.time + 1.6f;
@@ -191,7 +166,6 @@ namespace Deepbound.World
             }
         }
 
-        /// <summary>Seen: it has fired or been armed while you looked (a hidden plate you have not found cannot be jammed, except by a Rogue).</summary>
         private bool Seen => spikeOut > 0f || pressed > 0f || everFired;
         private bool everFired;
 
@@ -202,7 +176,6 @@ namespace Deepbound.World
             ServerJam(p);
         }
 
-        /// <summary>Server: <paramref name="by"/> jams the plates (tests call this). False if they cannot.</summary>
         public bool ServerJam(PlayerProgress by)
         {
             if (Jammed.Value || by == null || !by.CanDisarm) return false;
@@ -224,8 +197,6 @@ namespace Deepbound.World
                 UI.GameHud.Feed(who + (rogue ? " wedges the plate with a knife blade. The spikes stay down." : " jams the plate with a pick. The spikes stay down."), new Color(0.85f, 0.85f, 0.7f));
         }
 
-
-        /// <summary>The prompt text for the HUD when standing on a plate (null when there is nothing to say).</summary>
         public static string PromptFor(PlayerProgress p)
         {
             if (p == null) return null;
@@ -254,7 +225,7 @@ namespace Deepbound.World
             bool hidden = Hidden.Value;
             var stone = new Color(0.36f, 0.34f, 0.32f);
             var seam = new Color(0.07f, 0.065f, 0.06f);
-            // The bed: flagstone a hair proud of the floor, holes in rows where the spikes wait.
+
             var bed = MeshKit.Part(transform, "Bed", MeshKit.Box(new Vector3(w, 0.03f, Length)), Mat.Flagstone, new Vector3(0f, 0.015f, 0f));
             int cols = Mathf.Max(3, Mathf.RoundToInt(w / 0.42f)), rows = Mathf.RoundToInt(Length / 0.42f);
             spikes = MeshKit.Pivot(transform, "Spikes", new Vector3(0f, -1.05f, 0f));
@@ -270,9 +241,9 @@ namespace Deepbound.World
                     float tall = 0.95f + ((x * 7 + z * 13) % 5) * 0.04f;
                     var spike = MeshKit.Part(spikes, "Spike", MeshKit.Lathe("bedSpike", new[] { new Vector2(0.045f, 0f), new Vector2(0.035f, 0.6f), new Vector2(0f, 1f) }, 5), Mat.Steel,
                         p, new Vector3(((x + z) % 3 - 1) * 4f, 0f, ((x * z) % 3 - 1) * 4f), new Vector3(1f, tall, 1f));
-                    ArtLibrary.Tint(spike.GetComponent<Renderer>(), new Color(0.45f, 0.32f, 0.24f)); // rust
+                    ArtLibrary.Tint(spike.GetComponent<Renderer>(), new Color(0.45f, 0.32f, 0.24f));
                 }
-            // The two plates, one before the bed and one after.
+
             for (int i = 0; i < 2; i++)
             {
                 float along = (i == 0 ? -1f : 1f) * (Length / 2f + PlateLength / 2f);
@@ -280,7 +251,7 @@ namespace Deepbound.World
                 var slab = MeshKit.Part(plates[i], "Slab", MeshKit.Box(new Vector3(w - 0.06f, 0.024f, PlateLength - 0.06f)), Mat.Flagstone, Vector3.zero);
                 ArtLibrary.Tint(slab.GetComponent<Renderer>(), stone);
                 if (hidden) continue;
-                // A dark seam round it: you see it if you look at the floor.
+
                 foreach (float s in new[] { -1f, 1f })
                 {
                     var a = MeshKit.Part(plates[i], "Seam", MeshKit.Box(new Vector3(w, 0.026f, 0.03f)), Mat.Dark, new Vector3(0f, 0f, s * PlateLength / 2f));
@@ -296,7 +267,7 @@ namespace Deepbound.World
                         var wedge = MeshKit.Part(plates[i], "Wedge", MeshKit.Box(new Vector3(0.09f, 0.08f, 0.36f)), Mat.Steel, new Vector3(k * (w / 2f - 0.08f), 0.04f, 0f), new Vector3(0f, k * 24f, 0f));
                         ArtLibrary.Tint(wedge.GetComponent<Renderer>(), new Color(0.85f, 0.78f, 0.6f));
                     }
-            MeshKit.MergeParts(transform); // the spikes rise as one; holes and seams are a mesh each
+            MeshKit.MergeParts(transform);
         }
     }
 }

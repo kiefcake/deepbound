@@ -2,89 +2,60 @@ using UnityEngine;
 
 namespace Deepbound.Art
 {
-    /// <summary>What a rig is currently doing, beyond walking. Synced as a byte by enemies.</summary>
     public enum RigAction : byte
     {
         None = 0,
-        Windup = 1,   // weapon drawn back — the telegraph players learn to read
-        Swing = 2,    // the strike itself
-        Slam = 3,     // two-handed overhead smash (boss)
-        Stagger = 4,  // knocked back by a hit or a shield bash
-        Bash = 5,     // shield thrust
+        Windup = 1,
+        Swing = 2,
+        Slam = 3,
+        Stagger = 4,
+        Bash = 5,
         Death = 6,
-        Cast = 7,     // arms raised (boss summon, war cry)
-        Draw = 8,     // bow raised and drawn — the archer's telegraph
-        // 2026-11-13, the user: "create animations for each bosses attacks". Each move now reads differently:
-        WindHeavy = 9,    // both hands up over the head, rising onto the toes, leaning back (the heavy blow coming)
-        Cleave = 10,      // ...and crashing down two-handed, bowed over, knees bent
-        WindSweep = 11,   // sunk low, the weapon dragged far back to one side, the whole body coiled
-        SweepStrike = 12, // ...uncoiling into a wide flat swing that carries the torso round
-        Recover = 13,     // spent after a blow: weapon hanging, hunched, heaving, eyes dim - the opening to punish
-        // 2026-11-13, the guardians' specials each get their own body (they all used Cast):
-        Charge = 14,      // head down, shoulder and shield forward, knees bent, pawing: a charge is coming down the line
-        Hurl = 15,        // the arm drawn far back and up, then thrown forward: a volley or a fan of lances
-        Summon = 16,      // crouched, hands low and wide pulling at the ground, then rising: the dead or the dark come up
-        Channel = 17,     // arms spread wide, head back, lifted onto the toes and swaying: a long working (spirals, echoes, hymns)
-        // 2026-11-23, the user: "make animations for characters while they are using abilities" (they all raised both arms: Cast).
-        Lob = 18,         // overhand throw: the arm cocked back behind the head, the weight rocking back, then flung over and forward
-        Thrust = 19,      // both palms shoved out at the target, a lunge step behind them (a bolt, a wave)
-        Pray = 20,        // hands drawn together before the chest, head bowed, knees giving a little (blessings, heals)
-        Siphon = 21,      // arms flung out ahead, clawing, then hauled in to the chest, hunched over (draining something)
-        Plant = 22,       // both hands high on a haft, then driven down into the floor, dropping onto one knee (a banner)
-        Leap = 23,        // a deep crouch, arms swept back, then springing tall and reaching up
-        Vanish = 24,      // a low crouch, the cloak arm thrown across the face
-        Fan = 25,         // a flat side-arm throw across the body, the torso uncoiling with it (a fan of blades)
-        Roar = 26,        // chest out, arms flung down and back, head thrown up (a war cry)
-        Drink = 27,       // a hand to the mouth and the head tipping back
-        Lash = 28,        // the arm over the shoulder, whipping down across one's own back, flinching from it
-        Point = 29,       // the arm thrust straight out at one target, the body turned side-on behind it
+        Cast = 7,
+        Draw = 8,
+
+        WindHeavy = 9,
+        Cleave = 10,
+        WindSweep = 11,
+        SweepStrike = 12,
+        Recover = 13,
+
+        Charge = 14,
+        Hurl = 15,
+        Summon = 16,
+        Channel = 17,
+
+        Lob = 18,
+        Thrust = 19,
+        Pray = 20,
+        Siphon = 21,
+        Plant = 22,
+        Leap = 23,
+        Vanish = 24,
+        Fan = 25,
+        Roar = 26,
+        Drink = 27,
+        Lash = 28,
+        Point = 29,
     }
 
-    /// <summary>The emote wheel's gestures (2026-11-01), played on a player's rig for everyone to see.</summary>
     public enum Emote : byte { None = 0, Wave = 1, Cheer = 2, Bow = 3, Laugh = 4, Dance = 5, Point = 6, Beckon = 7, Sit = 8, Salute = 9, Kneel = 10, Shrug = 11, Clap = 12 }
 
-    /// <summary>
-    /// Pivot references for a procedurally built humanoid, and the procedural animation
-    /// that drives them.
-    ///
-    /// <para>
-    /// There are no animation clips: every motion is a rotation curve on a pivot. That is
-    /// the only workable option for generated art (there is no skinned mesh to drive), and
-    /// it has a real upside — timings such as wind-up length come straight from gameplay
-    /// values, so the telegraph a player sees is always exactly as long as the attack's
-    /// real wind-up.
-    /// </para>
-    ///
-    /// <para>
-    /// Walk speed is measured from the transform's own movement, so the same component
-    /// animates the local player, a remote player driven by NetworkTransform, and a
-    /// server-driven enemy without knowing which it is.
-    /// </para>
-    /// </summary>
     public class HumanoidRig : MonoBehaviour
     {
         public Transform Hips, Torso, Head, ArmL, ArmR, LegL, LegR;
 
-        /// <summary>Something held in the off hand that re-orients for an action (the archer's bow).</summary>
         public Transform OffhandItem;
 
-        /// <summary>Renderers that glow (eyes, gems). Brightened during wind-ups.</summary>
         public Renderer[] GlowRenderers;
         public Color GlowColor = new Color(1f, 0.2f, 0.1f);
 
-        /// <summary>Metres per walk cycle; bigger creatures take longer strides.</summary>
         public float StrideLength = 1.4f;
 
         public bool Blocking;
-        /// <summary>A low guard: the shield held at the hip, angled forward (the class select Knight; the user: "lower the shield").</summary>
+
         public bool LowGuard;
 
-        /// <summary>
-        /// The shield's mount (2026-11-12, the user: blocking "shield clips into body", "arm pose looks broken"). A rig's
-        /// arm is one bone, so a shield strapped to it can only face sideways or sweep through the chest. While blocking,
-        /// the shield leaves the arm's frame and is held at <see cref="GuardPos"/> / <see cref="GuardEuler"/> in front of the
-        /// chest (torso space), face forward, and the arm reaches out behind it; it eases back onto the arm after.
-        /// </summary>
         public Transform GuardShield;
         public Vector3 GuardPos = new Vector3(-0.12f, 0.28f, 0.6f), GuardEuler = new Vector3(-4f, 12f, 0f);
         private Vector3 guardRestPos;
@@ -112,14 +83,12 @@ namespace Deepbound.Art
             GuardShield.rotation = Quaternion.Slerp(GuardShield.rotation, Torso.rotation * Quaternion.Euler(GuardEuler), k);
         }
         public bool Downed;
-        /// <summary>0-3: how much mead is in them. The body sways and lists with it.</summary>
+
         public int Drunk;
 
-        /// <summary>The gesture being played (an emote), until <see cref="emoteUntil"/>; walking off ends most of them.</summary>
         public Emote EmoteNow { get; private set; }
         private float emoteStart, emoteUntil;
 
-        /// <summary>An emote is playing right now.</summary>
         public bool Emoting => EmoteNow != Emote.None && Time.time < emoteUntil;
 
         public void PlayEmote(Emote e, float seconds)
@@ -129,19 +98,16 @@ namespace Deepbound.Art
             emoteUntil = Time.time + seconds;
         }
 
-        /// <summary>Turn the head toward the local camera when it is near (enemies: they watch you).</summary>
         public bool WatchViewer;
 
-        // Smoothing: each joint eases toward its target pose instead of snapping to it.
         private readonly Quaternion[] current = new Quaternion[6];
         private bool poseKnown;
-        private Vector3 flinch;          // a decaying jolt from the last hit (torso pitch/yaw/roll)
-        private float headYaw;           // the watching turn, eased
-        private float seed;              // per-creature variety: idle rhythm, death direction
+        private Vector3 flinch;
+        private float headYaw;
+        private float seed;
         private float nextTwitch, twitchUntil;
         private Vector3 twitch;
 
-        /// <summary>A hit lands: jolt the body away from <paramref name="from"/> (world). Strength 0..1.</summary>
         public void Flinch(Vector3 from, float strength)
         {
             var local = transform.InverseTransformDirection(transform.position - from);
@@ -149,7 +115,7 @@ namespace Deepbound.Art
             if (local.sqrMagnitude < 0.001f) local = Vector3.back;
             local.Normalize();
             strength = Mathf.Clamp01(strength);
-            // Pushed back: pitch away; hit from a side: roll and twist away from it.
+
             flinch += new Vector3(-local.z * 14f, local.x * 10f, -local.x * 12f) * (0.45f + strength);
         }
 
@@ -178,8 +144,7 @@ namespace Deepbound.Art
             var cam = ViewCamera.Current;
             if (cam == null) return;
             float far = (cam.transform.position - transform.position).sqrMagnitude;
-            // Every walker is heard now (2026-11-16): the dead shuffling closer round a corner, a teammate on the stair.
-            // Quiet, and muffled through walls (Sfx), so you hear them before you see them.
+
             if (!heavy && far < StepEarshot * StepEarshot) SoftStep(size, speed);
             if (!heavy && speed < 5.5f) return;
             if (far > (heavy ? 26f * 26f : 14f * 14f)) return;
@@ -190,9 +155,9 @@ namespace Deepbound.Art
         }
 
         public const float StepEarshot = 20f;
-        /// <summary>Walkers' steps played this session (tests).</summary>
+
         public static int SoftSteps;
-        private int stepper = -1; // -1 unknown, 0 silent (you, hidden, lying still), 1 enemy, 2 another player
+        private int stepper = -1;
         private Player.NetworkPlayer stepPlayer;
 
         private void SoftStep(float size, float speed)
@@ -205,7 +170,6 @@ namespace Deepbound.Art
             if (stepper == 0 || speed < 1.2f) return;
             if (stepper == 2)
             {
-                // Your own feet are NetworkPlayer.Footsteps; a hidden rogue makes no sound.
                 if (stepPlayer == null || stepPlayer.IsOwner) return;
                 var life = stepPlayer.GetComponent<Player.PlayerLife>();
                 if (life != null && (life.Hidden.Value || life.Downed.Value)) return;
@@ -217,7 +181,6 @@ namespace Deepbound.Art
             SoftSteps++;
         }
 
-        /// <summary>Plays an action whose length matches the gameplay timing that triggered it.</summary>
         public void Play(RigAction kind, float duration)
         {
             if (action == RigAction.Death && kind != RigAction.None) return;
@@ -235,22 +198,21 @@ namespace Deepbound.Art
             float dt = Time.deltaTime;
             if (dt <= 0f) return;
 
-            // --- walk cycle from measured velocity ---
             Vector3 delta = transform.position - lastPosition;
             lastPosition = transform.position;
             delta.y = 0f;
             float speed = delta.magnitude / dt;
-            if (speed > 30f) speed = 0f; // a teleport, not a sprint
+            if (speed > 30f) speed = 0f;
 
             walkAmount = Mathf.MoveTowards(walkAmount, Mathf.Clamp01(speed / 4f), dt * 4f);
             float lastPhase = walkPhase;
             walkPhase += speed * dt / StrideLength * Mathf.PI * 2f;
-            // A footfall every half cycle: heavy things thud and raise dust, runners scuff up a little.
+
             if (Mathf.Floor(walkPhase / Mathf.PI) != Mathf.Floor(lastPhase / Mathf.PI) && walkAmount > 0.5f) Footfall(speed);
 
             float swing = Mathf.Sin(walkPhase) * 35f * walkAmount;
             float bob = Mathf.Abs(Mathf.Cos(walkPhase)) * 0.05f * walkAmount;
-            // Idle life: breathing, a slow weight shift, and (for the dead) the odd twitch.
+
             float time = Time.time + seed * 10f;
             float breath = Mathf.Sin(time * 1.6f) * (1f - walkAmount);
             float sway = Mathf.Sin(time * 0.45f) * (1f - walkAmount);
@@ -270,9 +232,6 @@ namespace Deepbound.Art
 
             float t = actionDuration > 0f ? Mathf.Clamp01(actionTime / actionDuration) : 1f;
 
-            // Rest pose plus walk.
-            // Walking: arms counter the legs, the shoulders twist against the hips, the body leans into
-            // its speed, and the head holds steady against the bob. At rest: breathing and sway.
             float twist = Mathf.Sin(walkPhase) * 7f * walkAmount;
             Vector3 armR = new Vector3(-swing * 0.65f - 4f * breath, 0f, 6f + 2f * breath);
             Vector3 armL = new Vector3(swing * 0.65f - 4f * breath, 0f, -6f - 2f * breath);
@@ -286,19 +245,19 @@ namespace Deepbound.Art
             switch (action)
             {
                 case RigAction.Windup:
-                    // Weapon arm hauled up and back, body twisted away, knees sinking: the readable tell.
+
                     armR = Vector3.Lerp(armR, new Vector3(-150f, -30f * swingSide, 30f), Ease(t * 1.4f));
                     armL = Vector3.Lerp(armL, new Vector3(-35f, 20f, -25f), Ease(t * 1.4f));
                     torso += new Vector3(-10f, -24f, 0f) * Ease(t);
                     head += new Vector3(6f, 18f, 0f) * Ease(t);
                     hipsOffset += new Vector3(0f, -0.05f, -0.03f) * Ease(t);
-                    // A tremble at full draw, just before it lets go.
+
                     if (t > 0.75f) armR += new Vector3(Mathf.Sin(Time.time * 60f) * 2.5f, 0f, 0f);
                     glow = 1f + 3f * t;
                     break;
 
                 case RigAction.Swing:
-                    // Fast arc across the body, overshooting a little before it settles: down and through.
+
                     float s = Ease(Mathf.Clamp01(t * 1.6f));
                     float over = Mathf.Sin(Mathf.Clamp01((t - 0.55f) / 0.45f) * Mathf.PI) * 0.18f;
                     armR = Vector3.LerpUnclamped(new Vector3(-150f, -30f * swingSide, 30f), new Vector3(-40f, 50f * swingSide, -10f), s + over);
@@ -308,7 +267,7 @@ namespace Deepbound.Art
                     break;
 
                 case RigAction.Slam:
-                    // Both arms overhead for the first 70%, then down.
+
                     float up = Mathf.Clamp01(t / 0.7f), down = Mathf.Clamp01((t - 0.7f) / 0.3f);
                     var overhead = new Vector3(-170f, 0f, 0f);
                     var smashed = new Vector3(-50f, 0f, 0f);
@@ -434,7 +393,6 @@ namespace Deepbound.Art
 
                 case RigAction.Recover:
                 {
-                    // In fast, held, out slow at the end so the next wind-up reads as a change.
                     float r = Ease(Mathf.Clamp01(t * 5f)) * (1f - Ease(Mathf.Clamp01((t - 0.85f) / 0.15f)));
                     float heave = Mathf.Sin(Time.time * 7f) * 3f;
                     armR = Vector3.Lerp(armR, new Vector3(-4f, 18f * swingSide, 22f), r);
@@ -449,7 +407,7 @@ namespace Deepbound.Art
                 }
 
                 case RigAction.Stagger:
-                    // Rocked back on its heels, arms flung out, then catching itself.
+
                     float k = Mathf.Sin(t * Mathf.PI) * (1f - 0.3f * t);
                     torso += new Vector3(-25f, 0f, 6f * swingSide) * k;
                     head += new Vector3(-22f, 8f * swingSide, 0f) * k;
@@ -473,7 +431,7 @@ namespace Deepbound.Art
                     break;
 
                 case RigAction.Draw:
-                    // Bow arm straight out at the target; string hand hauled back to the jaw.
+
                     float dr = Ease(t * 2f);
                     armL = Vector3.Lerp(armL, new Vector3(-88f, 0f, 0f), dr);
                     armR = Vector3.Lerp(armR, new Vector3(-95f, -60f, 0f), Ease(t * 1.3f));
@@ -484,7 +442,6 @@ namespace Deepbound.Art
 
                 case RigAction.Lob:
                 {
-                    // Back for the first 40%, then over and forward; the off arm points the way.
                     float back = Ease(Mathf.Clamp01(t / 0.4f)), fling = Ease(Mathf.Clamp01((t - 0.4f) / 0.35f)), settle = Mathf.Clamp01((t - 0.75f) / 0.25f);
                     var cocked = new Vector3(-165f, -15f, 35f);
                     var thrown = new Vector3(-55f, 20f, 5f);
@@ -533,7 +490,7 @@ namespace Deepbound.Art
                     var inR = new Vector3(-55f, -48f, -5f); var inL = new Vector3(-55f, 48f, 5f);
                     armR = Vector3.Lerp(armR, Vector3.Lerp(outR, inR, haul), reach * (1f - let));
                     armL = Vector3.Lerp(armL, Vector3.Lerp(outL, inL, haul), reach * (1f - let));
-                    // Clawing: a tremble while the arms are out.
+
                     if (haul < 1f) { armR.x += Mathf.Sin(Time.time * 40f) * 3f * reach; armL.x -= Mathf.Sin(Time.time * 40f) * 3f * reach; }
                     torso += new Vector3(-6f * reach + 26f * haul, 0f, 0f) * (1f - let);
                     head += new Vector3(-10f * reach + 18f * haul, 0f, 0f) * (1f - let);
@@ -590,8 +547,8 @@ namespace Deepbound.Art
                 case RigAction.Fan:
                 {
                     float coil = Ease(Mathf.Clamp01(t / 0.35f)), loose = Ease(Mathf.Clamp01((t - 0.35f) / 0.25f)), rest = Ease(Mathf.Clamp01((t - 0.75f) / 0.25f));
-                    var cocked = new Vector3(-80f, 70f, -20f);  // across the chest
-                    var flung = new Vector3(-85f, -60f, 40f);   // out to the side
+                    var cocked = new Vector3(-80f, 70f, -20f);
+                    var flung = new Vector3(-85f, -60f, 40f);
                     armR = Vector3.Lerp(Vector3.Lerp(Vector3.Lerp(armR, cocked, coil), flung, loose), armR, rest);
                     torso += new Vector3(6f, 26f * coil - 52f * loose, 0f) * (1f - rest);
                     head += new Vector3(0f, -18f * coil + 26f * loose, 0f) * (1f - rest);
@@ -650,8 +607,7 @@ namespace Deepbound.Art
                 }
 
                 case RigAction.Death:
-                    // Crumple: the knees go, the torso folds (forward for most, back for some), the head
-                    // lolls, the arms go slack; then the body sinks.
+
                     float d = Ease(t);
                     float fold = seed < 0.35f ? -40f : 55f;
                     legL = new Vector3(-70f, 0f, -6f) * d;
@@ -667,8 +623,6 @@ namespace Deepbound.Art
 
             if (Blocking && action == RigAction.None)
             {
-                // Reaching forward and a little in, to the back of the shield held before the chest (PoseGuardShield);
-                // it was swung 35 deg in, which put the board through the chest, edge-on to whatever it blocked.
                 armL = new Vector3(-70f, 16f, 0f);
                 torso += new Vector3(5f, 8f, 0f);
             }
@@ -678,13 +632,12 @@ namespace Deepbound.Art
                 torso += new Vector3(2f, 6f, 0f);
             }
 
-            // An emote: a gesture over the walk (sitting and bowing hold still; walking off ends them, bar the dance).
             if (EmoteNow != Emote.None)
             {
                 if (Time.time > emoteUntil || Downed || action == RigAction.Death || (walkAmount > 0.45f && EmoteNow != Emote.Dance)) EmoteNow = Emote.None;
                 else PoseEmote(Time.time - emoteStart, ref armL, ref armR, ref torso, ref head, ref legL, ref legR, ref hipsOffset);
             }
-            // Mead: a slow list from side to side, the head lolling after it.
+
             if (Drunk > 0 && !Downed)
             {
                 float k = Drunk / 3f, tt = Time.time + seed * 7f;
@@ -694,7 +647,6 @@ namespace Deepbound.Art
 
             if (Downed)
             {
-                // Kneeling, slumped: visibly "revive me", not dead.
                 legL = new Vector3(-90f, 0f, 0f);
                 legR = new Vector3(-60f, 0f, 10f);
                 torso = new Vector3(30f, 0f, 0f);
@@ -702,16 +654,12 @@ namespace Deepbound.Art
                 hipsOffset = new Vector3(0f, -0.4f, 0f);
             }
 
-            // The bow hangs upright at rest; while drawing it turns level with the
-            // raised arm so it faces the target.
             if (OffhandItem != null) OffhandItem.localRotation = Quaternion.Euler(action == RigAction.Draw ? 90f * Ease(t * 2f) : 0f, 0f, 0f);
 
-            // A hit's jolt, decaying fast.
             torso += flinch;
             head += flinch * 0.6f;
             flinch = Vector3.Lerp(flinch, Vector3.zero, 1f - Mathf.Exp(-dt * 9f));
 
-            // Watching: the head turns toward the local camera when it is near, within the neck's reach.
             float yawTarget = 0f;
             if (WatchViewer && action != RigAction.Death && !Downed)
             {
@@ -727,7 +675,6 @@ namespace Deepbound.Art
             headYaw = Mathf.Lerp(headYaw, yawTarget, 1f - Mathf.Exp(-dt * 4f));
             head.y += headYaw;
 
-            // Ease each joint toward its target: quick for strikes, softer otherwise.
             float rate = action == RigAction.Swing || action == RigAction.Slam || action == RigAction.Bash || action == RigAction.Lob || action == RigAction.Thrust || action == RigAction.Fan || action == RigAction.Lash ? 28f : action == RigAction.Death ? 10f : 14f;
             float a = poseKnown ? 1f - Mathf.Exp(-dt * rate) : 1f;
             Ease(ArmR, armR, 0, a); Ease(ArmL, armL, 1, a); Ease(Torso, torso, 2, a); Ease(Head, head, 3, a);
@@ -739,7 +686,6 @@ namespace Deepbound.Art
             ApplyGlow(glow);
         }
 
-        /// <summary>The emote gestures, as offsets and replacements of the walk pose. <paramref name="e"/> seconds in.</summary>
         private void PoseEmote(float e, ref Vector3 armL, ref Vector3 armR, ref Vector3 torso, ref Vector3 head, ref Vector3 legL, ref Vector3 legR, ref Vector3 hips)
         {
             float into = Ease(Mathf.Clamp01(e * 4f));
@@ -779,7 +725,6 @@ namespace Deepbound.Art
                 }
                 case Emote.Dance:
                 {
-                    // A tavern jig: arms up in turn, hips swinging, feet kicking out on the beat.
                     float beat = e * 7.2f;
                     float s = Mathf.Sin(beat);
                     armR = new Vector3(-120f - 40f * s, 0f, 30f);
@@ -813,13 +758,13 @@ namespace Deepbound.Art
                     hips += new Vector3(0f, -0.5f * (hipsRest.y > 0f ? hipsRest.y / 0.95f : 1f), 0.12f) * into;
                     break;
                 case Emote.Salute:
-                    // Fist to the brow, chin up.
+
                     armR = Vector3.Lerp(armR, new Vector3(-150f, 30f, 75f), into);
                     head += new Vector3(-8f, 0f, 0f) * into;
                     torso += new Vector3(-4f, 0f, 0f) * into;
                     break;
                 case Emote.Kneel:
-                    // Down on one knee, head bowed, a hand on the raised knee.
+
                     legL = Vector3.Lerp(legL, new Vector3(-88f, 0f, -6f), into);
                     legR = Vector3.Lerp(legR, new Vector3(30f, 0f, 6f), into);
                     hips += new Vector3(0f, -0.38f * (hipsRest.y > 0f ? hipsRest.y / 0.95f : 1f), 0.05f) * into;
@@ -864,7 +809,6 @@ namespace Deepbound.Art
 
         private float lastGlow = -1f;
 
-        /// <summary>Re-apply the glow after <see cref="GlowColor"/> changes (enraged eyes).</summary>
         public void RefreshGlow() { float l = lastGlow; lastGlow = -1f; ApplyGlow(l < 0f ? 1f : l); }
 
         private void ApplyGlow(float intensity)

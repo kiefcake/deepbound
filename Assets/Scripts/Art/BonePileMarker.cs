@@ -2,11 +2,6 @@ using UnityEngine;
 
 namespace Deepbound.Art
 {
-    /// <summary>
-    /// A fallen skeleton on the Ossuary that has not finished dying: a heap of bones with a
-    /// skull on top whose eyes kindle as it gathers itself, rattling harder near the end.
-    /// Visual only; the server owns the timer (and whether someone stamped it out).
-    /// </summary>
     public class BonePileMarker : MonoBehaviour
     {
         private float born, life;

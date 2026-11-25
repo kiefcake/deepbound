@@ -3,16 +3,11 @@ using Unity.Netcode;
 
 namespace Deepbound.Loot
 {
-    /// <summary>
-    /// One piece of gear, as it travels over the network: which named item, its quality,
-    /// and the depth it was found at. Everything else (stats, effect, name) is derived from
-    /// these three by <see cref="Gear"/>, identically on every peer.
-    /// </summary>
     public struct GearItem : INetworkSerializable, IEquatable<GearItem>
     {
-        public byte Id;       // GearId; 0 = empty slot
-        public byte Quality;  // 0 Worn, 1 Fine, 2 Masterwork, 3 Legendary (boss pieces)
-        public byte Depth;    // floor index it dropped on (0-2)
+        public byte Id;
+        public byte Quality;
+        public byte Depth;
 
         public bool IsEmpty => Id == 0;
         public GearId Kind => (GearId)Id;

@@ -2,11 +2,6 @@ using UnityEngine;
 
 namespace Deepbound.Art
 {
-    /// <summary>
-    /// Small local life in the dungeon (2026-11-07, the user: "dungeon life"): a SPIDER that creeps about its web and
-    /// stops, FISH that circle slowly under cistern water, and MOTHS that wheel round a light (pale over Cathedral
-    /// candles, violet round the Abyss's crystal). Local on every peer; it touches nothing and nobody can hit it.
-    /// </summary>
     public class LittleLife : MonoBehaviour
     {
         public enum Kind { Spider, Fish, Moth }
@@ -57,7 +52,7 @@ namespace Deepbound.Art
             switch (What)
             {
                 case Kind.Spider:
-                    // Creep to a spot on the web, wait, creep on.
+
                     if (t >= pauseUntil && (transform.position - target).sqrMagnitude < 0.0004f)
                     {
                         var r = Random.insideUnitCircle * Radius;

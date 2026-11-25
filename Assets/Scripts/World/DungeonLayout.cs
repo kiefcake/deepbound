@@ -5,55 +5,26 @@ namespace Deepbound.World
 {
     public enum RoomKind { Start, Combat, Side, Boss }
 
-    /// <summary>
-    /// What makes a room more than four walls. Assigned per floor from the seed, so every
-    /// peer agrees. Every combat room gets one: a Great Hall, a Chasm, a Crypt, a Gallery
-    /// (balconies to climb), a Sunken Court (a pit arena), a Cistern (flooded, with dry
-    /// stepping stones), a Pendulum hall (swinging blades that cut anyone) or a Ritual
-    /// chamber (braziers empower the room's dead until smashed). Side rooms can be a
-    /// Vault or a Fountain.
-    /// </summary>
     public enum RoomFeature { None, GreatHall, Chasm, Crypt, Vault, Fountain, Gallery, SunkenCourt, Cistern, Pendulums, Ritual, Library, Pyre, Gauntlet, Treasury, Beggar, Proving, Armoury, Mirror, Terrace, Ziggurat, Oath, Lightless, Panoply, Statues, Chimes, Mirrors, Scales, Draught, Mezzanine, Belfry, Undercroft, Ruin, Rampart, Crucible }
 
-    /// <summary>Boss arena shapes: a colonnade (cover), a raised dais under the throne, or broken ruins.</summary>
     public enum BossArena : byte { Colonnade = 0, Dais = 1, Ruins = 2 }
 
-    /// <summary>Boss arena quirks: healing pylons, ballistas, a chandelier on a winch, sanctum braziers, or none.</summary>
     public enum BossQuirk : byte { None = 0, Pylons = 1, Ballistas = 2, Chandelier = 3, Sanctum = 4 }
 
-    /// <summary>A hollow section of wall with a niche behind it.</summary>
     public class WallHole
     {
         public const float Width = 2.4f, Height = 2.8f, NicheDepth = 3.6f;
         public int Side;
-        /// <summary>Offset along the wall from the room's centre line.</summary>
+
         public float Along;
-        /// <summary>True: enemies burst out of it. False: a secret cache, broken by players.</summary>
+
         public bool Breach;
     }
 
-    /// <summary>
-    /// The abstract shape of one dungeon floor: which rooms exist, where, how big, and how
-    /// they connect. No geometry — <see cref="DungeonBuilder"/> turns this into meshes.
-    ///
-    /// <para>
-    /// Generated from a seed with <see cref="System.Random"/> and nothing else, so every
-    /// peer that receives the same seed and depth produces the identical layout. That is
-    /// the whole networking story for level geometry: one int is synced instead of
-    /// thousands of wall transforms, and late joiners rebuild the level locally.
-    /// </para>
-    ///
-    /// Rooms sit on a coarse grid (one room per cell) with straight corridors between grid
-    /// neighbours. The main path is a self-avoiding walk from the start room to the boss
-    /// room; side rooms hang off it. Ported in spirit from the old prototype's
-    /// DungeonLayout room graph.
-    /// </summary>
     public class DungeonLayout
     {
-        /// <summary>Distance between room centres. Bounds the largest room plus a corridor.</summary>
-        /// <remarks>Raised from 30m so rooms can be bigger: a 30m Great Hall still leaves a corridor.</remarks>
         public const float CellSize = 46f;
-        // Wider and taller (2026-11-01, the user: "make corridor rooms bigger"; was 3.2 x 3.8): a party can pass and fight in them.
+
         public const float CorridorWidth = 4.6f;
         public const float CorridorHeight = 4.4f;
 
@@ -61,24 +32,22 @@ namespace Deepbound.World
         {
             public int Id;
             public RoomKind Kind;
-            /// <summary>No enemies here (the peddler's room): no spawns, no mimic.</summary>
+
             public bool Peaceful;
-            /// <summary>A CELLAR VAULT under this room (2026-11-13): a cracked tile at <see cref="HatchSpot"/>, a small room below.</summary>
+
             public bool Cellar;
             public Vector3 HatchSpot;
             public Vector3 CellarCenter => new Vector3(HatchSpot.x, Center.y - CellarDrop, HatchSpot.z);
-            /// <summary>Boss rooms: the arena's shape and its quirk (see <see cref="BossArena"/>, <see cref="BossQuirk"/>).</summary>
+
             public BossArena Arena;
             public BossQuirk Quirk;
-            /// <summary>Raised ground (terraces, ziggurat tiers): a plan rectangle and its top height.</summary>
+
             public readonly List<(Rect r, float h)> Raised = new List<(Rect, float)>();
-            /// <summary>Ramps up onto raised ground: low end, high end, width.</summary>
+
             public readonly List<(Vector3 low, Vector3 high, float w)> Ramps = new List<(Vector3, Vector3, float)>();
-            /// <summary>DECKS (2026-11-14): slabs on pillars with their top at the given height, open beneath (a mezzanine, belfry
-            /// ledges). Unlike <see cref="Raised"/> ground, the floor under them is still floor.</summary>
+
             public readonly List<(Rect r, float h)> Decks = new List<(Rect, float)>();
 
-            /// <summary>The height of the raised ground under a point (0 = the floor).</summary>
             public float RaisedAt(Vector3 p)
             {
                 float h = 0f;
@@ -86,36 +55,33 @@ namespace Deepbound.World
                 return h;
             }
 
-            /// <summary>A side room with one of the special features (treasury, beggar, proving bell, armoury, mirror).</summary>
             public bool Special => Feature == RoomFeature.Treasury || Feature == RoomFeature.Beggar || Feature == RoomFeature.Proving || Feature == RoomFeature.Armoury || Feature == RoomFeature.Mirror || Feature == RoomFeature.Oath || Feature == RoomFeature.Panoply || Feature == RoomFeature.Statues || Feature == RoomFeature.Chimes || Feature == RoomFeature.Mirrors || Feature == RoomFeature.Scales || Feature == RoomFeature.Draught || Feature == RoomFeature.Crucible;
             public Vector2Int Cell;
             public Vector3 Center;
-            /// <summary>Interior floor size in metres (x, z).</summary>
+
             public Vector2 Size;
             public float Height;
-            /// <summary>Door on each side, indexed by <see cref="Dir"/>: N, E, S, W.</summary>
+
             public readonly bool[] Doors = new bool[4];
             public readonly List<Vector3> EnemySpawns = new List<Vector3>();
-            /// <summary>Per-room seed for decoration, so props are stable but varied.</summary>
+
             public int DecorSeed;
 
             public RoomFeature Feature;
-            /// <summary>Feature positions: sarcophagi in a crypt, levers for a vault (in the room next door), the fountain.</summary>
+
             public readonly List<Vector3> FeatureSpots = new List<Vector3>();
-            /// <summary>For a chasm: the pit, as a rect in world XZ.</summary>
+
             public Rect Pit;
-            /// <summary>Gallery: the walls with a balcony (side indices). Sunken court / cistern: the low area, as a rect in world XZ.</summary>
+
             public readonly List<int> Balconies = new List<int>();
             public Rect Low;
-            /// <summary>For a vault: the room its levers are in (the one its door opens onto).</summary>
+
             public Room VaultHost;
 
-            /// <summary>Hollow wall sections: secret caches to smash open, or breaches enemies burst out of.</summary>
             public readonly List<WallHole> Holes = new List<WallHole>();
 
             public WallHole HoleOn(int side) => Holes.Find(h => h.Side == side);
 
-            /// <summary>The hole's centre on the room's inner wall face, at floor level.</summary>
             public Vector3 HoleFace(WallHole h)
             {
                 var d = Dir[h.Side];
@@ -124,7 +90,6 @@ namespace Deepbound.World
                 return Center + new Vector3(d.x, 0f, d.y) * half + (alongX ? new Vector3(h.Along, 0f, 0f) : new Vector3(0f, 0f, h.Along));
             }
 
-            /// <summary>Unit vector from the room out through the hole.</summary>
             public static Vector3 HoleOutward(WallHole h) => new Vector3(Dir[h.Side].x, 0f, Dir[h.Side].y);
 
             public Rect Bounds => new Rect(Center.x - Size.x / 2f, Center.z - Size.y / 2f, Size.x, Size.y);
@@ -138,22 +103,19 @@ namespace Deepbound.World
         public struct Link
         {
             public int A, B;
-            public int Dir; // from A to B
+            public int Dir;
         }
 
         public static readonly Vector2Int[] Dir = { new Vector2Int(0, 1), new Vector2Int(1, 0), new Vector2Int(0, -1), new Vector2Int(-1, 0) };
 
-        /// <summary>A pair of fire vents across a corridor. <see cref="Phase"/> offsets its beat.</summary>
         public struct FlameTrap { public Vector3 At, Across; public int Phase; }
         public readonly List<FlameTrap> FlameTraps = new List<FlameTrap>();
 
-        /// <summary>From floor two: sometimes a wandering peddler sets up in a side room (null if not).</summary>
         public Vector3? PeddlerSpot;
-        /// <summary>Cellar vaults: how far below their room, how big, how high.</summary>
+
         public const float CellarDrop = 14f, CellarSize = 9f, CellarHeight = 3.6f;
         public static float CellarChance(int depth) => depth < 1 ? 0f : 0.45f;
 
-        /// <summary>Down in a cellar vault (the chasm's fall check leaves you be).</summary>
         public bool InCellar(Vector3 p)
         {
             foreach (var r in Rooms)
@@ -180,11 +142,6 @@ namespace Deepbound.World
             get { var p = BossRoom.Center + new Vector3(0f, 0f, BossRoom.Size.y * 0.2f); p.y = BossRoom.RaisedAt(p); return p; }
         }
 
-        /// <summary>
-        /// Where the grave lift comes down after the guardian (2026-10-21, "fix off center elevator spawns"):
-        /// the middle of the arena, or of the dais when there is one. The boss's own spot is pushed toward
-        /// world +Z whatever door you came in by, so the lift used to land lopsided.
-        /// </summary>
         public Vector3 LiftSpot
         {
             get
@@ -200,7 +157,6 @@ namespace Deepbound.World
             }
         }
 
-        /// <summary>The start room's waystone (the Shrine of Return): the first wall with no door.</summary>
         public Vector3 WaystonePosition
         {
             get
@@ -217,12 +173,10 @@ namespace Deepbound.World
             }
         }
 
-        /// <summary>Where the merchant stands: against the start room's back wall, facing the centre.</summary>
         public Vector3 MerchantPosition
         {
             get
             {
-                // Put him on a side of the start room with no door, so he never blocks the way out.
                 for (int side = 0; side < 4; side++)
                 {
                     if (StartRoom.Doors[side]) continue;
@@ -233,14 +187,12 @@ namespace Deepbound.World
             }
         }
 
-        /// <summary>Player spawn points around the start room centre, one per slot.</summary>
         public Vector3 PlayerSpawnFor(ulong clientId)
         {
             float angle = clientId * Mathf.PI * 0.5f + Mathf.PI * 0.25f;
             return PlayerSpawn + new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle)) * 2f + Vector3.up * 0.1f;
         }
 
-        /// <summary>The midpoint of a corridor, on the floor.</summary>
         public Vector3 CorridorMidpoint(Link link)
         {
             var a = Rooms[link.A];
@@ -262,12 +214,10 @@ namespace Deepbound.World
             return null;
         }
 
-        /// <param name="depth">0 for the first floor. Deeper floors have longer paths and more enemies.</param>
         public static DungeonLayout Generate(int seed, int depth)
         {
             if (seed == TutorialSeed) return Tutorial();
-            // A self-avoiding walk can box itself in. Retrying with a derived seed keeps
-            // the result deterministic — every peer retries identically.
+
             for (int attempt = 0; attempt < 64; attempt++)
             {
                 var layout = TryGenerate(seed + attempt * 7919, depth);
@@ -282,16 +232,10 @@ namespace Deepbound.World
             return TryGenerate(0, 0);
         }
 
-        /// <summary>The Proving Path's seed: random and daily seeds never reach it (Random.Range's top is exclusive).</summary>
         public const int TutorialSeed = int.MaxValue;
-        /// <summary>The Proving Path: the start room, eight lesson rooms and the guardian's arena.</summary>
+
         public const int TutorialRooms = 10;
 
-        /// <summary>
-        /// THE PROVING PATH (2026-11-23): the tutorial floor. A straight line of rooms running north, the same on every peer,
-        /// with no features, side rooms, holes or traps. Each lesson room is empty until its lesson starts
-        /// (<see cref="DungeonDirector"/>, Tutorial).
-        /// </summary>
         public static DungeonLayout Tutorial()
         {
             var layout = new DungeonLayout { Depth = 0, Seed = TutorialSeed };
@@ -343,8 +287,6 @@ namespace Deepbound.World
 
                 if (i == mainLength) break;
 
-                // Prefer to keep heading roughly the same way — long winding paths feel
-                // like a descent; tight spirals feel like a maze.
                 var options = new List<int>();
                 for (int d = 0; d < 4; d++)
                 {
@@ -361,8 +303,6 @@ namespace Deepbound.World
 
             layout.BossRoom = previous;
 
-            // Side rooms: branch off main-path rooms (not start or boss) into free cells.
-            // More side rooms since 2026-10-20: they hold the special rooms (treasury, beggar, proving, armoury, mirror).
             int sideCount = 3 + (depth > 1 ? 1 : 0) + (depth > 4 ? 1 : 0);
             var mainRooms = new List<Room>(layout.Rooms);
             for (int s = 0, tries = 0; s < sideCount && tries < 50; tries++)
@@ -371,7 +311,7 @@ namespace Deepbound.World
                 int d = rng.Next(4);
                 var target = host.Cell + Dir[d];
                 if (occupied.ContainsKey(target)) continue;
-                // Never adjacent to the boss room: the boss should be reached, not stumbled into.
+
                 if (IsNeighbour(target, layout.BossRoom.Cell)) continue;
 
                 var side = AddRoom(layout, occupied, target, RoomKind.Side, rng);
@@ -380,7 +320,7 @@ namespace Deepbound.World
             }
 
             AssignFeatures(layout, rng);
-            // The guardian's arena: a shape and a quirk of its own (the first floor's always has ballistas).
+
             var arena = layout.BossRoom;
             if (arena != null)
             {
@@ -441,8 +381,7 @@ namespace Deepbound.World
         {
             AssignOtherFeatures(layout, rng);
             AssignHoles(layout, rng);
-            // Holes come after the features, so clear feature props (sarcophagi, shelves, pyres) off them now:
-            // a sarcophagus once stood across a secret cache's corner and ate the shots meant for it.
+
             foreach (var room in layout.Rooms)
             {
                 if (room.Holes.Count == 0 || room.FeatureSpots.Count <= 1) continue;
@@ -456,11 +395,6 @@ namespace Deepbound.World
             }
         }
 
-        /// <summary>
-        /// Secret caches (one or two a floor) and wall breaches (one, two from floor two on),
-        /// each on a side of a room with no door. Rooms sit in 40 m cells, so there is always
-        /// room for a niche behind the wall.
-        /// </summary>
         private static void AssignHoles(DungeonLayout layout, System.Random rng)
         {
             bool Eligible(Room r, bool breach) =>
@@ -475,7 +409,7 @@ namespace Deepbound.World
                 {
                     var room = pool[rng.Next(pool.Count)];
                     pool.Remove(room);
-                    // Doorless walls first; a long wall with a doorway can take one off to the side.
+
                     float doorClear = CorridorWidth / 2f + WallHole.Width / 2f + 2.4f;
                     var sides = new List<int>();
                     for (int s = 0; s < 4; s++)
@@ -492,7 +426,7 @@ namespace Deepbound.World
                     if (sides.Count == 0) continue;
                     int side = sides[rng.Next(sides.Count)];
                     float wallLen = (side == 0 || side == 2) ? room.Size.x : room.Size.y;
-                    // A gallery's balcony stairs land in the corners: keep the hole clear of them (it was sealed once).
+
                     float cornerKeep = room.Balconies.Count > 0 ? Mathf.Min(wallLen / 2f - 0.5f, BalconyDepth + 2.2f + 1.2f + WallHole.Width / 2f) : 3f;
                     float along = room.Doors[side]
                         ? (rng.Next(2) == 0 ? -1f : 1f) * Mathf.Lerp(doorClear, Mathf.Max(doorClear, wallLen / 2f - Mathf.Max(2.5f, cornerKeep)), (float)rng.NextDouble())
@@ -502,7 +436,6 @@ namespace Deepbound.World
                 }
             }
 
-            // More hidden rooms (2026-11-12, the user): two or three a floor, one more from the fourth floor.
             Place(false, 2 + (rng.NextDouble() < 0.5 ? 1 : 0) + (layout.Depth >= 3 ? 1 : 0));
             Place(true, layout.Depth >= 1 ? 2 : 1);
         }
@@ -510,7 +443,7 @@ namespace Deepbound.World
         private static void AssignOtherFeatures(DungeonLayout layout, System.Random rng)
         {
             var combat = layout.Rooms.FindAll(r => r.Kind == RoomKind.Combat);
-            // Shuffle so which room gets which feature varies by seed.
+
             for (int i = combat.Count - 1; i > 0; i--)
             {
                 int j = rng.Next(i + 1);
@@ -534,7 +467,7 @@ namespace Deepbound.World
                 chasm.Feature = RoomFeature.Chasm;
                 chasm.Size = new Vector2(Mathf.Max(chasm.Size.x, 26f), Mathf.Max(chasm.Size.y, 26f));
                 chasm.Height = 8f;
-                // The pit runs across the middle; bridges cross it on both axes.
+
                 float pw = chasm.Size.x * 0.55f, pd = chasm.Size.y * 0.5f;
                 chasm.Pit = new Rect(chasm.Center.x - pw / 2f, chasm.Center.z - pd / 2f, pw, pd);
             }
@@ -543,7 +476,7 @@ namespace Deepbound.World
             if (crypt != null)
             {
                 crypt.Feature = RoomFeature.Crypt;
-                // Sarcophagi along the walls, clear of the doorways.
+
                 for (int side = 0; side < 4; side++)
                 {
                     bool alongX = side == 0 || side == 2;
@@ -554,7 +487,7 @@ namespace Deepbound.World
                     {
                         if (crypt.Doors[side] && Mathf.Abs(t) < CorridorWidth + 1f) continue;
                         var spot = crypt.Center + new Vector3(d.x, 0f, d.y) * off + (alongX ? new Vector3(t, 0f, 0f) : new Vector3(0f, 0f, t));
-                        // Nor in front of a hollow wall, on any side (a sarcophagus once shielded a secret cache's corner).
+
                         bool blocks = false;
                         foreach (var hollow in crypt.Holes)
                             if (Vector3.Distance(crypt.HoleFace(hollow), spot) < WallHole.Width / 2f + 2.8f) blocks = true;
@@ -564,26 +497,23 @@ namespace Deepbound.World
                 }
             }
 
-            // Every other combat room gets one of the newer mechanics, shuffled, no repeats
-            // until all have been used.
             var extras = new List<RoomFeature> { RoomFeature.Gallery, RoomFeature.SunkenCourt, RoomFeature.Cistern, RoomFeature.Pendulums, RoomFeature.Ritual, RoomFeature.Library, RoomFeature.Pyre, RoomFeature.Gauntlet, RoomFeature.Terrace, RoomFeature.Ziggurat };
             extras.Add(RoomFeature.Mezzanine);
             extras.Add(RoomFeature.Belfry);
             extras.Add(RoomFeature.Undercroft);
             extras.Add(RoomFeature.Ruin);
             extras.Add(RoomFeature.Rampart);
-            // From the second floor, a hall with no light but the one you carry.
+
             if (layout.Depth >= 1) extras.Add(RoomFeature.Lightless);
             for (int i = extras.Count - 1; i > 0; i--)
             {
                 int j = rng.Next(i + 1);
                 (extras[i], extras[j]) = (extras[j], extras[i]);
             }
-            // VERTICALITY (2026-11-14, the user: "more verticality in general, think of dark and darker"): the first room dealt
-            // always has high ground (a mezzanine, a belfry, balconies, a terrace or a ziggurat).
+
             int hi = extras.FindIndex(f => f == RoomFeature.Mezzanine || f == RoomFeature.Belfry || f == RoomFeature.Undercroft || f == RoomFeature.Gallery || f == RoomFeature.Terrace || f == RoomFeature.Ziggurat);
             if (hi > 0) (extras[0], extras[hi]) = (extras[hi], extras[0]);
-            // Shots: these features dealt first.
+
             if (ForceFeatures != null)
                 for (int fi = ForceFeatures.Length - 1; fi >= 0; fi--) { extras.Remove(ForceFeatures[fi]); extras.Insert(0, ForceFeatures[fi]); }
             for (int k = 0; ; k++)
@@ -592,7 +522,7 @@ namespace Deepbound.World
                 if (room == null) break;
                 ShapeFeature(room, extras[k % extras.Count], rng);
             }
-            // PERCHES (2026-11-14): plain, ritual, pyre, lightless and pendulum rooms (nothing along their walls) sometimes get one or two archer perches in the corners.
+
             foreach (var pr in layout.Rooms)
                 if (pr.Kind == RoomKind.Combat && (pr.Feature == RoomFeature.None || pr.Feature == RoomFeature.Ritual || pr.Feature == RoomFeature.Pyre || pr.Feature == RoomFeature.Lightless || pr.Feature == RoomFeature.Pendulums) && rng.NextDouble() < PerchChance) AddPerches(pr, rng);
 
@@ -606,20 +536,18 @@ namespace Deepbound.World
                 }
                 return null;
             }
-            // The vault's levers sit in the room its door opens onto — never the boss arena,
-            // where pulling them would seal you in with the boss.
+
             var vault = sides.Find(r => HostOf(r) != null && HostOf(r).Kind != RoomKind.Boss);
             if (vault != null)
             {
                 vault.Feature = RoomFeature.Vault;
                 vault.VaultHost = HostOf(vault);
-                // Three levers spread around the host room's walls.
+
                 var host = vault.VaultHost;
                 if (host != null)
                 {
                     for (int side = 0, placed = 0; side < 4 && placed < 3; side++)
                     {
-                        // Mid-wall, or off to one side of a doorway.
                         var d = Dir[side];
                         bool alongX = side == 0 || side == 2;
                         float off = (alongX ? host.Size.y : host.Size.x) / 2f - 0.6f;
@@ -638,13 +566,11 @@ namespace Deepbound.World
         }
 
         public const float BalconyHeight = 2.8f, BalconyDepth = 3.2f, SunkenDepth = 1.8f, CisternDepth = 0.6f, TerraceHeight = 1.8f, ZigguratStep = 0.8f;
-        /// <summary>Deck heights: a mezzanine over a blank wall, one that must clear a doorway, the belfry's two ledges.</summary>
-        /// <summary>Shots and tests: the combat-room features to deal first (null = by the seed).</summary>
+
         public static RoomFeature[] ForceFeatures;
         public const float RampartHeight = 2f, RampartWidth = 2.6f;
         public const float UndercroftDepth = 4f, UndercroftRim = 2.6f, PerchHeight = 3f, PerchSize = 3.6f, PerchChance = 0.45f;
 
-        /// <summary>One or two corner perches (decks at <see cref="PerchHeight"/>) with a stair along the wall, in a room 22 m or more.</summary>
         private static void AddPerches(Room room, System.Random rng)
         {
             if (Mathf.Min(room.Size.x, room.Size.y) < 22f) return;
@@ -662,14 +588,13 @@ namespace Deepbound.World
         }
         public const float MezzanineLow = 3.6f, MezzanineHigh = 5.4f, BelfryLow = 5.4f, BelfryHigh = 10f, DeckThickness = 0.4f, LedgeDepth = 3.4f;
 
-        /// <summary>Give a combat room one of the newer mechanics, and the size and shape it needs.</summary>
         private static void ShapeFeature(Room room, RoomFeature feature, System.Random rng)
         {
             room.Feature = feature;
             switch (feature)
             {
                 case RoomFeature.Gallery:
-                    // Balconies along the two long walls; tall enough to stand under them.
+
                     room.Size = new Vector2(Mathf.Max(room.Size.x, 22f), Mathf.Max(room.Size.y, 22f));
                     room.Height = 9f;
                     bool longX = room.Size.x >= room.Size.y;
@@ -685,20 +610,19 @@ namespace Deepbound.World
                     room.Size = new Vector2(Mathf.Max(room.Size.x, 22f), Mathf.Max(room.Size.y, 22f));
                     room.Height = 7f;
                     room.Low = new Rect(room.Center.x - room.Size.x / 2f + 2.5f, room.Center.z - room.Size.y / 2f + 2.5f, room.Size.x - 5f, room.Size.y - 5f);
-                    // Stepping stones: dry ground in a loose grid across the water.
+
                     for (float x = -room.Size.x / 2f + 6f; x <= room.Size.x / 2f - 6f; x += 5.5f)
                         for (float z = -room.Size.y / 2f + 6f; z <= room.Size.y / 2f - 6f; z += 5.5f)
                             if (rng.NextDouble() < 0.6)
                                 room.FeatureSpots.Add(room.Center + new Vector3(x + (float)(rng.NextDouble() - 0.5) * 1.5f, 0f, z + (float)(rng.NextDouble() - 0.5) * 1.5f));
                     break;
                 case RoomFeature.Pendulums:
-                    // Blades swing across the room's long axis, spaced along it.
+
                     room.Size = new Vector2(Mathf.Max(room.Size.x, 20f), Mathf.Max(room.Size.y, 20f));
                     room.Height = 9f;
                     bool alongX = room.Size.x >= room.Size.y;
                     float len = alongX ? room.Size.x : room.Size.y;
-                    // How many, and whether they stand in a line or stagger to either side (a slalom), vary by room
-                    // (2026-11-12: every pendulum room was the same three blades in a row).
+
                     int n = Mathf.Clamp(Mathf.FloorToInt(len / (5.5f + (float)rng.NextDouble() * 2f)), 2, 5);
                     bool slalom = rng.NextDouble() < 0.5;
                     float acrossHalf = (alongX ? room.Size.y : room.Size.x) / 2f;
@@ -720,7 +644,6 @@ namespace Deepbound.World
                     break;
                 case RoomFeature.Lightless:
                 {
-                    // The torch just inside a doorway (off to one side of it), a chest at the far wall.
                     room.Height = 7f;
                     int door = 0;
                     for (int s = 0; s < 4; s++) if (room.Doors[s]) { door = s; break; }
@@ -734,14 +657,13 @@ namespace Deepbound.World
                     break;
                 }
                 case RoomFeature.Gauntlet:
-                    // Long and narrow-ish: the wave runs down the long axis.
+
                     if (room.Size.x >= room.Size.y) room.Size = new Vector2(Mathf.Max(room.Size.x, 26f), Mathf.Clamp(room.Size.y, 14f, 20f));
                     else room.Size = new Vector2(Mathf.Clamp(room.Size.x, 14f, 20f), Mathf.Max(room.Size.y, 26f));
                     room.Height = 7f;
                     break;
                 case RoomFeature.Terrace:
                 {
-                    // A raised stone terrace along one doorless wall, with two ramps and a parapet.
                     room.Size = new Vector2(Mathf.Max(room.Size.x, 24f), Mathf.Max(room.Size.y, 24f));
                     room.Height = 10f;
                     int side = -1;
@@ -766,7 +688,6 @@ namespace Deepbound.World
                 }
                 case RoomFeature.Ziggurat:
                 {
-                    // A stepped mound in the middle: three tiers with ramps that alternate sides.
                     room.Size = new Vector2(Mathf.Max(room.Size.x, 26f), Mathf.Max(room.Size.y, 26f));
                     room.Height = 10f;
                     float m = Mathf.Min(room.Size.x, room.Size.y);
@@ -783,13 +704,11 @@ namespace Deepbound.World
                 }
                 case RoomFeature.Mezzanine:
                 {
-                    // A MEZZANINE (2026-11-14): a stone deck on pillars over a third of the room and a stair up its face. Fight
-                    // under it or from it; its dead shoot down, and the bold ones jump.
                     room.Size = new Vector2(Mathf.Max(room.Size.x, 24f), Mathf.Max(room.Size.y, 24f));
                     room.Height = 10f;
                     int side = -1;
                     for (int sd = 0; sd < 4; sd++) if (!room.Doors[sd]) { side = sd; break; }
-                    // Over a blank wall it can sit low; over a doorway it must clear the arch.
+
                     float h = side >= 0 ? MezzanineLow : MezzanineHigh;
                     if (side < 0) side = rng.Next(4);
                     var dd = Dir[side];
@@ -801,7 +720,7 @@ namespace Deepbound.World
                     var mid = room.Center + outward * (span / 2f - depth / 2f);
                     var size = mAlongX ? new Vector2(wallLen, depth) : new Vector2(depth, wallLen);
                     room.Decks.Add((new Rect(mid.x - size.x / 2f, mid.z - size.y / 2f, size.x, size.y), h));
-                    // The stair comes straight at the deck's face, off to one side.
+
                     var face = room.Center + outward * (span / 2f - depth);
                     float s = rng.NextDouble() < 0.5 ? 1f : -1f;
                     var high = face + along * (s * wallLen * 0.3f) + Vector3.up * h;
@@ -810,8 +729,6 @@ namespace Deepbound.World
                 }
                 case RoomFeature.Ruin:
                 {
-                    // A RUIN (2026-11-15): the ceiling came down long ago. Broken blocks of masonry at every height from a step
-                    // to a wall: cover from bows, ledges to mantle onto (the dead cannot follow up; the bold ones leap down).
                     room.Size = new Vector2(Mathf.Max(room.Size.x, 24f), Mathf.Max(room.Size.y, 24f));
                     room.Height = 9f;
                     float[] heights = { 0.9f, 1.3f, 1.7f, 2f, 2f, 3.4f };
@@ -821,7 +738,7 @@ namespace Deepbound.World
                         float bw = 1.6f + (float)rng.NextDouble() * 2.6f, bd = 1.4f + (float)rng.NextDouble() * 2f;
                         if (rng.NextDouble() < 0.5) (bw, bd) = (bd, bw);
                         float bx = (float)(rng.NextDouble() - 0.5) * (room.Size.x - 5f - bw), bz = (float)(rng.NextDouble() - 0.5) * (room.Size.y - 5f - bd);
-                        // The ways in from the doors stay open.
+
                         if (Mathf.Abs(bx) < CorridorWidth / 2f + 0.8f + bw / 2f || Mathf.Abs(bz) < CorridorWidth / 2f + 0.8f + bd / 2f) continue;
                         var br = new Rect(room.Center.x + bx - bw / 2f, room.Center.z + bz - bd / 2f, bw, bd);
                         var grown = new Rect(br.x - 1.6f, br.y - 1.6f, br.width + 3.2f, br.height + 3.2f);
@@ -832,8 +749,6 @@ namespace Deepbound.World
                 }
                 case RoomFeature.Rampart:
                 {
-                    // A RAMPART (2026-11-15): a wall-walk two metres high across the hall, off the doors' line, with a gate gap
-                    // in the middle and a stair at each end on its far side. Bows hold the top; mantle it anywhere.
                     room.Size = new Vector2(Mathf.Max(room.Size.x, 24f), Mathf.Max(room.Size.y, 24f));
                     room.Height = 9f;
                     bool runsX = rng.NextDouble() < 0.5;
@@ -856,9 +771,6 @@ namespace Deepbound.World
                 }
                 case RoomFeature.Undercroft:
                 {
-                    // An UNDERCROFT (2026-11-14): the floor is gone - a walkable pit 4 m down across most of the room, stone
-                    // catwalks from each doorway to a landing in the middle, and two stairs down by the corners. Hold the walks
-                    // or drop in.
                     room.Size = new Vector2(Mathf.Max(room.Size.x, 24f), Mathf.Max(room.Size.y, 24f));
                     room.Height = 10f;
                     room.Low = new Rect(room.Center.x - room.Size.x / 2f + UndercroftRim, room.Center.z - room.Size.y / 2f + UndercroftRim, room.Size.x - UndercroftRim * 2f, room.Size.y - UndercroftRim * 2f);
@@ -873,7 +785,7 @@ namespace Deepbound.World
                         var dv = Dir[sd];
                         bool runsZ = dv.x == 0;
                         float halfSpan = (runsZ ? room.Size.y : room.Size.x) / 2f;
-                        float from = landing / 2f - 0.05f, to = halfSpan - 0.05f; // right to the wall: one flush walk from the doorway
+                        float from = landing / 2f - 0.05f, to = halfSpan - 0.05f;
                         var mc = uc + new Vector3(dv.x, 0f, dv.y) * ((from + to) / 2f);
                         float walkLen = to - from;
                         room.Decks.Add((runsZ ? new Rect(mc.x - walk / 2f, mc.z - walkLen / 2f, walk, walkLen) : new Rect(mc.x - walkLen / 2f, mc.z - walk / 2f, walkLen, walk), 0f));
@@ -887,8 +799,6 @@ namespace Deepbound.World
                 }
                 case RoomFeature.Belfry:
                 {
-                    // A BELFRY (2026-11-14): a tall shaft with a ledge high on one wall and a higher one across from it, a stair to
-                    // the first and a narrow bridge climbing between them. The bell-loft holds a chest; the fall is a long one.
                     room.Size = new Vector2(Mathf.Max(room.Size.x, 22f), Mathf.Max(room.Size.y, 22f));
                     room.Height = 15f;
                     bool bAlongX = rng.NextDouble() < 0.5;
@@ -908,13 +818,13 @@ namespace Deepbound.World
                     var faceA = room.Center + outA * (span / 2f - LedgeDepth);
                     var faceB = room.Center - outA * (span / 2f - LedgeDepth);
                     float s = rng.NextDouble() < 0.5 ? 1f : -1f;
-                    // The stair up to the low ledge, from the middle of the floor.
+
                     var highA = faceA + along * (s * wallLen * 0.28f) + Vector3.up * BelfryLow;
                     room.Ramps.Add((highA - outA * (BelfryLow / 0.58f) - Vector3.up * BelfryLow, highA, 2.6f));
-                    // The bridge across, at the other end of the ledges.
+
                     float bridgeAt = -s * wallLen * 0.22f;
                     room.Ramps.Add((faceA + along * bridgeAt + Vector3.up * BelfryLow, faceB + along * bridgeAt + Vector3.up * BelfryHigh, 2f));
-                    // The loft's chest, at the far end from where the bridge lands.
+
                     room.FeatureSpots.Add(room.Center - outA * (span / 2f - LedgeDepth / 2f - 0.3f) + along * (s * wallLen * 0.3f) + Vector3.up * BelfryHigh);
                     break;
                 }
@@ -930,10 +840,6 @@ namespace Deepbound.World
             }
         }
 
-        /// <summary>
-        /// A library's shelves (in plan, x/z): rows across the long axis with a central aisle, a
-        /// gap at each wall, and the cross aisle through the side doors left open.
-        /// </summary>
         public static List<Rect> LibraryShelves(Room room)
         {
             var list = new List<Rect>();
@@ -955,14 +861,11 @@ namespace Deepbound.World
             return list;
         }
 
-        /// <summary>Inside a sunken court's pit or a cistern's basin (in plan)?</summary>
         public static bool InLowArea(Room room, Vector3 p) =>
             (room.Feature == RoomFeature.SunkenCourt || room.Feature == RoomFeature.Cistern) && room.Low.Contains(new Vector2(p.x, p.z));
 
-        /// <summary>The pendulums swing across the long axis: true if that axis is X.</summary>
         public static bool PendulumsAlongX(Room room) => room.Size.x >= room.Size.y;
 
-        /// <summary>Is this spot in the flooded part of a cistern (and not up on a stepping stone)?</summary>
         public static bool InCisternWater(Room room, Vector3 p) =>
             room.Feature == RoomFeature.Cistern && room.Low.Contains(new Vector2(p.x, p.z)) && p.y < -0.15f;
 
@@ -972,8 +875,7 @@ namespace Deepbound.World
             {
                 if (room.Kind == RoomKind.Start || room.Kind == RoomKind.Boss) continue;
                 if (room.Peaceful) continue;
-                // Crypt dead come out of the sarcophagi; vaults, fountains and most special rooms are rewards
-                // (the treasury keeps its two guards; the proving room's dead come with the bell).
+
                 if (room.Feature == RoomFeature.Crypt || room.Feature == RoomFeature.Vault || room.Feature == RoomFeature.Fountain) continue;
                 if (room.Special && room.Feature != RoomFeature.Treasury) continue;
 
@@ -984,26 +886,25 @@ namespace Deepbound.World
                     float x = (float)(rng.NextDouble() - 0.5) * (room.Size.x - 4f);
                     float z = (float)(rng.NextDouble() - 0.5) * (room.Size.y - 4f);
                     var p = room.Center + new Vector3(x, 0.1f, z);
-                    // Never inside the pit, the pyre, or a bookshelf.
+
                     if (room.Feature == RoomFeature.Chasm && room.Pit.Contains(new Vector2(p.x, p.z), true)) continue;
                     if (room.Feature == RoomFeature.Pyre && Vector3.Distance(new Vector3(p.x, 0f, p.z), new Vector3(room.Center.x, 0f, room.Center.z)) < PyreFire.CoreRadius + 1.2f) continue;
                     if (room.Feature == RoomFeature.Library && LibraryShelves(room).Exists(r => { var g = r; g.xMin -= 0.6f; g.yMin -= 0.6f; g.xMax += 0.6f; g.yMax += 0.6f; return g.Contains(new Vector2(p.x, p.z)); })) continue;
                     if (room.Feature == RoomFeature.SunkenCourt && room.Low.Contains(new Vector2(p.x, p.z))) p.y = -SunkenDepth + 0.1f;
                     if (room.Feature == RoomFeature.Cistern && room.Low.Contains(new Vector2(p.x, p.z))) p.y = -CisternDepth + 0.1f;
                     if (room.Feature == RoomFeature.Undercroft && room.Low.Contains(new Vector2(p.x, p.z))) p.y = -UndercroftDepth + 0.1f;
-                    // A ruin's blocks are islands: nobody is posted on one by chance (they could not walk off it).
+
                     if (room.Feature == RoomFeature.Ruin && room.Raised.Exists(o => { var g = o.r; g.xMin -= 0.7f; g.yMin -= 0.7f; g.xMax += 0.7f; g.yMax += 0.7f; return g.Contains(new Vector2(p.x, p.z)); })) continue;
                     room.EnemySpawns.Add(p);
                     i++;
                 }
-                // A terrace or ziggurat posts a couple of its dead up high.
+
                 foreach (var (rr, top) in room.Raised)
                 {
-                    // A ruin: only on blocks tall enough to leap down from and wide enough to stand on, and only now and then.
                     if (room.Feature == RoomFeature.Ruin && (top < 1.7f || top > 2.5f || Mathf.Min(rr.width, rr.height) < 1.8f || rng.NextDouble() < 0.6)) continue;
                     if (rng.NextDouble() < 0.7) room.EnemySpawns.Add(new Vector3(rr.center.x, top + 0.1f, rr.center.y));
                 }
-                // A gallery posts some of its dead up on the balconies.
+
                 foreach (int side in room.Balconies)
                 {
                     var d = Dir[side];
@@ -1012,7 +913,7 @@ namespace Deepbound.World
                     float t = (float)(rng.NextDouble() - 0.5) * (alongX ? room.Size.x : room.Size.y) * 0.4f;
                     room.EnemySpawns.Add(room.Center + new Vector3(d.x, 0f, d.y) * off + (alongX ? new Vector3(t, 0f, 0f) : new Vector3(0f, 0f, t)) + Vector3.up * (BalconyHeight + 0.1f));
                 }
-                // Decks and ledges post their own up high, one or two each (the director arms most of them with bows).
+
                 foreach (var (dr, top) in room.Decks)
                 {
                     int n = 1 + (rng.NextDouble() < 0.6 ? 1 : 0);
@@ -1026,14 +927,10 @@ namespace Deepbound.World
             }
         }
 
-        /// <summary>
-        /// The special side rooms (2026-10-20): after the vault, the fountain and the peddler have their
-        /// rooms, most of the rest become a treasury, beggar, proving room, armoury or mirror (no repeats).
-        /// </summary>
         private static void AssignSpecialRooms(DungeonLayout layout, System.Random rng)
         {
             var sides = layout.Rooms.FindAll(r => r.Kind == RoomKind.Side);
-            // The Panoply first (floors 2, 5, 8): the stand at the back, its guard halfway in.
+
             if (DungeonDirector.PanoplyFloor(layout.Depth))
                 foreach (var side in sides)
                 {
@@ -1047,9 +944,9 @@ namespace Deepbound.World
                     side.FeatureSpots.Add(side.Center + pback * (pto * 0.2f));
                     break;
                 }
-            // ...the rest: most become one of the special rooms, no repeats a floor.
+
             var specials = new List<RoomFeature> { RoomFeature.Treasury, RoomFeature.Beggar, RoomFeature.Proving, RoomFeature.Armoury, RoomFeature.Mirror, RoomFeature.Oath, RoomFeature.Statues, RoomFeature.Chimes, RoomFeature.Crucible };
-            // The light-beam room belongs to the deeper, holier acts (the Throne on).
+
             if (DungeonDirector.Act(layout.Depth) >= 2) specials.Add(RoomFeature.Mirrors);
             if (DungeonDirector.Act(layout.Depth) >= 1) specials.Add(RoomFeature.Scales);
             for (int i = specials.Count - 1; i > 0; i--) { int j = rng.Next(i + 1); (specials[i], specials[j]) = (specials[j], specials[i]); }
@@ -1065,14 +962,12 @@ namespace Deepbound.World
                 float toBack = (entry == 0 || entry == 2 ? side.Size.y : side.Size.x) / 2f - 2.2f;
                 if (side.Feature == RoomFeature.Treasury)
                 {
-                    // Three pedestals in a shallow arc before the back wall.
                     var across = new Vector3(-back.z, 0f, back.x);
                     for (int k = -1; k <= 1; k++) side.FeatureSpots.Add(side.Center + back * (toBack - Mathf.Abs(k) * 1.2f) + across * (k * 2.6f));
                 }
                 else if (side.Feature == RoomFeature.Proving) side.FeatureSpots.Add(side.Center + back * toBack * 0.4f);
                 else if (side.Feature == RoomFeature.Oath)
                 {
-                    // Two plates at either side, the Oath Stone by the door, the coffer at the back.
                     var across = new Vector3(-back.z, 0f, back.x);
                     float halfAcross = (entry == 0 || entry == 2 ? side.Size.x : side.Size.y) / 2f - 2.4f;
                     side.FeatureSpots.Add(side.Center + across * halfAcross + back * 0.5f);
@@ -1082,20 +977,16 @@ namespace Deepbound.World
                 }
                 else if (side.Feature == RoomFeature.Statues || side.Feature == RoomFeature.Chimes || side.Feature == RoomFeature.Mirrors || side.Feature == RoomFeature.Scales)
                 {
-                    // The coffer at the back; the puzzle's middle a little toward the door so the back plate's bell clears it.
                     side.FeatureSpots.Add(side.Center + back * toBack);
                     side.FeatureSpots.Add(side.Center - back * 1.2f);
                 }
                 else side.FeatureSpots.Add(side.Center + back * toBack);
             }
-            // The Draught (2026-11-12): a flask on the floor that raises one stat for the run. It takes a plain side room the
-            // specials left (its own seeded roll, so the specials' draw is untouched: taking a special's place squeezed the
-            // chime room out of 40 seeds entirely). Hidden caches hold one now and then too.
-            // A cellar vault under one plain side room (its own roll; tests always get one).
+
             {
                 var crng = new System.Random(layout.Seed ^ 0xce11);
                 var cand = sides.FindAll(r => r.Feature == RoomFeature.None && !r.Peaceful && r.Holes.Count == 0);
-                // Every side room taken by a feature (tests fill them all): any side room whose floor is not a puzzle or a vault.
+
                 if (cand.Count == 0) cand = sides.FindAll(r => !r.Peaceful && r.Holes.Count == 0 && r.Feature != RoomFeature.Vault && r.Feature != RoomFeature.Mirrors
                     && r.Feature != RoomFeature.Statues && r.Feature != RoomFeature.Chimes && r.Feature != RoomFeature.Scales && r.Feature != RoomFeature.Oath);
                 if (cand.Count > 0 && (DungeonDirector.TestMode || crng.NextDouble() < CellarChance(layout.Depth)))
@@ -1126,7 +1017,7 @@ namespace Deepbound.World
             var pool = layout.Rooms.FindAll(r => r.Kind == RoomKind.Side && r.Feature == RoomFeature.None);
             if (pool.Count == 0) return;
             var room = pool[rng.Next(pool.Count)];
-            // Against a doorless side wall (the chest has the back wall), facing the middle.
+
             int entry = 0;
             for (int s = 0; s < 4; s++) if (room.Doors[s]) entry = s;
             int back = (entry + 2) % 4;
@@ -1139,14 +1030,13 @@ namespace Deepbound.World
                 var spot = room.Center + outward * (half - 1.4f) + new Vector3(-outward.z, 0f, outward.x) * 2.5f;
                 layout.PeddlerSpot = spot;
                 layout.PeddlerFacing = -outward;
-                // The peddler trades in peace: nothing hunts in his room.
+
                 room.Peaceful = true;
                 room.EnemySpawns.Clear();
                 return;
             }
         }
 
-        /// <summary>Long corridors sometimes carry a flame trap, a third of the way along (clear of spike traps at the middle).</summary>
         private static void PlaceFlameTraps(DungeonLayout layout, System.Random rng)
         {
             int n = 0;

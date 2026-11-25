@@ -7,13 +7,6 @@ using UnityEngine;
 
 namespace Deepbound.Enemies
 {
-    /// <summary>
-    /// SHARED DOOM (2026-10-29, co-op content): with two or more standing, every boss now and then lays a doom on one
-    /// player - a dark ring that follows them for a few seconds and then bursts. Its weight is split between everyone
-    /// standing inside it: alone the marked one takes all of it, with a friend beside them each takes half. The party
-    /// runs TO the marked player instead of away. Never cast on a lone player (solo play is unchanged), never in tests
-    /// unless a test asks.
-    /// </summary>
     public abstract partial class BossBrain
     {
         public const float DoomRadius = 3f, DoomTellSeconds = 3.2f, DoomWeight = 1.8f;
@@ -22,7 +15,6 @@ namespace Deepbound.Enemies
         private float nextDoom = -1f;
         private ulong lastDoomed = ulong.MaxValue;
 
-        /// <summary>Tests: dooms laid, and how many shared the last one.</summary>
         public int DoomsCast { get; private set; }
         public static int LastDoomShared { get; private set; }
 
@@ -35,7 +27,6 @@ namespace Deepbound.Enemies
             ServerDoomNow(null);
         }
 
-        /// <summary>Server: lay a doom now (on <paramref name="on"/>, or a standing player not doomed last time).</summary>
         public void ServerDoomNow(PlayerLife on, float tell = -1f)
         {
             if (on == null)
@@ -62,8 +53,6 @@ namespace Deepbound.Enemies
             DoomBurstRpc(at, (byte)n);
         }
 
-        /// <summary>Server: burst a doom of <paramref name="total"/> damage at a spot, split evenly between the standing players
-        /// inside <see cref="DoomRadius"/>. Returns how many shared it.</summary>
         public static int ServerResolveDoom(Vector3 at, float total, ulong by)
         {
             var inside = new List<PlayerLife>();

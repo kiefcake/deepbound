@@ -6,18 +6,13 @@ using UnityEngine;
 
 namespace Deepbound.World
 {
-    /// <summary>
-    /// The bar of the Gutted Lantern, the camp's tavern (2026-11-01): F at the counter buys a horn of mead from Marta the
-    /// alewife. Each one makes you a level drunker (Tipsy, Merry, Sloshed: <see cref="PlayerDebuffs.ServerDrink"/>) -
-    /// a little braver in a fight, and the world will not hold still.
-    /// </summary>
     public class TavernKeep : Interactable
     {
         public const int MeadPrice = 8;
-        /// <summary>A glass of milk (2026-11-20, the user): sobers you up at once.</summary>
+
         public const int MilkPrice = 4;
         public static TavernKeep Instance { get; private set; }
-        /// <summary>Where Marta stands, behind the bar.</summary>
+
         public Vector3 MartaAt => transform.position - transform.forward * 0.9f;
         private float busyUntil;
 
@@ -42,8 +37,7 @@ namespace Deepbound.World
             DrinkFxRpc(who.NetworkObject, d.Drunk);
         }
 
-        /// <summary>Any peer -> server: buy a glass of milk; every level of drink is gone at once.</summary>
-        [Rpc(SendTo.Server, RequireOwnership = false)]
+        [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
         public void MilkRpc(NetworkObjectReference whoRef)
         {
             if (!whoRef.TryGet(out var obj) || !obj.TryGetComponent<PlayerProgress>(out var who)) return;
@@ -82,7 +76,7 @@ namespace Deepbound.World
         {
             base.OnNetworkSpawn();
             Instance = this;
-            // Marta behind her counter, a horn on the bar.
+
             Props.Townsfolk(transform, transform.position - transform.forward * 0.9f, transform.position + transform.forward * 3f, Props.Folk.Barkeep);
             MeshKit.Part(transform, "Horn", MeshKit.Lathe("meadHorn", new[] { new Vector2(0.045f, 0f), new Vector2(0.06f, 0.12f), new Vector2(0.07f, 0.2f) }, 10, false), Mat.Bone,
                 new Vector3(0.25f, 1.12f, -0.2f), new Vector3(0f, 0f, 10f));

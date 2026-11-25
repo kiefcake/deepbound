@@ -11,28 +11,11 @@ using UnityEngine.InputSystem;
 
 namespace Deepbound.Player
 {
-    /// <summary>
-    /// The Flagellant (2026-10-20): a penitent bruiser who spends his own blood for power.
-    ///
-    /// <list type="bullet">
-    /// <item><b>Passive — Mortification.</b> The more wounded you are, the harder you hit (up to
-    ///   +40% near death), and every hit heals you for a share of it (Penance).</item>
-    /// <item><b>LMB — Flail.</b> A heavy swinging arc; every third swing is an overhead CRASH that
-    ///   hits harder and bursts round its landing.</item>
-    /// <item><b>RMB — Scourge.</b> Lash yourself: lose a tenth of your health, gain Fervor and
-    ///   ZEAL (faster, harder swings) for a few seconds.</item>
-    /// <item><b>Q — Chains of Penance.</b> Hurl a chain at the enemy under the crosshair and drag
-    ///   it to you, stunned. Too heavy to drag (bosses, brutes): it drags you to them.</item>
-    /// <item><b>E — Penitent Leap.</b> Leap at the crosshair and crash down: a ring of damage and a
-    ///   stun, fed by every point of Fervor you hold.</item>
-    /// </list>
-    /// Fervor (the resource) builds from landing hits and from being hurt, and drains when you stop.
-    /// </summary>
     [RequireComponent(typeof(Health))]
     public class FlagellantKit : NetworkBehaviour, IClassKit
     {
         public const float SwingWindup = 0.2f, SwingStrike = 0.14f, SwingRecovery = 0.36f;
-        public const float SwingRange = 2.6f, SwingArc = 120f, SwingDamage = 22f; // 27 -> 22 (2026-10-20 class DPS table: it out-hit the Rogue from the front at full health)
+        public const float SwingRange = 2.6f, SwingArc = 120f, SwingDamage = 22f;
         public const int CrashEvery = 3;
         public const float CrashMultiplier = 1.6f, CrashRadius = 1.7f;
         public const float ScourgeCooldown = 6f, ScourgeCost = 0.1f, ScourgeFervor = 30f, ZealSeconds = 5f, ZealAttackTime = 0.7f, ZealDamage = 1.15f;
@@ -43,11 +26,10 @@ namespace Deepbound.Player
 
         public float AttackRange => SwingRange * (progress != null ? progress.ReachMultiplier : 1f);
 
-        /// <summary>Server-written: Fervor (synced so the owner's HUD shows it).</summary>
         public readonly NetworkVariable<float> Fervor = new NetworkVariable<float>();
-        /// <summary>Server time Zeal ends.</summary>
+
         public readonly NetworkVariable<double> ZealEnds = new NetworkVariable<double>();
-        /// <summary>Server time Martyrdom (the ultimate) ends.</summary>
+
         public readonly NetworkVariable<double> MartyrEnds = new NetworkVariable<double>();
 
         private Health health;
@@ -76,11 +58,9 @@ namespace Deepbound.Player
         public bool Zealous => ZealEnds.Value > Now;
         public bool Martyr => MartyrEnds.Value > Now;
 
-        // ---- IClassKit ----
-
         public ClassId Class => ClassId.Flagellant;
         public string ResourceName => "Fervor";
-        /// <summary>Fervor in a few words: what it adds now, and that the Leap spends it (2026-11-22, "explain flagellant bar").</summary>
+
         public string ResourceHint => Fervor.Value < 1f ? "Builds from dealing and taking damage" : "+" + Mathf.RoundToInt(Fervor.Value / 5f) + "% damage  ·  Spent by Penitent Leap";
         public Color ResourceColor => new Color(0.9f, 0.2f, 0.15f);
         public float Resource => Fervor.Value;
@@ -109,8 +89,6 @@ namespace Deepbound.Player
             if (IsServer) Health.ServerAnyDamaged -= OnAnyDamaged;
         }
 
-        /// <summary>The Red Litany takes a fifth off every blow while it whirls (it used to be "cannot fall": the user
-        /// found it a panic button, 2026-11-20).</summary>
         private float ModifyIncoming(float dmg, Vector3 from)
         {
             if (!Active || !Martyr) return dmg;
@@ -120,13 +98,9 @@ namespace Deepbound.Player
         private void OnAnyDamaged(Health t, float dealt, ulong from)
         {
             if (this == null || !Active || dealt <= 0f) return;
-            // Pain feeds Fervor.
+
             if (t == health) Fervor.Value = Mathf.Min(FervorMax, Fervor.Value + dealt / Mathf.Max(1f, health.Max.Value) * 60f);
         }
-
-        // ==================================================================
-        // Owner
-        // ==================================================================
 
         private void Update()
         {
@@ -140,7 +114,6 @@ namespace Deepbound.Player
             var mouse = Mouse.current;
             var keyboard = Keyboard.current;
 
-            // --- LMB: Flail ---
             if (canAct && UI.Binds.PrimaryHeld && Time.time >= swingBusyUntil)
             {
                 side = -side;
@@ -150,7 +123,7 @@ namespace Deepbound.Player
                 swingBusyUntil = Time.time + SwingWindup + SwingStrike + SwingRecovery * speed;
                 player.ViewModelSwing(SwingWindup, SwingStrike + SwingRecovery * speed, side);
                 Sfx.Play(Sound.Swing, transform.position, 0.7f, 0.75f);
-                // Weave: a foe just out of reach is stepped to with the swing (MeleeStep).
+
                 MeleeStep.TryStepIn(motor, transform, player.AimForward, SwingRange * progress.ReachMultiplier, 10f);
             }
             if (swingPending && Time.time >= swingStrikeAt)
@@ -159,7 +132,6 @@ namespace Deepbound.Player
                 SwingRpc(player.AimOrigin, player.AimForward, side);
             }
 
-            // --- RMB: Scourge ---
             if (canAct && UI.Binds.SecondaryDown && Time.time >= scourgeReadyAt && health.Fraction >= 0.25f)
             {
                 scourgeReadyAt = Time.time + ScourgeCooldown;
@@ -167,7 +139,6 @@ namespace Deepbound.Player
                 ScourgeRpc();
             }
 
-            // --- Q: Chains of Penance ---
             if (canAct && UI.Binds.Down(UI.Bind.AbilityQ) && Time.time >= chainReadyAt)
             {
                 var target = AimedEnemy(ChainRange * progress.RangeMultiplier);
@@ -180,7 +151,6 @@ namespace Deepbound.Player
                 }
             }
 
-            // --- E: Penitent Leap ---
             bool freeLeap = Time.time < freeLeapUntil;
             if (canAct && UI.Binds.Down(UI.Bind.AbilityE) && (Time.time >= leapReadyAt || freeLeap))
             {
@@ -188,14 +158,14 @@ namespace Deepbound.Player
                 else
                 {
                     leapReadyAt = Time.time + LeapCooldown * progress.CooldownFor(AbilitySlot.E);
-                    // Second Leap (rank 3 A): another, free, within a few seconds of landing.
+
                     if (progress.A(AbilitySlot.E, 2)) freeLeapUntil = Time.time + 0.6f + SecondLeapWindow;
                 }
                 var to = LeapTarget();
                 var flat = to - transform.position;
                 flat.y = 0f;
                 float dist = Mathf.Min(flat.magnitude, LeapRange);
-                // Impulse decays at 40 m/s^2, so this carries the leap about `dist` metres.
+
                 motor.AddImpulse(flat.normalized * Mathf.Sqrt(2f * 40f * Mathf.Max(1f, dist)) + Vector3.up * 7.5f);
                 player.ViewModelBash();
                 LeapRpc();
@@ -226,11 +196,6 @@ namespace Deepbound.Player
             return player.TryAimFloor(LeapRange, out var spot) ? spot : transform.position + transform.forward * LeapRange;
         }
 
-        // ==================================================================
-        // Server
-        // ==================================================================
-
-        /// <summary>Mortification, Fervor, Zeal and Martyrdom on top of ATT.</summary>
         private float DamageMultiplier
         {
             get
@@ -265,15 +230,14 @@ namespace Deepbound.Player
             ServerSwing(origin, forward, swingSide);
         }
 
-        /// <summary>Server: one flail swing (the third is a crash). Public for the smoke test.</summary>
         public void ServerSwing(Vector3 origin, Vector3 forward, float swingSide)
         {
             if (Vector3.Distance(origin, transform.position + Vector3.up * 1.5f) > 2f) origin = transform.position + Vector3.up * 1.5f;
             swings++;
-            // Fanatic: the crash comes every other swing.
+
             bool crash = swings % (progress.OnPath(1) ? 2 : CrashEvery) == 0;
             float range = SwingRange * progress.ReachMultiplier;
-            // Penitent: the flail whirls all round you, a little lighter.
+
             bool whirl = progress.OnPath(2);
             float dmg = SwingDamage * DamageMultiplier * (crash ? CrashMultiplier : 1f) * (whirl && !crash ? WhirlShare : 1f);
             float total = 0f;
@@ -288,16 +252,15 @@ namespace Deepbound.Player
             Vector3 crashAt = transform.position + Flat(forward) * (range * 0.75f);
             if (crash)
             {
-                // The overhead crash bursts where it lands: Zealots' wider, and stunning at mastery.
                 float radius = CrashRadius;
-                // Fanatic: the ground burns where it lands.
+
                 if (progress.OnPath(1)) StartCoroutine(BurnGround(crashAt));
                 foreach (var target in CombatQuery.Circle(crashAt, radius, Team.Enemies))
                 {
                     if (!hit.Contains(target)) total += target.Tag("FlagellantKit").ServerDamage(dmg * 0.6f, crashAt, NetworkObjectId);
                     if (progress.Mastered(1) && target.TryGetComponent<ICrowdControl>(out var cc)) cc.ServerStun(0.8f);
                 }
-                // PLAGUE CRASH (2026-11-22): a crash on a blighted enemy spreads the Plague Doctor's rot round the landing.
+
                 var struck = new List<Health>(hit);
                 struck.AddRange(CombatQuery.Circle(crashAt, radius, Team.Enemies));
                 Classes.Combos.ServerPlagueCrash(struck, crashAt, radius + 0.8f, progress);
@@ -312,7 +275,6 @@ namespace Deepbound.Player
         [Rpc(SendTo.Server)]
         private void ScourgeRpc() => ServerScourge();
 
-        /// <summary>Server: lash yourself for Fervor and Zeal. Public for the smoke test.</summary>
         public void ServerScourge()
         {
             if (!life.CanAct || health.Fraction < 0.25f) return;
@@ -321,7 +283,7 @@ namespace Deepbound.Player
             Fervor.Value = Mathf.Min(FervorMax, Fervor.Value + ScourgeFervor);
             ZealEnds.Value = Now + ZealSeconds;
             lastHitAt = Time.time;
-            // Penitent mastery: the blood you shed mends the faithful round you.
+
             if (progress.Mastered(2))
                 foreach (var ally in PlayerLife.All)
                     if (ally != null && ally != life && !ally.Downed.Value && Vector3.Distance(ally.transform.position, transform.position) < 6f)
@@ -336,8 +298,6 @@ namespace Deepbound.Player
             ServerChain(target);
         }
 
-        /// <summary>Server: the chain. Drags the target to you, or you to it if it is too heavy. Public for the smoke test.</summary>
-        // ---- Ysolde's options for Chains of Penance and Penitent Leap (2026-11-20) ----
         public const float SecondLeapWindow = 3f, PullRadius = 8f, QuakeRadius = 6f, BrandSeconds = 4f, DoubleChainRange = 8f;
         private float freeLeapUntil;
 
@@ -354,12 +314,12 @@ namespace Deepbound.Player
             float haulFor = Enemies.EnemyBrain.HaulSeconds(Vector3.Distance(target.transform.position, spot));
             bool dragged = target.TryGetComponent<Enemies.EnemyBrain>(out var brain) && brain.ServerYank(spot, Art.ChainLink.ReachSeconds);
             target.Tag("FlagellantKit").ServerDamage(ChainDamage * DamageMultiplier * potency, from, NetworkObjectId);
-            // Shackled (rank 4 A): held twice as long, and marked.
+
             bool shackle = progress.A(AbilitySlot.Q, 3);
             if (target.TryGetComponent<ICrowdControl>(out var cc)) cc.ServerStun(ChainStun * (dragged ? 1f : 0.6f) * (shackle ? 2f : 1f) + (dragged ? haulFor + Art.ChainLink.ReachSeconds : 0f));
             if (shackle) target.ServerMark(5f);
             ulong me = NetworkObjectId;
-            // Dragnet (rank 2 A): everything near the target comes along too.
+
             if (progress.A(AbilitySlot.Q, 1))
                 foreach (var other in CombatQuery.Circle(startAt, 3f, Team.Enemies).ToArray())
                     if (other != target && other.TryGetComponent<Enemies.EnemyBrain>(out var ob))
@@ -367,21 +327,21 @@ namespace Deepbound.Player
                         ob.ServerYank(spot + Random.insideUnitSphere.normalized * 1.2f, Art.ChainLink.ReachSeconds);
                         AbilityKit.Stun(other, ChainStun * 0.7f + haulFor);
                     }
-            // Lash (rank 2 B): the chain whips what lies along its line.
+
             if (progress.B(AbilitySlot.Q, 1))
                 foreach (var h in AbilityKit.Lane(from, startAt - from, Vector3.Distance(from, startAt), 1f))
                     if (h != target) { h.Tag("Lash").ServerDamage(ChainDamage * DamageMultiplier * potency, from, me); AbilityKit.Stun(h, 0.4f); }
-            // Hooked (rank 3 A): it bleeds into you.
+
             if (progress.A(AbilitySlot.Q, 2))
                 AbilityKit.Bleed(this, target, ChainDamage * DamageMultiplier * 0.8f, 4f, me, "Hooked", d => { if (health.IsAlive) health.ServerHeal(d); });
-            // Chain Sweep (rank 3 B): haul it in with a sweep round you.
+
             if (progress.B(AbilitySlot.Q, 2) && dragged)
                 AbilityKit.Later(this, Art.ChainLink.ReachSeconds + haulFor, () =>
                 {
                     AbilityKit.Blast(transform.position, 2.5f, ChainDamage * DamageMultiplier * 1.2f, me, "Chain Sweep", h => AbilityKit.Stun(h, 0.6f));
                     progress.AbilityBurstRpc(transform.position, 2.5f, PlayerProgress.FxKind.Blood);
                 });
-            // Reel-In Crash (rank 4 B): dragged to something heavy, you land in a crash.
+
             if (progress.B(AbilitySlot.Q, 3) && !dragged)
                 AbilityKit.Later(this, 0.55f, () =>
                 {
@@ -389,13 +349,13 @@ namespace Deepbound.Player
                     AfterHits(AbilityKit.Blast(transform.position + Flat(target != null ? target.transform.position - transform.position : transform.forward) * 1.2f, CrashRadius * 1.4f, dmg, me, "Reel-In Crash", h => AbilityKit.Stun(h, 0.6f)).Count > 0 ? dmg : 0f);
                     progress.AbilityBurstRpc(transform.position, CrashRadius * 1.4f, PlayerProgress.FxKind.Blood);
                 });
-            // Penance (rank 5 B): every one you drag mends you and feeds the Fervor.
+
             if (progress.B(AbilitySlot.Q, 4)) { health.ServerHeal(health.Max.Value * 0.06f); Fervor.Value = Mathf.Min(FervorMax, Fervor.Value + 20f); }
             Fervor.Value = Mathf.Min(FervorMax, Fervor.Value + FervorPerHit);
             lastHitAt = Time.time;
             ChainFxRpc(transform.position + Vector3.up * 1.3f, target.Center, dragged, target.NetworkObjectId, dragged ? haulFor : 0.2f);
             if (!dragged && first) DragMeRpc(target.transform.position - toMe * 1.8f);
-            // Double Chain (rank 5 A): it leaps on to a second foe.
+
             if (first && progress.A(AbilitySlot.Q, 4))
             {
                 var next = AbilityKit.Nearest(startAt, DoubleChainRange, new[] { target });
@@ -420,7 +380,6 @@ namespace Deepbound.Player
             StartCoroutine(LeapCrash());
         }
 
-        /// <summary>The leap's flight, drawn for everyone: a trail of blood-red light behind the body, cracks where he left the floor.</summary>
         [Rpc(SendTo.ClientsAndHost)]
         private void LeapTakeoffFxRpc()
         {
@@ -434,7 +393,6 @@ namespace Deepbound.Player
             ServerLeapCrash(transform.position);
         }
 
-        /// <summary>Server: the landing. Spends every point of Fervor for damage. Public for the smoke test.</summary>
         public void ServerLeapCrash(Vector3 at)
         {
             float potency = progress.Potency(AbilitySlot.E);
@@ -442,14 +400,14 @@ namespace Deepbound.Player
             Fervor.Value = 0f;
             float dmg = LeapDamage * DamageMultiplier * potency * (1f + fervor / 100f);
             ulong me = NetworkObjectId;
-            // Crater Pull (rank 4 A): the dead near are dragged in first.
+
             if (progress.A(AbilitySlot.E, 3))
             {
                 foreach (var h in CombatQuery.Circle(at, PullRadius, Team.Enemies).ToArray())
                     if (!AbilityKit.IsBoss(h) && h.TryGetComponent<Enemies.EnemyBrain>(out var pb)) pb.ServerYank(at + Random.insideUnitSphere.normalized * 1.3f);
                 progress.AbilityBurstRpc(at, PullRadius * 0.5f, PlayerProgress.FxKind.Shadow);
             }
-            // Martyr's Fall (rank 4 B): it costs you, and it hits twice as hard.
+
             if (progress.B(AbilitySlot.E, 3) && health.Fraction > 0.15f)
             {
                 health.ServerSetFraction(health.Fraction - 0.1f);
@@ -467,13 +425,13 @@ namespace Deepbound.Player
                     if (shockwave) cc.ServerKnockback(Flat(target.transform.position - at) * 7f);
                 }
             }
-            // Quake (rank 5 A): everything within 6 m is stunned for 2 s.
+
             if (progress.A(AbilitySlot.E, 4))
             {
                 foreach (var h in CombatQuery.Circle(at, QuakeRadius, Team.Enemies).ToArray()) AbilityKit.Stun(h, 2f);
                 progress.AbilityBurstRpc(at, QuakeRadius, PlayerProgress.FxKind.Earth);
             }
-            // Afterquake (rank 5 B): three ripples, each wider.
+
             if (progress.B(AbilitySlot.E, 4))
                 for (int i = 1; i <= 3; i++)
                 {
@@ -484,9 +442,9 @@ namespace Deepbound.Player
                         progress.AbilityBurstRpc(at, r, PlayerProgress.FxKind.Earth);
                     });
                 }
-            // Brand (rank 2 B): holy fire stays on the ground.
+
             if (progress.B(AbilitySlot.E, 1)) StartCoroutine(Brand(at));
-            // Blood Rain (rank 3 B): the Fervor spent mends the party round you.
+
             if (progress.B(AbilitySlot.E, 2) && fervor > 0f)
             {
                 foreach (var ally in CombatQuery.Circle(at, 5f, Team.Players).ToArray()) ally.ServerHeal(ally.Max.Value * 0.2f * (fervor / FervorMax));
@@ -496,11 +454,9 @@ namespace Deepbound.Player
             LeapFxRpc(at, fervor);
         }
 
-        // ---- Hobb's paths (2026-11-20) ----
         public const float WhirlShare = 0.7f, BurnSeconds = 2f, EruptRadius = 4f, EruptEvery = 20f, EruptEveryMastered = 12f;
         private float nextErupt;
 
-        /// <summary>Server: the Fanatic's crash leaves the ground burning.</summary>
         private IEnumerator BurnGround(Vector3 at)
         {
             progress.AbilityCircleRpc(at, CrashRadius, BurnSeconds, PlayerProgress.FxKind.Fire);
@@ -511,7 +467,6 @@ namespace Deepbound.Player
             }
         }
 
-        /// <summary>Server: the Scarred: a blow that takes you below half makes you erupt.</summary>
         private void OnHurt(float lost, ulong from)
         {
             if (!Active || !progress.OnPath(Classes.PathTriads.Path) || !health.IsAlive || Time.time < nextErupt) return;
@@ -524,7 +479,6 @@ namespace Deepbound.Player
             progress.AbilityTextRpc(transform.position + Vector3.up * 2.3f, "SCARRED", PlayerProgress.FxKind.Blood);
         }
 
-        /// <summary>Server: Brand: holy fire burns where you landed.</summary>
         private IEnumerator Brand(Vector3 at)
         {
             progress.AbilityCircleRpc(at, LeapRadius, BrandSeconds, PlayerProgress.FxKind.Holy);
@@ -537,15 +491,9 @@ namespace Deepbound.Player
             }
         }
 
-        // ---- The ultimate: THE RED LITANY (2026-11-20, replaces Martyrdom; the user: "not just an anti death button
-        // for a couple of seconds, can be used off cooldown") ----
-        // For LitanySeconds the flail whirls round you on its own: every LitanyTick it strikes everything within
-        // LitanyRadius (the hits heal you through Penance and feed Fervor like any swing), you move faster, take a
-        // fifth less and hit 30% harder; then the litany ends in a great crash that throws the dead down.
         public const float LitanySeconds = 6f, LitanyTick = 0.3f, LitanyRadius = 3.4f, LitanyShare = 0.75f, LitanyTaken = 0.8f;
-        public const float LitanySpeed = 1.25f, AmenRadius = 5f, AmenMultiplier = 3f, AmenStun = 1.2f;
+        public const float AmenRadius = 5f, AmenMultiplier = 3f, AmenStun = 1.2f;
 
-        /// <summary>Server: the ultimate, the Red Litany.</summary>
         public void ServerMartyrdom(float seconds) => ServerLitany();
 
         public void ServerLitany()
@@ -574,7 +522,7 @@ namespace Deepbound.Player
                 yield return new WaitForSeconds(LitanyTick);
             }
             if (!health.IsAlive) yield break;
-            // Amen: the crash that ends it.
+
             float amen = SwingDamage * AmenMultiplier * DamageMultiplier;
             float dealt = 0f;
             foreach (var h in AbilityKit.Blast(transform.position, AmenRadius, 0f, NetworkObjectId, "Amen"))
@@ -594,10 +542,10 @@ namespace Deepbound.Player
         {
             SwingTrail.Spawn(transform, LitanyRadius * 0.9f, 360f, beat % 2 == 0 ? 1f : -1f, player.TrailColor(new Color(1f, 0.3f, 0.25f)));
             if (!IsOwner) player.Rig?.Play(RigAction.Swing, LitanyTick);
-            // The flail's reach drawn on the floor each beat (first person shows little else of the whirl).
+
             Vfx.Ring(transform.position + Vector3.up * 0.06f, LitanyRadius, new Color(1f, 0.22f, 0.16f) * (hit ? 1f : 0.7f), LitanyTick * 0.9f);
             if (beat % 3 == 0) Vfx.Embers(transform.position + Vector3.up * 0.4f, 4, Blood, 3f, 0.04f, 0.4f);
-            // 2026-11-21 (distinct abilities): three spiked flails whirl round him on their chains for the whole Litany.
+
             if (beat == 0) ClassFx.FlagLitany(transform, LitanyRadius, LitanySeconds);
             if (beat % 2 == 0) Sfx.Play(Sound.Swing, transform.position + Vector3.up, 0.6f, 0.7f + (beat % 3) * 0.06f);
             if (beat % 4 == 0) Sfx.Play(Sound.Chain, transform.position + Vector3.up, 0.5f, 0.9f);
@@ -616,14 +564,10 @@ namespace Deepbound.Player
             Vfx.Ring(at + Vector3.up * 0.05f, AmenRadius, new Color(1f, 0.3f, 0.22f), 0.55f);
             Vfx.Embers(at + Vector3.up * 0.3f, 26, Blood, 6f, 0.06f, 0.8f);
             Vfx.AbilityFlash(at + Vector3.up, new Color(1f, 0.3f, 0.2f), 6f, 10f, 0.4f);
-            // Amen: the whirl comes down at once and the floor breaks wide.
+
             ClassFx.FlagCrater(at, AmenRadius, 1.6f);
             if (IsOwner) { player.ConfirmHit(2f); player.AddShake(0.4f); }
         }
-
-        // ==================================================================
-        // Presentation
-        // ==================================================================
 
         private static readonly Color Blood = new Color(0.85f, 0.08f, 0.06f);
 
@@ -631,7 +575,7 @@ namespace Deepbound.Player
         private void SwingFxRpc(float swingSide, bool hit, bool crash, Vector3 crashAt)
         {
             SwingTrail.Spawn(transform, SwingRange * 0.85f, SwingArc, swingSide, player.TrailColor(new Color(1f, 0.55f, 0.45f) * 1.05f));
-            // Others see the flail's heavy, low arc; where it lands on flesh, blood (your own view has the flail).
+
             if (!IsOwner || NetworkPlayer.DebugShowSelf) ClassFx.FlagCut(transform, swingSide, SwingRange, SwingArc, player.TrailColor(new Color(1f, 0.25f, 0.18f)));
             if (hit) ClassFx.FlailBite(transform.position + transform.forward * 1.5f + Vector3.up * 1.1f, transform.position + Vector3.up * 1.2f);
             if (!IsOwner)
@@ -643,15 +587,14 @@ namespace Deepbound.Player
             {
                 Sfx.Play(Sound.Slam, crashAt, 0.9f, 1.1f);
                 Vfx.Embers(crashAt + Vector3.up * 0.2f, 10, new Color(0.7f, 0.6f, 0.5f), 4f, 0.05f, 0.5f);
-                // The overhead CRASH splits the stone where it lands.
+
                 ClassFx.FlagCrater(crashAt, CrashRadius, 0.6f);
                 if (IsOwner) { player.ConfirmHit(1.8f); player.AddShake(0.22f); }
             }
             if (hit)
             {
                 Sfx.Play(Sound.Hit, transform.position + transform.forward * 1.5f + Vector3.up, 1f, 0.8f);
-                // The flail lands HEAVY (2026-11-13, the user: "i want to feel the flagellents swing more"): a harder
-                // kick and a shake, a thud of chain under the hit.
+
                 if (IsOwner && !crash) { player.ConfirmHit(1.5f); player.AddShake(0.12f); Sfx.Play(Sound.Chain, transform.position + transform.forward * 1.4f + Vector3.up, 0.55f, 0.7f); }
             }
         }
@@ -662,8 +605,7 @@ namespace Deepbound.Player
             if (!IsOwner) player.Rig?.Play(RigAction.Lash, 0.45f);
             Sfx.Play(Sound.Hit, transform.position + Vector3.up * 1.2f, 0.9f, 1.4f);
             Sfx.Play(Sound.Hurt, transform.position + Vector3.up * 1.2f, 0.6f, 0.8f);
-            // 2026-11-21 (distinct abilities): the lash itself, drawn over the shoulder and round the back, cracking at its
-            // tip and flinging blood; blood left at the feet.
+
             ClassFx.FlagScourge(transform, IsOwner && !NetworkPlayer.DebugShowSelf);
             FxSprite.Decal("dirt_02", transform.position, 0.7f, 0.9f, 5f, new Color(0.3f, 0.03f, 0.02f, 0.6f));
             Vfx.AbilityFlash(transform.position + Vector3.up * 1.2f, new Color(1f, 0.25f, 0.18f), 3f, 4f, 0.3f);
@@ -676,7 +618,7 @@ namespace Deepbound.Player
             Sfx.Play(Sound.Hit, to, 0.8f, 0.9f);
             Transform toT = NetworkManager.SpawnManager.SpawnedObjects.TryGetValue(targetId, out var tobj) ? tobj.transform : null;
             ChainLink.Spawn(from, to, ChainLink.ReachSeconds + haulFor + 0.1f, transform, toT);
-            // 2026-11-21 (distinct abilities): a barbed hook bites where the chain lands; the chain flashes red as it snaps taut.
+
             ClassFx.FlagHook(from, to);
             Vfx.HitImpact(to, from, 0.8f, new Color(1f, 0.65f, 0.4f), Mat.Steel);
             if (dragged) Sfx.Play(Sound.Chain, to, 0.7f, 0.8f);
@@ -690,8 +632,7 @@ namespace Deepbound.Player
             Sfx.Play(Sound.Slam, at, 1f, 0.8f);
             Vfx.Embers(at + Vector3.up * 0.3f, Mathf.RoundToInt(14 * k), Blood, 5f * k, 0.06f, 0.7f);
             Vfx.AbilityFlash(at + Vector3.up, new Color(1f, 0.3f, 0.2f), 4f * k, 8f, 0.35f);
-            // 2026-11-21 (distinct abilities): the landing breaks the floor: a crater of glowing cracks, rubble thrown up,
-            // a low wall of force; more Fervor spent, a wider break.
+
             ClassFx.FlagCrater(at, LeapRadius, k);
             Vfx.Smoke(at, 3, LeapRadius * 0.4f, 1.4f);
             if (IsOwner) player.ConfirmHit(1.5f);

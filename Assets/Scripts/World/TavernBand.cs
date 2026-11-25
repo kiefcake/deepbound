@@ -5,18 +5,10 @@ using UnityEngine;
 
 namespace Deepbound.World
 {
-    /// <summary>
-    /// The Gutted Lantern's band (2026-11-01): a lutist, a fiddler and a drummer on a little stage. They play the house
-    /// tune for nothing; F and <see cref="Fee"/> gold has them strike up the next song in their book
-    /// (<see cref="TavernMusic"/>: four original folk tunes), for everyone at camp. The music is heard from the stage, so
-    /// it fills the tavern and drifts across the courtyard; the camp's own music steps aside near it
-    /// (<see cref="Loudness"/>).
-    /// </summary>
     public class TavernBand : Interactable
     {
         public const int Fee = 15;
 
-        /// <summary>The song playing (an index into <see cref="TavernMusic.Songs"/>) and when it started, server time.</summary>
         public readonly NetworkVariable<byte> Song = new NetworkVariable<byte>();
         public readonly NetworkVariable<double> SongStart = new NetworkVariable<double>();
         public static TavernBand Instance { get; private set; }
@@ -45,7 +37,6 @@ namespace Deepbound.World
             ServerPlay(Next, who.name);
         }
 
-        /// <summary>Server: strike up song <paramref name="i"/>. Public for tests.</summary>
         public void ServerPlay(int i, string requestedBy)
         {
             Song.Value = (byte)Mathf.Clamp(i, 0, TavernMusic.Songs.Length - 1);
@@ -77,7 +68,7 @@ namespace Deepbound.World
             source.minDistance = 7f;
             source.maxDistance = 42f;
             source.dopplerLevel = 0f;
-            // Three musicians on the stage behind the front of it, facing the room.
+
             var face = transform.position + transform.forward * 4f;
             players = new Transform[3];
             rest = new Quaternion[3];
@@ -86,7 +77,7 @@ namespace Deepbound.World
             {
                 var at = transform.position - transform.forward * 0.9f + transform.right * (i - 1) * 0.95f + Vector3.up * 0.25f;
                 Props.Townsfolk(transform, at, face + transform.right * (i - 1) * 0.6f, kinds[i]);
-                // Each stands on its own pivot, which sways to the music (the figure keeps its own idle on top).
+
                 var folk = transform.Find(kinds[i].ToString());
                 var pivot = new GameObject("Sway" + i).transform;
                 pivot.SetParent(transform, false);
@@ -103,7 +94,6 @@ namespace Deepbound.World
             base.OnNetworkDespawn();
         }
 
-        /// <summary>0-1: how much the band drowns out the camp's music at <paramref name="listener"/>.</summary>
         public static float Loudness(Vector3 listener)
         {
             if (Instance == null || Instance.source == null || !Instance.source.isPlaying) return 0f;
@@ -114,7 +104,7 @@ namespace Deepbound.World
         private void Update()
         {
             if (source == null || NetworkManager == null || !NetworkManager.IsListening) return;
-            // Only at camp (the tavern is part of it): below, the band is silent.
+
             bool camp = DungeonDirector.InLobby;
             if (!camp) { if (source.isPlaying) source.Stop(); return; }
             int want = Song.Value;
@@ -131,7 +121,7 @@ namespace Deepbound.World
                 }
             }
             source.volume = 0.75f * UI.Settings.MusicVolume;
-            // The band moves with the music: the lutist sways, the fiddler leans into the bow, the drummer nods.
+
             if (players != null && source.isPlaying)
             {
                 float t = Time.time * (TavernMusic.Songs[playing < 0 ? 0 : playing].Eighth > 0.25f ? 1.6f : 3.4f);

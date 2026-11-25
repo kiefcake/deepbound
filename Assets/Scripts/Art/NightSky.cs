@@ -2,7 +2,6 @@ using UnityEngine;
 
 namespace Deepbound.Art
 {
-    /// <summary>The camp's sky, alive: stars twinkle a few at a time, clouds drift round the castle on a slow wind.</summary>
     public class NightSky : MonoBehaviour
     {
         public Renderer[] Stars;
@@ -20,7 +19,6 @@ namespace Deepbound.Art
 
         private void Update()
         {
-            // Twinkle: refresh a handful of stars a frame (cheap), each on its own flicker.
             if (Stars != null && Stars.Length > 0)
                 for (int n = 0; n < 12; n++)
                 {
@@ -35,7 +33,7 @@ namespace Deepbound.Art
             {
                 var c = Clouds[i];
                 if (c == null) continue;
-                // Each cloud on its own ring and height, all going the same way.
+
                 float radius = 34f + (i % 3) * 9f;
                 float a = Time.time * (0.012f + i * 0.0015f) + i * 0.9f;
                 c.position = Center + new Vector3(Mathf.Cos(a) * radius, 44f + (i % 4) * 3f, Mathf.Sin(a) * radius);

@@ -2,10 +2,6 @@ using UnityEngine;
 
 namespace Deepbound.Art
 {
-    /// <summary>
-    /// The ring of a boss's SHARED DOOM (see <c>BossBrain.Doom</c>): it rides under the marked player for the tell, its
-    /// rim beating faster and an inner ring swelling out to meet it as the burst nears. Kept faint like every telegraph.
-    /// </summary>
     public class DoomMark : MonoBehaviour
     {
         private Transform follow, rim, fill;

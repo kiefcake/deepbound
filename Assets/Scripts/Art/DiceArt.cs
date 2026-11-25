@@ -1,12 +1,8 @@
 using UnityEngine;
+using Deepbound.UI;
 
 namespace Deepbound.Art
 {
-    /// <summary>
-    /// Bone dice with real pips (2026-11-08, the casino rework): shared by Bones (<see cref="World.DiceTable"/>) and Skull
-    /// Poker (<see cref="World.PokerDiceTable"/>). Faces follow a real die: 1 up, 6 down, 2 front (+Z), 5 back, 3 right, 4 left,
-    /// so opposite faces add to seven. <see cref="FaceUp"/> is the rotation that shows a value on top.
-    /// </summary>
     public static class DiceArt
     {
         private static readonly Vector2[][] Pips =
@@ -20,10 +16,8 @@ namespace Deepbound.Art
             new[] { new Vector2(-1, -1), new Vector2(-1, 0), new Vector2(-1, 1), new Vector2(1, -1), new Vector2(1, 0), new Vector2(1, 1) },
         };
 
-        /// <summary>The pip layout of a face (each -1..1 on a 3x3 grid), for drawing dice in the HUD too.</summary>
         public static Vector2[] PipsOf(int value) => Pips[Mathf.Clamp(value, 0, 6)];
 
-        /// <summary>A die of edge <paramref name="size"/> under <paramref name="parent"/>, one merged mesh per material.</summary>
         public static Transform Build(Transform parent, string name, float size, Color? tint = null, bool red = false)
         {
             var root = new GameObject(name).transform;
@@ -51,7 +45,6 @@ namespace Deepbound.Art
             return root;
         }
 
-        /// <summary>The local rotation that puts <paramref name="value"/> on top, turned by <paramref name="yaw"/>.</summary>
         public static Quaternion FaceUp(int value, float yaw = 0f)
         {
             var face = value switch
@@ -66,12 +59,11 @@ namespace Deepbound.Art
             return Quaternion.Euler(0f, yaw, 0f) * face;
         }
 
-        /// <summary>A die drawn in the HUD: a bone tile with dark pips (gold rim when held).</summary>
         public static void DrawHud(Rect r, int value, bool held, bool hidden = false)
         {
             UI.UiSkin.Rect(new Rect(r.x - 3, r.y - 3, r.width + 6, r.height + 6), held ? UI.UiSkin.Gold : new Color(0f, 0f, 0f, 0.6f));
             UI.UiSkin.Rect(r, hidden ? new Color(0.25f, 0.2f, 0.18f, 0.95f) : new Color(0.9f, 0.86f, 0.76f, 1f));
-            if (hidden) { GUI.Label(r, "?", new GUIStyle(UI.UiSkin.Heading) { alignment = TextAnchor.MiddleCenter, fontSize = (int)(r.height * 0.5f) }); return; }
+            if (hidden) { GUI.Label(r, "?", UiSkin.Derive(UI.UiSkin.Heading, UI.UiSkin.Heading.normal.textColor, fontSize: (int)(r.height * 0.5f), align: TextAnchor.MiddleCenter)); return; }
             float pip = r.width * 0.17f, step = r.width * 0.27f;
             var c = r.center;
             foreach (var p in PipsOf(value))

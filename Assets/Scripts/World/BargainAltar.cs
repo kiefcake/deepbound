@@ -6,18 +6,11 @@ using UnityEngine;
 
 namespace Deepbound.World
 {
-    /// <summary>
-    /// A SHRINE OF TRADE-OFF (2026-11-13, the user: "Hidden altars offering a cursed bargain, e.g. '+15% damage for the run,
-    /// -20 max HP', for a 'should I?' moment"). It stands in a secret niche (behind a cracked wall) instead of a chest; each
-    /// offers one <see cref="PlayerProgress.Bargain"/>, and each delver decides for themselves: F once reads the terms,
-    /// F again within <see cref="ConfirmSeconds"/> seals it in blood (a cut of <see cref="BloodCost"/> of your health now, the
-    /// bargain for the rest of the run). A Cleric pays half the price. Each bargain only once a run.
-    /// </summary>
     public class BargainAltar : Interactable
     {
         public const float ConfirmSeconds = 4f, BloodCost = 0.1f;
         public readonly NetworkVariable<byte> Offer = new NetworkVariable<byte>();
-        /// <summary>Who has sealed it (bits by client id &lt; 16): the candles gutter for them.</summary>
+
         public readonly NetworkVariable<ushort> SealedBy = new NetworkVariable<ushort>();
 
         private readonly Dictionary<ulong, float> primed = new Dictionary<ulong, float>();
@@ -49,7 +42,6 @@ namespace Deepbound.World
             ServerSeal(who);
         }
 
-        /// <summary>Server: <paramref name="who"/> takes the bargain (tests call this).</summary>
         public bool ServerSeal(PlayerProgress who)
         {
             if (who == null || !who.ServerStrikeBargain(Kind)) return false;
@@ -81,7 +73,7 @@ namespace Deepbound.World
         public override void OnNetworkSpawn()
         {
             base.OnNetworkSpawn();
-            // A black stone altar, a bowl of blood, two black candles and a cracked idol whose eyes watch you.
+
             var stone = new Color(0.3f, 0.26f, 0.27f);
             var slab = MeshKit.Part(transform, "Altar", MeshKit.Box(new Vector3(1.1f, 0.85f, 0.6f)), Mat.StoneWall, Vector3.up * 0.425f);
             ArtLibrary.Tint(slab.GetComponent<Renderer>(), stone);
@@ -96,7 +88,7 @@ namespace Deepbound.World
                 var f = MeshKit.Part(transform, "Flame", MeshKit.Ball(0.03f, 5, 4), Mat.Glow, new Vector3(s * 0.45f, 1.18f, 0.1f));
                 ArtLibrary.SetGlow(f.GetComponent<Renderer>(), new Color(0.9f, 0.25f, 0.15f) * 1.5f);
             }
-            // The idol: a squat horned head, split down the middle.
+
             var idol = MeshKit.Part(transform, "Idol", MeshKit.Box(new Vector3(0.34f, 0.42f, 0.26f)), Mat.StoneWall, new Vector3(0f, 1.15f, -0.18f));
             ArtLibrary.Tint(idol.GetComponent<Renderer>(), stone * 0.9f);
             foreach (float s in new[] { -1f, 1f })
@@ -105,8 +97,7 @@ namespace Deepbound.World
             eyes = e.GetComponent<Renderer>();
             eyes.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             ArtLibrary.SetGlow(eyes, new Color(1f, 0.2f, 0.1f) * 1.3f);
-            // 2026-11-13 shots: in a dark niche the slab was a black box. Its own low red light, and a carved sigil on the
-            // front that smoulders.
+
             var l = new GameObject("AltarLight").AddComponent<Light>();
             l.transform.SetParent(transform, false);
             l.transform.localPosition = new Vector3(0f, 1.35f, 0.75f);

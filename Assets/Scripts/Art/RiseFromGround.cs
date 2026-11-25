@@ -2,11 +2,6 @@ using UnityEngine;
 
 namespace Deepbound.Art
 {
-    /// <summary>
-    /// The dead claw their way up: a freshly spawned enemy's visual starts under the floor and
-    /// heaves up through a spray of grave dirt. Only plays when the viewer is close enough to see it;
-    /// visual only (the body's collider and AI are already in place).
-    /// </summary>
     public class RiseFromGround : MonoBehaviour
     {
         private const float Seconds = 0.85f, Depth = 1.3f;
@@ -30,7 +25,7 @@ namespace Deepbound.Art
         {
             float t = (Time.time - start) / Seconds;
             if (t >= 1f) { transform.localPosition = rest; Destroy(this); return; }
-            // Lurching: fast at first, a stall, then the last heave.
+
             float k = 1f - Mathf.Pow(1f - Mathf.Clamp01(t), 2.4f);
             k -= Mathf.Sin(t * Mathf.PI * 3f) * 0.05f * (1f - t);
             transform.localPosition = rest + Vector3.down * Depth * (1f - k) + new Vector3(Mathf.Sin(t * 40f) * 0.02f * (1f - t), 0f, 0f);

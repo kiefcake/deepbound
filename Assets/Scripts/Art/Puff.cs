@@ -2,23 +2,18 @@ using UnityEngine;
 
 namespace Deepbound.Art
 {
-    /// <summary>
-    /// One particle, as a tiny GameObject: drifts, grows or shrinks, and — if it glows —
-    /// fades its emission out over its life. Cheap enough for the dozens an effect needs, and
-    /// it keeps every effect in the same baked materials as the rest of the game.
-    /// </summary>
     public class Puff : MonoBehaviour
     {
         public Vector3 Velocity;
         public float Gravity, Drag = 1f, Life = 1f, StartScale = 1f, EndScale = 0f;
         public Color Glow;
         public bool Glowing;
-        /// <summary>A see-through puff (Mat.Smoke): its colour's alpha thins out over its life.</summary>
+
         public Color Fade;
         public bool Fading;
-        /// <summary>Fading puffs ease in over the first third of their life; off, they are there at once (blood).</summary>
+
         public bool FadeIn = true;
-        /// <summary>Faces the camera every frame (sprite puffs, Art/FxSprite), turning by <see cref="Spin"/> deg/s.</summary>
+
         public bool Billboard;
         public float Spin;
         private float spun;
@@ -27,7 +22,6 @@ namespace Deepbound.Art
 
         private void Start() => rend = GetComponent<Renderer>();
 
-        /// <summary>Reused from the pool: start a fresh life.</summary>
         public void Restart()
         {
             FadeIn = true;

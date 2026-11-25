@@ -6,13 +6,6 @@ using UnityEngine;
 
 namespace Deepbound.World
 {
-    /// <summary>
-    /// One of the FIRST EXPEDITION (<see cref="Expedition"/>), sat against a wall where they stopped: bones in a rotted coat,
-    /// a pack beside them and their keepsake in their lap, glowing faintly so it can be found in the dark. Search it (F):
-    /// what they carried spills out (a relic, gold, embers), their last note goes into everyone's Journal, and the host's
-    /// camp remembers them for good (the roll in the gaming tent, the dealer's mood). Spawned by
-    /// <see cref="DungeonDirector"/> at most one a floor, only for an act whose member is not yet home.
-    /// </summary>
     public class ExpeditionRemains : Interactable
     {
         public readonly NetworkVariable<byte> Member = new NetworkVariable<byte>();
@@ -44,7 +37,6 @@ namespace Deepbound.World
             FoundRpc((byte)m, (byte)home, who.NetworkObjectId);
         }
 
-        /// <summary>Server, for tests.</summary>
         public void ServerDebugUse(PlayerProgress who) => ServerUse(who);
 
         [Rpc(SendTo.ClientsAndHost)]
@@ -81,7 +73,6 @@ namespace Deepbound.World
             glow.intensity = 0.9f + 0.25f * Mathf.Sin(Time.time * 1.7f);
         }
 
-        /// <summary>A body sat against the wall behind it (its back to -forward), legs out, head fallen to one side.</summary>
         private void Build(int member)
         {
             if (builtFor == member) return;
@@ -89,7 +80,7 @@ namespace Deepbound.World
             var old = transform.Find("Remains");
             if (old != null) Destroy(old.gameObject);
             var root = MeshKit.Pivot(transform, "Remains", Vector3.zero);
-            // A little over life size seated: at 1.0 it read as a child's bones in the first render (2026-11-14).
+
             root.localScale = Vector3.one * 1.2f;
             var who = Expedition.Roll[Mathf.Clamp(member, 0, Expedition.Members - 1)];
             var bone = new Color(0.78f, 0.74f, 0.64f);
@@ -100,7 +91,7 @@ namespace Deepbound.World
                 if (tint.HasValue) ArtLibrary.Tint(g.GetComponent<Renderer>(), tint.Value);
                 return g;
             }
-            // Pelvis on the floor, spine leaning back against the wall, skull dropped to the side.
+
             P(MeshKit.Ball(0.15f, 8, 6), Mat.Bone, new Vector3(0f, 0.12f, -0.35f), default, new Vector3(1.3f, 0.6f, 0.9f), bone);
             P(MeshKit.Box(new Vector3(0.38f, 0.5f, 0.2f)), Mat.Cloth, new Vector3(0f, 0.45f, -0.48f), new Vector3(-14f, 0f, 0f), null, coat);
             for (int r = 0; r < 4; r++)
@@ -109,35 +100,34 @@ namespace Deepbound.World
             P(MeshKit.Box(new Vector3(0.12f, 0.04f, 0.08f)), Mat.Bone, new Vector3(0.11f, 0.69f, -0.43f), new Vector3(30f, 12f, 20f), null, bone);
             foreach (float s in new[] { -1f, 1f })
             {
-                // The sockets stand proud of the skull's face (inside it they were invisible).
                 P(MeshKit.Ball(0.03f, 6, 5), Mat.Dark, new Vector3(0.1f + s * 0.04f, 0.79f, -0.385f), default, null, new Color(0.03f, 0.02f, 0.02f));
-                // Legs out along the floor, one knee up.
+
                 bool knee = s > 0f;
                 P(MeshKit.Cylinder(0.035f, 0.03f, 0.42f, 6), Mat.Bone, new Vector3(s * 0.12f, knee ? 0.2f : 0.06f, -0.12f), new Vector3(knee ? 55f : 90f, 0f, 0f), null, bone);
                 P(MeshKit.Cylinder(0.03f, 0.025f, 0.4f, 6), Mat.Bone, new Vector3(s * 0.12f, knee ? 0.2f : 0.05f, knee ? 0.2f : 0.28f), new Vector3(knee ? 140f : 90f, 0f, 0f), null, bone);
                 P(MeshKit.Box(new Vector3(0.1f, 0.08f, 0.2f)), Mat.Cloth, new Vector3(s * 0.12f, 0.04f, knee ? 0.32f : 0.5f), default, null, new Color(0.18f, 0.12f, 0.08f));
-                // Arms hanging, hands in the lap.
+
                 P(MeshKit.Cylinder(0.03f, 0.025f, 0.32f, 6), Mat.Bone, new Vector3(s * 0.21f, 0.42f, -0.36f), new Vector3(-30f, 0f, s * 12f), null, bone);
                 P(MeshKit.Cylinder(0.025f, 0.02f, 0.28f, 6), Mat.Bone, new Vector3(s * 0.16f, 0.22f, -0.18f), new Vector3(70f, 0f, s * -25f), null, bone);
             }
-            // The pack beside them, a rope coil, and a stub of candle long since out.
+
             P(MeshKit.Box(new Vector3(0.32f, 0.38f, 0.22f)), Mat.Cloth, new Vector3(-0.55f, 0.19f, -0.4f), new Vector3(0f, 18f, -8f), null, new Color(0.32f, 0.25f, 0.16f));
             P(MeshKit.Box(new Vector3(0.34f, 0.04f, 0.24f)), Mat.Cloth, new Vector3(-0.55f, 0.39f, -0.4f), new Vector3(0f, 18f, -8f), null, new Color(0.26f, 0.19f, 0.12f));
             P(MeshKit.Cylinder(0.16f, 0.16f, 0.06f, 12), Mat.Cloth, new Vector3(0.55f, 0.03f, -0.2f), default, null, new Color(0.5f, 0.42f, 0.28f));
             P(MeshKit.Cylinder(0.03f, 0.03f, 0.06f, 6), Mat.Bone, new Vector3(0.42f, 0.03f, 0.15f), default, null, new Color(0.85f, 0.8f, 0.68f));
-            // The keepsake in the lap.
+
             keepsake = MeshKit.Pivot(root, "Keepsake", new Vector3(0f, 0.2f, -0.12f));
             var metal = new Color(0.75f, 0.72f, 0.66f);
             switch (member)
             {
-                case 0: // a tin whistle
+                case 0:
                     ArtLibrary.Tint(MeshKit.Part(keepsake, "Whistle", MeshKit.Cylinder(0.015f, 0.015f, 0.22f, 8), Mat.Steel, Vector3.zero, new Vector3(0f, 0f, 90f)).GetComponent<Renderer>(), metal);
                     break;
-                case 1: // a cracked lantern
+                case 1:
                     ArtLibrary.Tint(MeshKit.Part(keepsake, "Lantern", MeshKit.Box(new Vector3(0.12f, 0.16f, 0.12f)), Mat.Steel, Vector3.up * 0.06f).GetComponent<Renderer>(), new Color(0.3f, 0.28f, 0.25f));
                     ArtLibrary.SetGlow(MeshKit.Part(keepsake, "Glass", MeshKit.Box(new Vector3(0.09f, 0.11f, 0.13f)), Mat.Glow, Vector3.up * 0.06f).GetComponent<Renderer>(), who.Light * 0.8f);
                     break;
-                case 2: // prayer beads
+                case 2:
                     for (int i = 0; i < 12; i++)
                     {
                         float a = i * 30f * Mathf.Deg2Rad;
@@ -145,11 +135,11 @@ namespace Deepbound.World
                     }
                     ArtLibrary.Tint(MeshKit.Part(keepsake, "Cross", MeshKit.Box(new Vector3(0.02f, 0.008f, 0.06f)), Mat.Steel, new Vector3(0f, 0f, -0.1f)).GetComponent<Renderer>(), metal);
                     break;
-                default: // an iron ring
+                default:
                     ArtLibrary.Tint(MeshKit.Part(keepsake, "Ring", MeshKit.Cylinder(0.035f, 0.035f, 0.012f, 12), Mat.Steel, Vector3.zero).GetComponent<Renderer>(), new Color(0.35f, 0.33f, 0.32f));
                     break;
             }
-            // A pale light over the lap: the find reads in the dark from across the room.
+
             glow = new GameObject("RemainsGlow").AddComponent<Light>();
             glow.transform.SetParent(root, false);
             glow.transform.localPosition = new Vector3(0f, 0.6f, 0.3f);

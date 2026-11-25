@@ -7,40 +7,23 @@ using UnityEngine;
 
 namespace Deepbound.UI
 {
-    /// <summary>
-    /// The title screen's backdrop: two little sets, built at runtime from the game's own art far
-    /// below the dungeon, that the menu camera cuts between (a slow fade through black every ~15 s):
-    ///
-    /// <list type="bullet">
-    /// <item><b>Rest</b>: a quiet corner of camp at night. The Mage sits against a log by a small
-    ///   fire with the castle cat curled asleep in their lap (it breathes; little z's drift up).</item>
-    /// <item><b>Battle</b>: the Knight braced under his shield, the Ranger loosing arrows, the Rogue
-    ///   cutting at a flank and the Cleric's beam on the Knight, against the Hollow King: his slam
-    ///   circle fills and breaks into a shockwave, and his crown of blades wheels out.</item>
-    /// <item><b>Descent</b> (2026-11-19, the user: "more animated scenes"): the grave lift going down the shaft with the
-    ///   Knight, the Cleric and the Rogue in the cage under a swinging lantern; torches and broken ledges slide up past
-    ///   them, dust drifts up, the chains shiver.</item>
-    /// </list>
-    /// Torn down (hidden) once the local player spawns. Sits on the menu camera, which it positions.
-    /// </summary>
     public class MenuBackdrop : MonoBehaviour
     {
         private static readonly Vector3 Origin = new Vector3(0f, -500f, 0f);
         private static readonly Vector3 RestAt = Origin + new Vector3(-80f, 0f, 0f), BattleAt = Origin + new Vector3(80f, 0f, 0f), DescentAt = Origin + new Vector3(0f, 0f, 120f);
         private const int SceneCount = 3;
-        // Descent
+
         private Transform shaft, cage, lantern;
         private const float ShaftSegment = 8f, DescentSpeed = 1.6f;
         private const float SceneSeconds = 15f, FadeSeconds = 1.1f;
 
         private GameObject set;
-        private int scene;               // 0 rest, 1 battle, 2 descent
+        private int scene;
         private float sceneStart, cutAt = -1f;
 
-        // Rest
         private Transform cat, catBody, catHead;
         private HumanoidRig mage;
-        // Battle
+
         private HumanoidRig knight, rogue, ranger, cleric, king;
         private Transform beam;
         private float nextSlam, slamAt = -1f, nextArrow, nextStab, nextBlades, bladesUntil, nextBlade, bladeAngle, nextCast, nextCleave, cleaveAt = -1f, shake;
@@ -56,10 +39,6 @@ namespace Deepbound.UI
             Show(scene);
         }
 
-        // ------------------------------------------------------------------
-        // The rest: a fire, a log, the Mage and the cat
-        // ------------------------------------------------------------------
-
         private void BuildRest()
         {
             var o = RestAt;
@@ -67,7 +46,7 @@ namespace Deepbound.UI
             b.AddBox(o + Vector3.down * 0.2f, new Vector3(20f, 0.4f, 20f), Mat.Flagstone);
             b.AddBox(o + new Vector3(0f, 4f, 4.5f), new Vector3(20f, 8f, 1f), Mat.StoneWall);
             b.AddBox(o + new Vector3(-3.4f, 2.2f, 3.6f), new Vector3(1.1f, 4.4f, 1.1f), Mat.StoneWall);
-            // The log they lean on, and a few stones round the fire.
+
             b.Add(MeshKit.Cylinder(0.28f, 0.3f, 2.4f, 10), Mat.Wood, Matrix4x4.TRS(o + new Vector3(0f, 0.28f, 0.75f), Quaternion.Euler(0f, 8f, 90f), Vector3.one));
             var fire = o + new Vector3(0.9f, 0f, -1.4f);
             for (int i = 0; i < 9; i++)
@@ -77,7 +56,7 @@ namespace Deepbound.UI
             }
             for (int i = 0; i < 3; i++)
                 b.Add(MeshKit.Cylinder(0.06f, 0.06f, 0.8f, 6), Mat.Wood, Matrix4x4.TRS(fire + Vector3.up * 0.1f, Quaternion.Euler(0f, i * 60f, 80f), Vector3.one));
-            // Hay, a barrel and a crate; a lantern on the wall.
+
             b.Add(MeshKit.Cylinder(0.55f, 0.55f, 1f, 10), Mat.Cloth, Matrix4x4.TRS(o + new Vector3(-2.2f, 0.55f, 1.6f), Quaternion.Euler(0f, 20f, 90f), Vector3.one));
             Props.Barrel(b, o + new Vector3(2.4f, 0f, 2.2f));
             Props.Crate(b, o + new Vector3(2.9f, 0f, 1.1f), 0.8f, 18f);
@@ -85,28 +64,26 @@ namespace Deepbound.UI
             var flame = MeshKit.Pivot(set.transform, "Campfire", fire);
             Props.AddFlame(flame, new Vector3(0f, 0.1f, 0f), 1.8f, new Color(1f, 0.55f, 0.25f), 9f, 9f, true);
             Props.WallTorch(set.transform, o + new Vector3(-2.2f, 2.3f, 3.98f), Vector3.back, false, new Color(1f, 0.65f, 0.35f));
-            // Firelight on the lap, so the black cat reads against the robe.
+
             AddLight(o + new Vector3(0.1f, 0.9f, -0.5f), new Color(1f, 0.7f, 0.42f), 2.2f, 3.2f);
 
-            // The Mage, sitting on the ground against the log, legs out and crossed, head bowed.
             var mageRoot = new GameObject("RestingMage").transform;
             mageRoot.SetParent(set.transform, false);
             mageRoot.SetPositionAndRotation(o + new Vector3(0f, 0f, 0.35f), Quaternion.Euler(0f, 215f, 0f));
             mage = CharacterArt.BuildMage(mageRoot, NetworkPlayer.SlotColors[1]);
-            mage.enabled = false; // posed by hand below, not animated
+            mage.enabled = false;
             mage.Hips.localPosition = new Vector3(0f, 0.22f, 0f);
             mage.Hips.localRotation = Quaternion.Euler(-14f, 0f, 0f);
-            // Cross-legged: each leg folded forward and across the other, shortened under the robe.
+
             mage.LegL.localRotation = Quaternion.Euler(-90f, 58f, 0f);
             mage.LegR.localRotation = Quaternion.Euler(-88f, -58f, 0f);
             mage.LegL.localScale = mage.LegR.localScale = new Vector3(1f, 0.62f, 1f);
             mage.Torso.localRotation = Quaternion.Euler(10f, 0f, 0f);
             mage.Head.localRotation = Quaternion.Euler(24f, 8f, 4f);
-            mage.ArmL.localRotation = Quaternion.Euler(-48f, 0f, -24f);   // resting on the cat
+            mage.ArmL.localRotation = Quaternion.Euler(-48f, 0f, -24f);
             mage.ArmR.localRotation = Quaternion.Euler(-30f, 0f, 14f);
             foreach (var r in mage.GetComponentsInChildren<Renderer>()) if (r.name.Contains("Skirt") || r.name.Contains("Trim")) r.enabled = false;
 
-            // The cat, curled up in the lap: a black loaf, head tucked on its paws, tail round its nose.
             cat = MeshKit.Pivot(mageRoot, "SleepingCat", new Vector3(0f, 0.43f, 0.36f), new Vector3(0f, 25f, 0f));
             cat.localScale = Vector3.one * 1.25f;
             var fur = new Color(0.26f, 0.24f, 0.25f);
@@ -120,11 +97,11 @@ namespace Deepbound.UI
             foreach (float s in new[] { -1f, 1f })
             {
                 Fur(MeshKit.Part(catHead, "Ear", MeshKit.Lathe("catEar", new[] { new Vector2(0.026f, 0f), new Vector2(0f, 0.06f) }, 4), Mat.Cloth, new Vector3(s * 0.038f, 0.05f, -0.005f), new Vector3(-20f, 0f, s * -22f)));
-                // Closed eyes: two soft dark arcs.
+
                 MeshKit.Part(catHead, "Lid", MeshKit.Box(new Vector3(0.022f, 0.004f, 0.004f)), Mat.Dark, new Vector3(s * 0.028f, 0.012f, 0.066f), new Vector3(0f, 0f, s * 12f));
                 Fur(MeshKit.Part(catBody, "Paw", MeshKit.Ball(0.026f, 6, 5), Mat.Cloth, new Vector3(0.14f, -0.045f, 0.06f + s * 0.025f)));
             }
-            // A white chest and muzzle and pink inner ears: it reads as a cat even in the firelight.
+
             var white = new Color(0.9f, 0.88f, 0.84f);
             ArtLibrary.Tint(MeshKit.Part(catHead, "WhiteMuzzle", MeshKit.Ball(0.034f, 8, 6), Mat.Cloth, new Vector3(0f, -0.024f, 0.06f)).GetComponent<Renderer>(), white);
             ArtLibrary.Tint(MeshKit.Part(catBody, "WhiteChest", MeshKit.Ball(0.05f, 8, 6), Mat.Cloth, new Vector3(0.12f, -0.02f, 0.06f), default, new Vector3(1f, 0.8f, 1.2f)).GetComponent<Renderer>(), white);
@@ -140,10 +117,6 @@ namespace Deepbound.UI
             }
         }
 
-        // ------------------------------------------------------------------
-        // The battle: four heroes and the Hollow King
-        // ------------------------------------------------------------------
-
         private void AddLight(Vector3 at, Color c, float intensity, float range)
         {
             var l = new GameObject("TitleLight").AddComponent<Light>();
@@ -155,15 +128,11 @@ namespace Deepbound.UI
             l.range = range;
         }
 
-        // ------------------------------------------------------------------
-        // The descent: the grave lift going down the shaft
-        // ------------------------------------------------------------------
-
         private void BuildDescent()
         {
             var o = DescentAt;
             const float half = 3.6f;
-            // The shaft: four walls, tall, with ledges, beams and torches; it slides up past the cage on a loop.
+
             shaft = new GameObject("DescentShaft").transform;
             shaft.SetParent(set.transform, false);
             var b = new MeshKit.Batcher();
@@ -179,7 +148,7 @@ namespace Deepbound.UI
                 int s = (i + 8) % 4;
                 var n = Quaternion.Euler(0f, s * 90f, 0f) * Vector3.forward;
                 var across = Quaternion.Euler(0f, s * 90f, 0f) * Vector3.right;
-                // A broken ledge on one wall and a timber cross-beam on the next: things to watch go by.
+
                 b.AddBox(o + n * (half - 0.3f) + across * 1.2f + Vector3.up * (y + 1.1f), new Vector3(Mathf.Abs(across.x) * 2.4f + Mathf.Abs(n.x) * 0.6f, 0.3f, Mathf.Abs(across.z) * 2.4f + Mathf.Abs(n.z) * 0.6f), Mat.Rubble);
                 var n2 = Quaternion.Euler(0f, (s + 1) * 90f, 0f) * Vector3.forward;
                 b.AddBox(o + n2 * (half - 0.15f) + Vector3.up * (y - 2.4f), new Vector3(Mathf.Abs(n2.z) * 7.2f + Mathf.Abs(n2.x) * 0.3f, 0.28f, Mathf.Abs(n2.x) * 7.2f + Mathf.Abs(n2.z) * 0.3f), Mat.Wood);
@@ -192,7 +161,6 @@ namespace Deepbound.UI
                 Props.WallTorch(shaft, o + n * half + Vector3.up * (i * ShaftSegment + 0.6f) - Quaternion.Euler(0f, s * 90f, 0f) * Vector3.right * 1.4f, -n, false, new Color(1f, 0.6f, 0.3f));
             }
 
-            // The cage: planks, posts, bars on three sides, a roof frame and its chains, a lantern under the roof.
             cage = new GameObject("DescentCage").transform;
             cage.SetParent(set.transform, false);
             cage.position = o;
@@ -200,7 +168,7 @@ namespace Deepbound.UI
             c.AddBox(o + Vector3.down * 0.08f, new Vector3(2.8f, 0.16f, 2.8f), Mat.Wood);
             foreach (var (x, z) in new[] { (-1.35f, -1.35f), (1.35f, -1.35f), (-1.35f, 1.35f), (1.35f, 1.35f) })
                 c.AddBox(o + new Vector3(x, 1.4f, z), new Vector3(0.12f, 2.8f, 0.12f), Mat.Steel);
-            // An open roof frame (a solid lid hid the riders from the camera).
+
             foreach (var (pos, size) in new[] { (new Vector3(0f, 2.85f, 1.4f), new Vector3(2.9f, 0.1f, 0.1f)), (new Vector3(0f, 2.85f, -1.4f), new Vector3(2.9f, 0.1f, 0.1f)),
                 (new Vector3(1.4f, 2.85f, 0f), new Vector3(0.1f, 0.1f, 2.9f)), (new Vector3(-1.4f, 2.85f, 0f), new Vector3(0.1f, 0.1f, 2.9f)), (new Vector3(0f, 2.85f, 0f), new Vector3(2.9f, 0.08f, 0.08f)) })
                 c.AddBox(o + pos, size, Mat.Steel);
@@ -219,7 +187,7 @@ namespace Deepbound.UI
             MeshKit.Part(lantern, "Chain", MeshKit.Cylinder(0.012f, 0.012f, 0.4f, 4), Mat.Steel, new Vector3(0f, -0.4f, 0f));
             MeshKit.Part(lantern, "Cage", MeshKit.Box(new Vector3(0.18f, 0.24f, 0.18f)), Mat.Steel, new Vector3(0f, -0.55f, 0f));
             Props.AddFlame(lantern, new Vector3(0f, -0.58f, 0f), 0.5f, new Color(1f, 0.62f, 0.3f), 4.5f, 9f, true);
-            // A cold fill from the open side of the cage, so the riders read against the dark shaft.
+
             var fill = new GameObject("CageFill").AddComponent<Light>();
             fill.transform.SetParent(cage, false);
             fill.transform.position = o + new Vector3(0f, 1.8f, -2.6f);
@@ -235,26 +203,26 @@ namespace Deepbound.UI
             Rider(CharacterArt.BuildKnight, new Vector3(-0.55f, 0f, 0.35f), 160f, 0);
             Rider(CharacterArt.BuildCleric, new Vector3(0.6f, 0f, 0.45f), 200f, 1);
             var rogue = Rider(CharacterArt.BuildRogue, new Vector3(0.1f, 0f, -0.6f), 20f, 2);
-            rogue.Head.localRotation = Quaternion.Euler(-25f, 0f, 0f); // looking up the shaft, at where they came from
+            rogue.Head.localRotation = Quaternion.Euler(-25f, 0f, 0f);
         }
 
         private void TickDescent(float t)
         {
             var o = DescentAt;
-            // The shaft goes up past the cage (the cage stays put: the world moves), looping a segment at a time.
+
             shaft.position = Vector3.up * Mathf.Repeat(Time.time * DescentSpeed, ShaftSegment);
-            // The cage sways on its chains; the lantern swings a beat behind.
+
             float sway = Mathf.Sin(Time.time * 0.7f);
             cage.rotation = Quaternion.Euler(sway * 1.2f, 0f, Mathf.Sin(Time.time * 0.53f) * 1.4f);
             cage.position = o + Vector3.up * Mathf.Sin(Time.time * 6.1f) * 0.012f;
             lantern.localRotation = Quaternion.Euler(Mathf.Sin(Time.time * 0.7f - 0.6f) * 9f, 0f, Mathf.Sin(Time.time * 0.53f - 0.5f) * 11f);
-            // Dust and grit drifting up past them.
+
             if (Random.value < Time.deltaTime * 14f)
                 Vfx.Embers(o + new Vector3(Random.Range(-3f, 3f), -2.5f, Random.Range(-3f, 3f)), 1, new Color(0.6f, 0.55f, 0.48f), 1.2f, 0.025f, 2.6f);
             if (Random.value < Time.deltaTime * 0.25f) Sfx.Play(Sound.Chain, o + Vector3.up * 3f, 0.25f, 0.7f);
-            // The camera hangs in a corner of the shaft, a little above the roof, turning slowly round the riders.
+
             float a = Mathf.Lerp(-30f, 30f, t / SceneSeconds) * Mathf.Deg2Rad;
-            // Outside the open side of the cage, at shoulder height, close to the shaft wall.
+
             var cam = o + new Vector3(Mathf.Sin(a) * 3.1f, 2.1f, -Mathf.Cos(a) * 3.1f);
             transform.SetPositionAndRotation(cam, Quaternion.LookRotation(o + Vector3.up * 1.2f - cam));
         }
@@ -262,7 +230,7 @@ namespace Deepbound.UI
         private void BuildBattle()
         {
             var o = BattleAt;
-            // Key light on the heroes, a cold rim behind the King, a warm fill from the side.
+
             AddLight(o + new Vector3(-1f, 3.6f, -0.5f), new Color(1f, 0.82f, 0.6f), 3.2f, 11f);
             AddLight(o + new Vector3(0.5f, 4f, 6.5f), new Color(0.45f, 0.65f, 1f), 4f, 10f);
             AddLight(o + new Vector3(3.5f, 2f, 1f), new Color(1f, 0.55f, 0.3f), 2f, 8f);
@@ -299,14 +267,10 @@ namespace Deepbound.UI
             kingRoot.SetPositionAndRotation(o + kingAt, Quaternion.LookRotation(new Vector3(-0.3f, 0f, 1.4f) - kingAt));
             king = CharacterArt.BuildSkeleton(kingRoot, CharacterArt.SkeletonKind.King);
 
-            // The Cleric's beam on the Knight: a stretched glowing cylinder, pulsing.
             beam = MeshKit.Part(set.transform, "ClericBeam", MeshKit.Cylinder(1f, 1f, 1f, 8), Mat.Glow, Vector3.zero).transform;
             beam.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
         }
 
-        // ------------------------------------------------------------------
-
-        /// <summary>Tests: cut to a scene now (0 rest, 1 battle, 2 descent).</summary>
         public static void DebugShow(int s)
         {
             var m = FindAnyObjectByType<MenuBackdrop>();
@@ -346,7 +310,6 @@ namespace Deepbound.UI
 
         private void Update()
         {
-            // Hidden while playing, back when you leave a session.
             bool show = NetworkPlayer.Local == null;
             if (set.activeSelf != show)
             {
@@ -364,15 +327,13 @@ namespace Deepbound.UI
 
         private void TickRest(float t)
         {
-            // The camera eases in, the cat breathes, the Mage nods.
-            // From over the fire's shoulder toward the pair; the subject sits right of centre, clear of the menu.
             var from = RestAt + new Vector3(-0.55f, 1.05f, -2.3f);
             var to = RestAt + new Vector3(-0.35f, 0.85f, -1.6f);
             var pos = Vector3.Lerp(from, to, Mathf.SmoothStep(0f, 1f, t / SceneSeconds));
             var look = RestAt + new Vector3(0.05f, 0.5f, 0.35f);
             var rot = Quaternion.LookRotation(look - pos);
             transform.SetPositionAndRotation(pos, rot * Quaternion.Euler(0f, -14f, 0f));
-            // The cat's sleeping face turned three-quarters to the camera (its head is along local +x).
+
             if (cat != null)
             {
                 var toCam = transform.position - cat.position;
@@ -388,17 +349,17 @@ namespace Deepbound.UI
         private void TickBattle(float t)
         {
             var o = BattleAt;
-            // A slow arc round the fight, low and from behind the heroes.
+
             float a = Mathf.Lerp(-32f, 12f, t / SceneSeconds) * Mathf.Deg2Rad;
             var cam = o + new Vector3(Mathf.Sin(a) * 6.8f - 0.6f, 1.55f, -Mathf.Cos(a) * 6.8f + 1.4f);
             var focus = o + new Vector3(0f, 1.8f, 2.4f);
             shake = Mathf.MoveTowards(shake, 0f, Time.deltaTime * 2.5f);
             var jolt = shake > 0f ? new Vector3(Mathf.Sin(Time.time * 53f), Mathf.Sin(Time.time * 41f), 0f) * shake * 0.6f : Vector3.zero;
             transform.SetPositionAndRotation(cam, Quaternion.LookRotation(focus - cam) * Quaternion.Euler(-4f + jolt.y, -16f + jolt.x, 0f));
-            // Embers and grit always drifting through the hall.
+
             if (Random.value < Time.deltaTime * 10f)
                 Vfx.Embers(o + new Vector3(Random.Range(-4f, 4f), 0.2f, Random.Range(-1f, 6f)), 1, new Color(1f, 0.55f, 0.25f), 0.8f, 0.03f, 2f);
-            // The King cleaves at the Knight, who takes it on the shield: sparks and a flash.
+
             if (cleaveAt < 0f && Time.time >= nextCleave && slamAt < 0f)
             {
                 nextCleave = Time.time + 3.1f;
@@ -425,7 +386,7 @@ namespace Deepbound.UI
                 }
 
             var kingPos = king.transform.position;
-            // The slam: a red circle fills under the King, then breaks into a shockwave.
+
             if (slamAt < 0f && Time.time >= nextSlam)
             {
                 slamAt = Time.time + 1.3f;
@@ -444,7 +405,7 @@ namespace Deepbound.UI
                 shake = 1f;
                 rogue.Flinch(kingPos, 0.5f);
             }
-            // The Crown of Blades: golden bolts wheeling out of him.
+
             if (Time.time >= nextBlades) { nextBlades = Time.time + 7f; bladesUntil = Time.time + 1.8f; king.Play(RigAction.Cast, 1.8f); }
             if (Time.time < bladesUntil && Time.time >= nextBlade)
             {
@@ -453,7 +414,7 @@ namespace Deepbound.UI
                 for (int i = 0; i < 5; i++)
                     Arrows.SpawnVisual(kingPos + Vector3.up * 1.6f, Quaternion.Euler(0f, bladeAngle + i * 72f, 0f) * Vector3.forward, ProjectileKind.Smite, 11f, 18f);
             }
-            // The Ranger looses at the King's chest.
+
             if (Time.time >= nextArrow)
             {
                 nextArrow = Time.time + 2.1f;
@@ -463,7 +424,7 @@ namespace Deepbound.UI
                 Arrows.SpawnVisual(from, hitAt - from, ProjectileKind.Arrow, 34f, Vector3.Distance(from, hitAt) - 0.3f);
                 arrowHits.Add((hitAt, Time.time + Vector3.Distance(from, hitAt) / 34f));
             }
-            // The Rogue cuts at his flank.
+
             if (Time.time >= nextStab)
             {
                 nextStab = Time.time + 0.9f;
@@ -474,10 +435,10 @@ namespace Deepbound.UI
             {
                 nextCast = Time.time + 3f;
                 cleric.Play(RigAction.Cast, 1.2f);
-                // The Aegis: a gold ring blooms round the Knight.
+
                 Vfx.Ring(knight.transform.position + Vector3.up * 0.1f, 1.4f, new Color(1f, 0.85f, 0.45f), 0.5f);
             }
-            // The beam from the Cleric's hand to the Knight's chest.
+
             var b0 = cleric.transform.position + Vector3.up * 1.3f + cleric.transform.forward * 0.4f;
             var b1 = knight.transform.position + Vector3.up * 1.2f;
             beam.position = (b0 + b1) * 0.5f;
@@ -491,11 +452,11 @@ namespace Deepbound.UI
         private void OnGUI()
         {
             UiSkin.Apply();
-            useGUILayout = false; // no GUILayout here: skip the layout pass (perf)
+            useGUILayout = false;
             if (set == null || !set.activeSelf) return;
-            GUI.depth = 5; // behind the title and menu
+            GUI.depth = 5;
             var cam = GetComponent<Camera>();
-            // z's drifting up from the sleeping cat.
+
             if (scene == 0 && cat != null && cam != null)
             {
                 var head = (catHead != null ? catHead.position : cat.position) + Vector3.up * 0.12f;
@@ -510,7 +471,7 @@ namespace Deepbound.UI
                     UiSkin.Shadowed(zr, i == 2 ? "Z" : "z", style, Mathf.Sin(k * Mathf.PI));
                 }
             }
-            // The cut between scenes: a fade through black.
+
             float fade = 0f;
             float since = Time.time - sceneStart;
             if (cutAt > 0f) fade = Mathf.Clamp01((Time.time - cutAt) / FadeSeconds * 2f);

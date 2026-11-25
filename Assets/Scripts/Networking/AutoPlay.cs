@@ -103,6 +103,8 @@ namespace Deepbound.Networking
                 L("   [" + kind + "] " + text);
             };
             PlayerLife.DownedRecap += (killer, lines) => L("!! DOWNED by " + killer + " | " + (lines ?? "").Replace("\n", "; ").Replace("\t", " "));
+            int seedAt = System.Array.IndexOf(args, "-floorseed");
+            if (seedAt >= 0 && seedAt + 1 < args.Length && int.TryParse(args[seedAt + 1], out var forced)) DungeonDirector.ForcedSeed = forced;
             if (System.Array.IndexOf(args, "-navvert") >= 0) DungeonLayout.ForceFeatures = new[] { RoomFeature.Ruin, RoomFeature.Rampart, RoomFeature.Belfry, RoomFeature.Mezzanine, RoomFeature.Undercroft };
             StartCoroutine(System.Array.IndexOf(args, "-navcheck") >= 0 ? NavCheck() : Main());
         }
@@ -1182,7 +1184,8 @@ namespace Deepbound.Networking
 
                     if (goalWhat == "loot" && lastLootId != ulong.MaxValue) ignoredLoot.Add(lastLootId);
                     stuckSince = Time.time;
-                    if (follower && Leader != null) { motor.Teleport(Leader.transform.position - Leader.transform.forward * 2f + Vector3.up * 0.2f, me.transform.rotation); L("caught up with the leader"); }
+                    if (EscapeIsland(out var landed, out var under)) Problem("stranded on a navmesh island at " + Fmt(me.transform.position) + " (standing on " + under + "): moved to " + Fmt(landed));
+                    else if (follower && Leader != null) { motor.Teleport(Leader.transform.position - Leader.transform.forward * 2f + Vector3.up * 0.2f, me.transform.rotation); L("caught up with the leader"); }
                 }
                 if (Time.time >= nextShot) { nextShot = Time.time + 35f; yield return Shot("F" + (floorNo + 1) + "_" + (int)(Time.time - floorStart) + "s"); }
                 if (Time.time >= nextStatus) { nextStatus = Time.time + 75f; Status("progress (" + LivingEnemies() + " enemies left)"); }
@@ -1619,7 +1622,7 @@ namespace Deepbound.Networking
 
         private static bool Usable(Interactable c) => c is Chest || c is HearthBrazier || c is ExpeditionRemains || c is ShaftCat || c is VigilCandle || c is FateWheel || c is BloodAltar
             || c is BargainAltar || c is Lever || c is SideShrine || c is LorePage || c is PrisonerCage || c is Chandelier || c is CellarHatch
-            || c is SoulRift || c is Fountain || c is StatDraught;
+            || c is Fountain || c is StatDraught;
 
         private Interactable NearestChest(HashSet<ulong> opened)
         {
@@ -1640,6 +1643,28 @@ namespace Deepbound.Networking
         {
             foreach (var pc in FindObjectsByType<Portcullis>(FindObjectsSortMode.None))
                 if (pc != null && pc.Closed.Value && Vector3.Distance(pc.transform.position, at) < 5f) return true;
+            return false;
+        }
+
+        private bool EscapeIsland(out Vector3 landed, out string under)
+        {
+            landed = me.transform.position;
+            under = Physics.Raycast(me.transform.position + Vector3.up * 0.5f, Vector3.down, out var floorHit, 3f, ~0, QueryTriggerInteraction.Ignore) ? floorHit.collider.name : "nothing";
+            var layout = DungeonDirector.Layout;
+            if (layout == null || !NavMesh.SamplePosition(layout.StartRoom.Center, out var home, 4f, NavMesh.AllAreas)) return false;
+            if (!NavMesh.SamplePosition(me.transform.position, out var here, 2f, NavMesh.AllAreas)) return false;
+            var path = new NavMeshPath();
+            if (NavMesh.CalculatePath(here.position, home.position, NavMesh.AllAreas, path) && path.status == NavMeshPathStatus.PathComplete) return false;
+            for (float r = 2f; r <= 12f; r += 2f)
+                for (int i = 0; i < 12; i++)
+                {
+                    var probe = me.transform.position + Quaternion.Euler(0f, i * 30f, 0f) * Vector3.forward * r;
+                    if (!NavMesh.SamplePosition(probe, out var spot, 1.5f, NavMesh.AllAreas)) continue;
+                    if (!NavMesh.CalculatePath(spot.position, home.position, NavMesh.AllAreas, path) || path.status != NavMeshPathStatus.PathComplete) continue;
+                    landed = spot.position;
+                    motor.Teleport(spot.position + Vector3.up * 0.2f, me.transform.rotation);
+                    return true;
+                }
             return false;
         }
 

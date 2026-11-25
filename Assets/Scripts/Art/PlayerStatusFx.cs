@@ -5,24 +5,6 @@ using UnityEngine;
 
 namespace Deepbound.Art
 {
-    /// <summary>
-    /// SHOW, DON'T TELL for players (2026-11-14, the user: "clerics 'blessed' buff being a text box instead of an aura
-    /// around the user"). The players' counterpart to <see cref="EnemyStatusFx"/>: what is on a player is worn on the body,
-    /// on every peer, so a Cleric sees who stands blessed and who needs Holy Water without reading anything.
-    /// Your own view gets the same states as edge pictures (<see cref="UI.AfflictionOverlay"/>); here your own body only
-    /// shows what lies at your feet (rings and motes you see looking down), never things at head height.
-    /// <list type="bullet">
-    /// <item>BLESSED (consecration): a gold halo over the head, a gold ring at the feet, gold motes rising, a warm light.</item>
-    /// <item>INSPIRED (the Cleric's beam): a gold star turning over the head, glints.</item>
-    /// <item>ZEAL / MARTYRDOM / BLOODLUST / BLOODFURY: crimson rings and embers; Martyrdom a pale crown.</item>
-    /// <item>IRONBARK: a bark-brown ring and leaf motes. PLAGUE MASK ward: a slow green ring. BROTHERS IN ARMS: warm sparks.
-    ///   LAST STAND: a heavy red beat at the feet.</item>
-    /// <item>Afflictions: poison drips green, frost rimes the feet, mania spins magenta, silence binds a grey-violet ring
-    ///   at the throat, daze wheels stars round the head, the hag's curse hangs a green-black eye over it, weakness
-    ///   drips violet, ink runs from the blinded.</item>
-    /// </list>
-    /// Added to every <see cref="PlayerLife"/> by a booted watcher; cheap: only within 35 m, motes a few per second.
-    /// </summary>
     public class PlayerStatusFx : MonoBehaviour
     {
         public static readonly Color Gold = new Color(1f, 0.82f, 0.4f), Crimson = new Color(0.95f, 0.15f, 0.1f),
@@ -50,7 +32,6 @@ namespace Deepbound.Art
         private bool hidden = true;
         private static Mesh speck, blob;
 
-        /// <summary>For tests and shots: the states this body is showing right now, by name.</summary>
         public readonly System.Collections.Generic.List<string> Showing = new System.Collections.Generic.List<string>();
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
@@ -87,7 +68,6 @@ namespace Deepbound.Art
 
         private const float HeadTop = 1.95f;
 
-        /// <summary>Shots and tests: states to show as if they held ("blessed", "dazed"...).</summary>
         public static readonly System.Collections.Generic.HashSet<string> DebugForce = new System.Collections.Generic.HashSet<string>();
         public static bool Forced(string s) => DebugForce.Count > 0 && DebugForce.Contains(s);
 
@@ -121,13 +101,10 @@ namespace Deepbound.Art
             bool shielded = (health != null && health.Shield.Value > 0.5f) || Forced("shield");
             if (shielded) Showing.Add("shield");
 
-            // A shield (the Cleric's Aegis and the like): a pale gold-white bubble round the body while it holds.
             if (!mine && shielded)
             {
                 if (bubble == null)
                 {
-                    // 2026-11-21: additive light, not a tinted shell (the shell read as an opaque beige egg over the ally):
-                    // a faint glow of a ball and three slow gold rings turning round it, the Aegis gyroscope at rest.
                     bubble = new GameObject("ShieldBubble").transform;
                     bubble.SetParent(transform, false);
                     var shell = MeshKit.Part(bubble, "Shell", MeshKit.Ball(1f, 16, 10), Mat.Glow, Vector3.zero);
@@ -160,7 +137,6 @@ namespace Deepbound.Art
             }
             else if (bubble != null) bubble.gameObject.SetActive(false);
 
-            // Head height: only on others (your own camera sits there).
             bool head = !mine;
             Halo(ref halo, ref haloR, head && blessed, "BlessHalo", 0.34f, HeadTop - 0.25f + 0.03f * Mathf.Sin(t * 2f), Gold * (1.1f + 0.25f * Mathf.Sin(t * 3f)), 0f);
             Halo(ref crown, ref crownR, head && martyr, "MartyrCrown", 0.42f, HeadTop - 0.25f, new Color(1f, 0.35f, 0.3f) * (0.9f + 0.5f * Mathf.Abs(Mathf.Sin(t * 5f))), 0f);
@@ -176,14 +152,12 @@ namespace Deepbound.Art
             }
             else if (stars != null) stars.gameObject.SetActive(false);
 
-            // The feet: the strongest blessing in ring A, the worst affliction in ring B (yours too).
             Color? a = blessed ? Gold : lastStand ? Crimson * (0.6f + 0.6f * Mathf.Pow(Mathf.Abs(Mathf.Sin(t * 2.2f)), 4f))
                 : zeal || fury ? Crimson * (0.8f + 0.4f * Mathf.Abs(Mathf.Sin(t * 7f))) : bark ? Bark : warded ? Plague : (Color?)null;
             Color? b = mania ? Mania : frost ? Frost : poison ? Poison : weak ? Weak : hexed ? Hex : (Color?)null;
             FeetRing(ref feetA, ref feetAR, a, "BuffRing", 0.75f + 0.05f * Mathf.Sin(t * 3f), t * 25f);
             FeetRing(ref feetB, ref feetBR, b, "BaneRing", 0.6f, -t * (mania ? 200f : 15f));
 
-            // A warm light round the blessed, so a consecrated party glows in a dark room.
             if (blessed || inspired)
             {
                 if (glow == null)
@@ -202,7 +176,6 @@ namespace Deepbound.Art
             }
             else if (glow != null) glow.enabled = false;
 
-            // Motes, a few a second, by state.
             if (t < nextMote) return;
             nextMote = t + 0.12f;
             float up = mine ? 0.15f : 1f;
@@ -221,7 +194,6 @@ namespace Deepbound.Art
             if (silenced && !mine && Random.value < 0.3f) Drip(feet + Vector3.up * 1.6f, Hush);
         }
 
-        /// <summary>A bead that falls off the body and is gone (poison, weakness, ink, blood).</summary>
         private static void Drip(Vector3 at, Color c, float size = 0.05f)
         {
             if (speck == null) speck = MeshKit.Box(Vector3.one);
@@ -252,7 +224,6 @@ namespace Deepbound.Art
             var top = transform.position + Vector3.up * height;
             if (tilt == 0f && cam != null)
             {
-                // A halo stands up behind the head, facing whoever looks (from eye level a flat ring is only a line).
                 var toCam = cam.transform.position - top; toCam.y *= 0.3f;
                 if (toCam.sqrMagnitude < 0.01f) toCam = transform.forward;
                 toCam.Normalize();

@@ -6,11 +6,6 @@ using UnityEngine;
 
 namespace Deepbound.Enemies
 {
-    /// <summary>
-    /// The Plaguebearer: a bloated, rotting corpse that keeps its distance and spits gobbets
-    /// of plague. A hit poisons you for a while. Kill it and it bursts — a green cloud that
-    /// poisons anyone who lingers in it, so do not finish it at sword's length.
-    /// </summary>
     public class PlaguebearerBrain : EnemyBrain
     {
         [SerializeField] private float preferredRange = 8f, cloudRadius = 3.4f, cloudSeconds = 5f;
@@ -43,7 +38,7 @@ namespace Deepbound.Enemies
             base.OnDied(h);
             cloudAt = transform.position;
             cloudUntil = Time.time + cloudSeconds;
-            // READABILITY (2026-11-19): the cloud poisoned the instant it appeared; now there is half a second to step out.
+
             nextTickAt = Time.time + 0.5f;
             CloudRpc(cloudAt, cloudRadius, cloudSeconds);
         }

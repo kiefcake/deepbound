@@ -4,31 +4,16 @@ using Deepbound.Player;
 using Deepbound.Progression;
 using Unity.Netcode;
 using UnityEngine;
+using Deepbound.UI;
 
 namespace Deepbound.World
 {
-    /// <summary>
-    /// Deadman's Hand: blackjack against a skeleton dealer, played to casino rules.
-    ///
-    /// <list type="bullet">
-    /// <item>A six-deck shoe, reshuffled when three quarters have been dealt.</item>
-    /// <item>You choose your bet (5 to 500 gold, never more than you carry) before the deal.</item>
-    /// <item>The dealer peeks for blackjack under an Ace or a ten, stands on all 17s (S17).</item>
-    /// <item>Blackjack pays 3:2. Insurance (half your bet) is offered against an Ace and pays 2:1.</item>
-    /// <item>DOUBLE on any first two cards (one more card, bet doubled). SPLIT any pair, up to four
-    ///   hands; split Aces get one card each and a split 21 is not a blackjack. SURRENDER the first
-    ///   two cards for half your bet back (late surrender, after the peek).</item>
-    /// </list>
-    ///
-    /// Server-authoritative: the shoe and every hand live on the server; each player is sent their
-    /// own table state by an owner RPC and acts through server RPCs.
-    /// </summary>
     public class BlackjackTable : Interactable
     {
         public const int MinBet = 5, MaxBet = 100, Decks = 6, MaxHands = 4;
-        /// <summary>Win this much in one camp visit and the dealer stops dealing to you until you come back from the next floor.</summary>
+
         public const int CutOff = 300;
-        /// <summary>Four stools: four players can sit and play at once, each against the dealer.</summary>
+
         public const int Stools = 4;
         public enum Phase : byte { Betting, Insurance, Playing, Done }
 
@@ -43,14 +28,13 @@ namespace Deepbound.World
             public bool SplitAces;
             public string Result = "";
             public float LastAction;
-            /// <summary>Net winnings this camp visit, and which visit (the next depth when it was counted).</summary>
+
             public int NetThisVisit, Visit = -1;
         }
 
         private readonly Dictionary<ulong, Seat> seats = new Dictionary<ulong, Seat>();
         private readonly List<byte> shoe = new List<byte>();
 
-        // ---- The local player's view of their seat ----
         private static float localOpenedAt;
         public static bool LocalOpen { get; private set; }
         private static BlackjackTable localTable;
@@ -67,7 +51,6 @@ namespace Deepbound.World
         private float resultShownAt = -10f;
         private string lastResult = "";
 
-        // What the view (BlackjackView) reads.
         public Phase SeenPhase => seenPhase;
         public byte[][] SeenHands => seenHands;
         public byte[] SeenHouse => seenHouse;
@@ -83,10 +66,6 @@ namespace Deepbound.World
             if (CutOffFor(who)) return "Deadman's Hand: the dealer has cut you off until the next floor";
             return who.Gold.Value < MinBet ? "Deadman's Hand: you need " + MinBet + " gold" : "Sit at Deadman's Hand (blackjack, up to " + Stools + " players)";
         }
-
-        // ------------------------------------------------------------------
-        // Cards: byte = suit * 13 + (rank - 1); rank 1 = Ace, 11-13 = J Q K.
-        // ------------------------------------------------------------------
 
         public static int Rank(byte card) => card % 13 + 1;
         public static int Suit(byte card) => card / 13;
@@ -119,10 +98,6 @@ namespace Deepbound.World
             if (announce && IsServer) ShuffleFxRpc();
         }
 
-        // ------------------------------------------------------------------
-        // Server: the game
-        // ------------------------------------------------------------------
-
         protected override void ServerUse(PlayerProgress who)
         {
             if (!seats.TryGetValue(who.NetworkObjectId, out var seat)) seats[who.NetworkObjectId] = seat = new Seat { Phase = Phase.Betting };
@@ -141,14 +116,13 @@ namespace Deepbound.World
             return true;
         }
 
-        /// <summary>Owner → server: place a bet and deal.</summary>
         [Rpc(SendTo.Server)]
         public void DealRpc(NetworkObjectReference player, int bet)
         {
             if (!TryGet(player, out var who, out var seat) || (seat.Phase != Phase.Betting && seat.Phase != Phase.Done)) return;
-            // Strike the dealer and it will not deal to you until the grudge eases.
+
             if (who.Grudge(FolkId.Bones) >= 3) { RefusedRpc(who.name); return; }
-            // Won too much this visit: the house has seen enough of you until the next floor.
+
             if (CutOffFor(who)) { CutOffRpc(who.name); return; }
             bet = Mathf.Clamp(bet, MinBet, MaxBet);
             if (who.Gold.Value < bet) return;
@@ -157,7 +131,6 @@ namespace Deepbound.World
 
         private static int Visit => DungeonDirector.Instance != null ? DungeonDirector.Instance.NextDepth.Value : 0;
 
-        /// <summary>Server: is this player cut off for the rest of this camp visit?</summary>
         public bool CutOffFor(PlayerProgress who) => seats.TryGetValue(who.NetworkObjectId, out var seat) && seat.Visit == Visit && seat.NetThisVisit >= CutOff;
 
         [Rpc(SendTo.ClientsAndHost)]
@@ -170,8 +143,6 @@ namespace Deepbound.World
         [Rpc(SendTo.ClientsAndHost)]
         private void RefusedRpc(string who) => UI.CampChatter.Say(FolkId.Bones, "*The dealer slides " + who + "'s chips back across the felt. Not tonight.*", 5f);
 
-        /// <summary>Server (tests): deal with chosen cards (player's first two, then dealer's two).</summary>
-        /// <summary>Tests: set this visit's net winnings at the table.</summary>
         public void ServerDebugWinnings(PlayerProgress who, int net)
         {
             if (!seats.TryGetValue(who.NetworkObjectId, out var seat)) seats[who.NetworkObjectId] = seat = new Seat();
@@ -179,7 +150,6 @@ namespace Deepbound.World
             seat.NetThisVisit = net;
         }
 
-        /// <summary>Tests: the stake of the hand in play.</summary>
         public int ServerStake(PlayerProgress who) => seats.TryGetValue(who.NetworkObjectId, out var s) ? s.LastBet : 0;
 
         public void ServerDebugDeal(PlayerProgress who, int bet, byte[] cards)
@@ -200,12 +170,11 @@ namespace Deepbound.World
             hand.Add(Next(0)); seat.House.Add(Next(2)); hand.Add(Next(1)); seat.House.Add(Next(3));
             seat.Hands.Add(hand); seat.Bets.Add(bet); seat.Doubled.Add(false); seat.Surrendered.Add(false);
             DealFxRpc();
-            // An Ace showing: insurance first. Otherwise the dealer peeks under a ten, then play begins.
+
             if (Rank(seat.House[0]) == 1) { seat.Phase = Phase.Insurance; Send(who, seat); return; }
             AfterPeek(who, seat);
         }
 
-        /// <summary>Owner → server: take insurance (true) or decline it, against the dealer's Ace.</summary>
         [Rpc(SendTo.Server)]
         public void InsuranceRpc(NetworkObjectReference player, bool take)
         {
@@ -287,7 +256,6 @@ namespace Deepbound.World
             DealFxRpc();
             if (Rank(hand[0]) == 1)
             {
-                // Split Aces: one card each, and that is all.
                 seat.SplitAces = true;
                 Settle(who, seat);
                 return;
@@ -312,7 +280,6 @@ namespace Deepbound.World
             seat.Active++;
             if (seat.Active < seat.Hands.Count)
             {
-                // A split hand that already stands at 21 moves straight on.
                 if (Total(seat.Hands[seat.Active]) >= 21) { NextHand(who, seat); return; }
                 Send(who, seat);
                 return;
@@ -320,7 +287,6 @@ namespace Deepbound.World
             Settle(who, seat);
         }
 
-        /// <summary>The dealer plays out (unless every hand is already bust or surrendered), then each hand is paid.</summary>
         private void Settle(PlayerProgress who, Seat seat)
         {
             seat.Active = Mathf.Min(seat.Active, seat.Hands.Count - 1);
@@ -333,7 +299,7 @@ namespace Deepbound.World
                 while (true)
                 {
                     int t = Total(seat.House, out bool soft);
-                    if (t > 17 || (t == 17)) break; // stands on all 17s
+                    if (t > 17 || (t == 17)) break;
                     seat.House.Add(Draw());
                 }
             int house = Total(seat.House);
@@ -375,7 +341,6 @@ namespace Deepbound.World
 
         private void Send(PlayerProgress who, Seat seat)
         {
-            // Flatten for the RPC: hand lengths, then all cards; flags per hand (bit 0 doubled, bit 1 surrendered).
             var lengths = new List<byte>();
             var cards = new List<byte>();
             var flags = new List<byte>();
@@ -391,7 +356,6 @@ namespace Deepbound.World
             BroadcastTable();
         }
 
-        /// <summary>Server: everyone at the table sees who else is playing and how they stand.</summary>
         private void BroadcastTable()
         {
             var sb = new System.Text.StringBuilder();
@@ -432,7 +396,6 @@ namespace Deepbound.World
             if (opening && view != null) view.SitLocal();
         }
 
-        // ---- State for tests ----
         public Phase ServerPhase(PlayerProgress who) => seats.TryGetValue(who.NetworkObjectId, out var s) ? s.Phase : Phase.Betting;
         public int ServerHandCount(PlayerProgress who) => seats.TryGetValue(who.NetworkObjectId, out var s) ? s.Hands.Count : 0;
 
@@ -440,7 +403,7 @@ namespace Deepbound.World
         private void DealFxRpc()
         {
             Sfx.Play(Sound.Card, transform.position + Vector3.up, 0.8f, Random.Range(0.9f, 1.2f));
-            // The dealer's hand goes out over the felt with each deal.
+
             if (dealerRig != null) dealerRig.PlayEmote(Emote.Point, 0.5f);
         }
 
@@ -462,13 +425,8 @@ namespace Deepbound.World
             if (net > 0) Sfx.Play(Sound.Coins, transform.position + Vector3.up, 1f);
         }
 
-        // ------------------------------------------------------------------
-        // Local: the table panel
-        // ------------------------------------------------------------------
-
         private void Update()
         {
-            // Server: a seat left too long, or a player who walked off, is settled as it stands.
             if (IsServer && seats.Count > 0)
             {
                 foreach (var id in new List<ulong>(seats.Keys))
@@ -486,13 +444,13 @@ namespace Deepbound.World
             if (local == null || Vector3.Distance(local.transform.position, transform.position) > 5f || local.GetComponent<PlayerLife>().Downed.Value) { Leave(); return; }
             var kb = UnityEngine.InputSystem.Keyboard.current;
             if (kb == null || UI.PauseMenu.Open) return;
-            if (kb.escapeKey.wasPressedThisFrame || (UI.Binds.Down(UI.Bind.Use) && Time.time - localOpenedAt > 0.4f)) // F leaves too
+            if (kb.escapeKey.wasPressedThisFrame || (UI.Binds.Down(UI.Bind.Use) && Time.time - localOpenedAt > 0.4f))
             {
                 if (seenPhase == Phase.Playing || seenPhase == Phase.Insurance) StandRpc(local.NetworkObject);
                 Leave();
                 return;
             }
-            // Keys, casino style: the bet with the arrows or the wheel, SPACE deals and hits.
+
             var prog = local.GetComponent<PlayerProgress>();
             var no = local.NetworkObject;
             bool shift = kb.shiftKey.isPressed;
@@ -523,14 +481,11 @@ namespace Deepbound.World
             }
         }
 
-        /// <summary>Local: get up from the table (moved: something else already moved the player).</summary>
         public void Leave(bool moved = false)
         {
             LocalOpen = false;
             if (view != null) view.StandLocal(moved);
         }
-
-        private static string RankName(byte c) { int r = Rank(c); return r == 1 ? "A" : r == 11 ? "J" : r == 12 ? "Q" : r == 13 ? "K" : r.ToString(); }
 
         private void OnGUI()
         {
@@ -541,13 +496,9 @@ namespace Deepbound.World
 
         private static GUIStyle pill, big, keyCap, label;
 
-        /// <summary>
-        /// The seated HUD (2026-11-07, casino style): no panel over the felt. Totals float beside the cards, the gold and the
-        /// rules sit at the top, and a strip of actions with their keys runs along the bottom.
-        /// </summary>
         private void OnGUIBody()
         {
-            useGUILayout = false; // no GUILayout here: skip the layout pass (perf)
+            useGUILayout = false;
             if (localTable != this || !LocalOpen) return;
             UI.UiSkin.Apply();
             GUI.depth = -15;
@@ -561,16 +512,14 @@ namespace Deepbound.World
             keyCap ??= new GUIStyle(UI.UiSkin.Body) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold, fontSize = 13, wordWrap = false, normal = { textColor = new Color(0.1f, 0.08f, 0.06f) } };
             label ??= new GUIStyle(UI.UiSkin.Body) { alignment = TextAnchor.MiddleLeft, fontSize = 17, wordWrap = false };
 
-            // Top: the table's name, its rules, your gold, who else plays.
             UI.UiSkin.Rect(new Rect(0, 0, w, 64), new Color(0f, 0f, 0f, 0.45f));
-            GUI.Label(new Rect(24, 8, 400, 28), "DEADMAN'S HAND", new GUIStyle(UI.UiSkin.Heading) { fontSize = 22 });
+            GUI.Label(new Rect(24, 8, 400, 28), "DEADMAN'S HAND", UiSkin.Derive(UI.UiSkin.Heading, UI.UiSkin.Heading.normal.textColor, fontSize: 22));
             GUI.Label(new Rect(24, 36, w * 0.6f, 20), "Blackjack pays 3 to 2  ·  Dealer stands on all 17s  ·  Insurance pays 2 to 1  ·  Bets " + MinBet + "-" + MaxBet,
-                new GUIStyle(UI.UiSkin.Small) { wordWrap = false, normal = { textColor = new Color(0.85f, 0.8f, 0.6f) } });
-            GUI.Label(new Rect(w - 324, 10, 300, 28), prog.Gold.Value + " gold", new GUIStyle(UI.UiSkin.Heading) { alignment = TextAnchor.MiddleRight, fontSize = 22, normal = { textColor = UI.UiSkin.Gold } });
+                UiSkin.Derive(UI.UiSkin.Small, new Color(0.85f, 0.8f, 0.6f), wrap: false));
+            GUI.Label(new Rect(w - 324, 10, 300, 28), prog.Gold.Value + " gold", UiSkin.Derive(UI.UiSkin.Heading, UI.UiSkin.Gold, fontSize: 22, align: TextAnchor.MiddleRight));
             if (!string.IsNullOrEmpty(tableLine))
-                GUI.Label(new Rect(w - 724, 38, 700, 20), tableLine, new GUIStyle(UI.UiSkin.Small) { alignment = TextAnchor.MiddleRight, wordWrap = false });
+                GUI.Label(new Rect(w - 724, 38, 700, 20), tableLine, UiSkin.Derive(UI.UiSkin.Small, UI.UiSkin.Small.normal.textColor, align: TextAnchor.MiddleRight, wrap: false));
 
-            // Totals beside the cards.
             bool dealt = seenPhase != Phase.Betting;
             if (dealt && view != null && view.Stool >= 0)
             {
@@ -588,17 +537,15 @@ namespace Deepbound.World
                 }
             }
 
-            // The result, large, for a few seconds.
             if (seenPhase == Phase.Done && Time.time - resultShownAt < 4f && !string.IsNullOrEmpty(seenResult))
             {
                 float a = Mathf.Clamp01((4f - (Time.time - resultShownAt)) / 0.6f);
                 bool won = seenResult.Contains("+"), lost = seenResult.Contains("-");
                 var col = won ? new Color(1f, 0.85f, 0.35f, a) : lost ? new Color(0.95f, 0.45f, 0.4f, a) : new Color(0.9f, 0.9f, 0.85f, a);
                 UI.UiSkin.Rect(new Rect(0, h * 0.2f, w, 70), new Color(0f, 0f, 0f, 0.5f * a));
-                GUI.Label(new Rect(0, h * 0.2f, w, 70), UI.UiSkin.Fit(seenResult.ToUpperInvariant(), big, w - 80), new GUIStyle(big) { normal = { textColor = col } });
+                GUI.Label(new Rect(0, h * 0.2f, w, 70), UI.UiSkin.Fit(seenResult.ToUpperInvariant(), big, w - 80), UiSkin.Derive(big, col));
             }
 
-            // The bottom strip: what you can do, and its key.
             float by = h - 88;
             UI.UiSkin.Rect(new Rect(0, by - 12, w, 100), new Color(0f, 0f, 0f, 0.55f));
             var no = local.NetworkObject;
@@ -610,10 +557,10 @@ namespace Deepbound.World
                 {
                     int max = Mathf.Min(MaxBet, prog.Gold.Value);
                     betChoice = Mathf.Clamp(betChoice, MinBet, Mathf.Max(MinBet, max));
-                    GUI.Label(new Rect(x, by, 90, 40), "BET", new GUIStyle(label) { fontStyle = FontStyle.Bold, normal = { textColor = UI.UiSkin.Gold } });
+                    GUI.Label(new Rect(x, by, 90, 40), "BET", UiSkin.Derive(label, UI.UiSkin.Gold, fontStyle: FontStyle.Bold));
                     x += 56;
                     if (Act(ref x, by, "<", "", betChoice - 5 >= MinBet)) betChoice -= 5;
-                    GUI.Label(new Rect(x, by, 90, 40), betChoice.ToString(), new GUIStyle(big) { fontSize = 28 });
+                    GUI.Label(new Rect(x, by, 90, 40), betChoice.ToString(), UiSkin.Derive(big, big.normal.textColor, fontSize: 28));
                     x += 96;
                     if (Act(ref x, by, ">", "", betChoice + 5 <= max)) betChoice += 5;
                     if (Act(ref x, by, "MAX", "", max >= MinBet)) betChoice = Mathf.Max(MinBet, max);
@@ -642,7 +589,7 @@ namespace Deepbound.World
                     break;
                 }
             }
-            GUI.Label(new Rect(w - 260, by, 236, 40), "ESC  leave the table", new GUIStyle(label) { alignment = TextAnchor.MiddleRight, fontSize = 14, normal = { textColor = new Color(0.75f, 0.72f, 0.68f) } });
+            GUI.Label(new Rect(w - 260, by, 236, 40), "ESC  leave the table", UiSkin.Derive(label, new Color(0.75f, 0.72f, 0.68f), fontSize: 14, align: TextAnchor.MiddleRight));
         }
 
         private static string TotalText(IList<byte> cards, int total, bool soft) =>
@@ -656,10 +603,9 @@ namespace Deepbound.World
             var r = new Rect(p.x - tw / 2f, UI.UiScale.H - p.y - 15f, tw, 30f);
             UI.UiSkin.Rect(r, new Color(0f, 0f, 0f, strong ? 0.8f : 0.62f));
             if (strong) UI.UiSkin.Rect(new Rect(r.x, r.yMax - 2, r.width, 2), color);
-            GUI.Label(r, text, new GUIStyle(pill) { normal = { textColor = color } });
+            GUI.Label(r, text, UiSkin.Derive(pill, color));
         }
 
-        /// <summary>A key cap and its action; clickable too. Advances <paramref name="x"/>.</summary>
         private static bool Act(ref float x, float y, string key, string text, bool enabled, bool wide = false)
         {
             float kw = Mathf.Max(30f, keyCap.CalcSize(new GUIContent(key)).x + 14f);
@@ -668,20 +614,19 @@ namespace Deepbound.World
             bool hover = enabled && whole.Contains(Event.current.mousePosition);
             UI.UiSkin.Rect(new Rect(x, y + 6, kw, 28), enabled ? (hover ? new Color(1f, 0.9f, 0.6f) : new Color(0.88f, 0.82f, 0.7f)) : new Color(0.4f, 0.38f, 0.35f));
             GUI.Label(new Rect(x, y + 6, kw, 28), key, keyCap);
-            if (tw > 0f) GUI.Label(new Rect(x + kw + 8f, y, tw, 40f), text, new GUIStyle(label) { normal = { textColor = enabled ? (hover ? UI.UiSkin.Gold : new Color(0.92f, 0.9f, 0.85f)) : new Color(0.5f, 0.48f, 0.45f) } });
+            if (tw > 0f) GUI.Label(new Rect(x + kw + 8f, y, tw, 40f), text, UiSkin.Derive(label, enabled ? (hover ? UI.UiSkin.Gold : new Color(0.92f, 0.9f, 0.85f)) : new Color(0.5f, 0.48f, 0.45f)));
             x += whole.width + (wide ? 26f : 12f);
             return enabled && GUI.Button(whole, GUIContent.none, GUIStyle.none);
         }
 
         private static void Hint(float by, string text) =>
-            GUI.Label(new Rect(40, by + 46, UI.UiScale.W - 340, 20), text, new GUIStyle(UI.UiSkin.Small) { wordWrap = false });
+            GUI.Label(new Rect(40, by + 46, UI.UiScale.W - 340, 20), text, UiSkin.Derive(UI.UiSkin.Small, UI.UiSkin.Small.normal.textColor, wrap: false));
 
         public override void OnNetworkSpawn()
         {
             base.OnNetworkSpawn();
             if (IsServer) Shuffle(announce: false);
-            // A half-round casino table (2026-11-07): green felt, a padded rail, four betting circles, four stools, the shoe and
-            // the chip rack at the dealer's straight edge. The players' side is local -Z; the dealer stands at +Z.
+
             float fy = BlackjackView.FeltY;
             var felt = MeshKit.Part(transform, "Felt", MeshKit.Lathe("bjFelt", new[] { new Vector2(1.26f, 0f), new Vector2(0f, 0.0001f) }, 24, true, 180f), Mat.Cloth,
                 new Vector3(0f, fy, 0f), new Vector3(0f, 90f, 0f));
@@ -694,7 +639,7 @@ namespace Deepbound.World
             MeshKit.Part(transform, "Pedestal", MeshKit.Cylinder(0.32f, 0.22f, 0.86f, 10), Mat.Wood, new Vector3(0f, 0f, -0.45f));
             MeshKit.Part(transform, "Foot", MeshKit.Cylinder(0.55f, 0.5f, 0.06f, 12), Mat.Wood, new Vector3(0f, 0f, -0.45f));
             foreach (float x in new[] { -1.15f, 1.15f }) MeshKit.Part(transform, "Leg", MeshKit.Box(new Vector3(0.08f, fy, 0.08f)), Mat.Wood, new Vector3(x, fy / 2f, 0.08f));
-            // Betting circles and stools.
+
             for (int st = 0; st < Stools; st++)
             {
                 var d = BlackjackView.StoolDir(st);
@@ -705,7 +650,7 @@ namespace Deepbound.World
                 MeshKit.Part(transform, "StoolLeg", MeshKit.Cylinder(0.04f, 0.05f, 0.66f, 6), Mat.Steel, sp);
                 MeshKit.Part(transform, "StoolFoot", MeshKit.Cylinder(0.2f, 0.2f, 0.03f, 10), Mat.Steel, sp);
             }
-            // The dealer's side: chip rack and shoe.
+
             var colours = new[] { new Color(0.08f, 0.08f, 0.09f), new Color(0.12f, 0.45f, 0.2f), new Color(0.62f, 0.1f, 0.1f), new Color(0.85f, 0.82f, 0.75f), new Color(0.15f, 0.2f, 0.55f) };
             MeshKit.Part(transform, "Rack", MeshKit.Box(new Vector3(0.62f, 0.03f, 0.13f)), Mat.Wood, new Vector3(-0.1f, fy + 0.012f, -0.06f));
             for (int c = 0; c < colours.Length; c++)
@@ -717,11 +662,11 @@ namespace Deepbound.World
             dealerRig = CharacterArt.BuildSkeleton(transform, CharacterArt.SkeletonKind.Warrior);
             dealerRig.transform.localPosition = new Vector3(0f, 0f, 0.5f);
             dealerRig.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
-            // A dealer, not a soldier: no weapon, no shield.
+
             foreach (var part in dealerRig.GetComponentsInChildren<Transform>(true))
                 if (part != null && (part.name == "Grip" || part.name.Contains("Shield"))) Destroy(part.gameObject);
             Props.Candles(transform, transform.TransformPoint(new Vector3(-1.2f, fy, 0.25f)), new Color(1f, 0.6f, 0.3f));
-            // A lamp over the felt, so the cards read in the tent's gloom.
+
             var lamp = new GameObject("TableLamp").AddComponent<Light>();
             lamp.transform.SetParent(transform, false);
             lamp.transform.localPosition = new Vector3(0f, 2.3f, -0.35f);

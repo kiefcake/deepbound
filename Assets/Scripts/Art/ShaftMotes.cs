@@ -2,7 +2,6 @@ using UnityEngine;
 
 namespace Deepbound.Art
 {
-    /// <summary>Dust turning slowly in a shaft of light. Only while someone is near enough to see it.</summary>
     public class ShaftMotes : MonoBehaviour
     {
         private float radius, height, next;

@@ -4,29 +4,19 @@ using UnityEngine;
 
 namespace Deepbound.Progression
 {
-    /// <summary>APPEND ONLY: synced packed in <see cref="PlayerProgress.EdgeBits"/>. 0 = none.</summary>
     public enum Edge : byte
     {
         None = 0, Momentum = 1, Cleaver = 2, LoneWolf = 3, Opportunist = 4,
         Stalwart = 5, Quickening = 6, Desperation = 7, SecondWind = 8,
-        // Guard edges (2026-11-12, the user: tank or damage "should reflect through items, abilities, everything").
+
         Bastion = 9, Ironhide = 10, Retribution = 11, Lifeblood = 12,
     }
 
-    /// <summary>
-    /// Edges (2026-10-23, "improve the progression"): at +5, +7 and +9 the anvil asks you to forge
-    /// one of three edges into the weapon. Tempering used to be the obvious buy at every level, with
-    /// the only choice at +2; now the weapon of each run grows a shape of its own. Edges are about HOW
-    /// you fight (crowds or duels, set-ups, pace), so they sit beside relics (spikes) and runes (procs)
-    /// rather than repeat them. The three on offer are seeded per player and run, so a client draws
-    /// the same cards the server checks against.
-    /// </summary>
     public static class Edges
     {
         public const int Count = 12, Slots = 3, OfferSize = 3;
         public const float BastionHP = 60f, IronhideDEF = 8f, RetributionShare = 0.3f, RetributionReach = 4f, LifebloodHeal = 0.03f;
 
-        /// <summary>BLADE edges hit harder; GUARD edges keep you standing; Quickening is neither.</summary>
         public static bool IsBlade(Edge e) => e == Edge.Momentum || e == Edge.Cleaver || e == Edge.LoneWolf || e == Edge.Opportunist || e == Edge.Desperation;
         public static bool IsGuard(Edge e) => e == Edge.Stalwart || e == Edge.SecondWind || e == Edge.Bastion || e == Edge.Ironhide || e == Edge.Retribution || e == Edge.Lifeblood;
         public static string Kind(Edge e) => IsBlade(e) ? "BLADE" : IsGuard(e) ? "GUARD" : "CRAFT";
@@ -37,9 +27,9 @@ namespace Deepbound.Progression
         public const float LoneWolfDamage = 1.18f, LoneWolfRadius = 10f;
         public const float OpportunistDamage = 1.2f;
         public const float StalwartTaken = 0.9f;
-        /// <summary>Quickening: added to the other cooldown cuts.</summary>
+
         public const float QuickeningCut = 0.1f;
-        /// <summary>Desperation: +1% damage per 3% of health missing, up to +25%.</summary>
+
         public const float DesperationMax = 0.25f;
         public const float SecondWindHeal = 1.5f;
 
@@ -93,10 +83,8 @@ namespace Deepbound.Progression
             }
         }
 
-        /// <summary>The slot that opens at weapon level <paramref name="level"/>, or -1.</summary>
         public static int SlotAt(int level) => System.Array.IndexOf(Levels, level);
 
-        /// <summary>The three edges offered for <paramref name="slot"/>: seeded by run and player, never one already forged.</summary>
         public static Edge[] Offer(int runSeed, ulong clientId, int slot, int takenBits)
         {
             var pool = new System.Collections.Generic.List<Edge>();
@@ -108,7 +96,7 @@ namespace Deepbound.Progression
             }
             var rng = new System.Random(runSeed * 31 + (int)clientId * 977 + slot * 7919);
             var pick = new Edge[OfferSize];
-            // Always a real choice of build (2026-11-12): one BLADE, one GUARD, and one of anything left.
+
             System.Func<Edge, bool>[] wants = { IsBlade, IsGuard, _ => true };
             for (int i = 0; i < OfferSize && pool.Count > 0; i++)
             {
@@ -121,7 +109,6 @@ namespace Deepbound.Progression
             return pick;
         }
 
-        /// <summary>Server: what the attacker's edges add to one hit on <paramref name="target"/>.</summary>
         public static float OutgoingMultiplier(Health target, PlayerProgress p)
         {
             if (p.EdgeBits.Value == 0) return 1f;

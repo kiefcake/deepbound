@@ -2,7 +2,6 @@ using UnityEngine;
 
 namespace Deepbound.Networking
 {
-    /// <summary>Keeps the tour's stand-in for the player's carried light (Art/PresenceLight) ahead of the tour camera.</summary>
     public class TourFollow : MonoBehaviour
     {
         public Camera Cam;

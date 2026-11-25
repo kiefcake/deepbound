@@ -7,22 +7,10 @@ using Unity.Collections;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.AI;
+using Deepbound.UI;
 
 namespace Deepbound.World
 {
-    /// <summary>
-    /// A PRISONER IN A CAGE (2026-11-08, dungeon interactables: "a caged adventurer begs to be freed ... fights beside
-    /// you for the floor, or turns out to be a trap"). An iron cage in a side room, a ragged delver kneeling inside who
-    /// calls out when you come near. F breaks the lock:
-    /// <list type="bullet">
-    /// <item>Most of the time (<see cref="TrueChance"/>) they are who they say: a FREED DELVER on your side
-    /// (<see cref="Team.Allies"/>) who follows the party for the rest of the floor and cuts at the nearest of the dead.
-    /// The dead's blows can kill them. A name tag and a health bar float over them.</item>
-    /// <item>Otherwise it was bait: the thing in the cage was a ghoul in a dead man's coat, and it and a friend come for you.</item>
-    /// </list>
-    /// The body is this NetworkObject (its health and collider), moved by a server-only NavMeshAgent and synced as
-    /// <see cref="Pos"/> / <see cref="Yaw"/>; the cage is a local prop left where it stood.
-    /// </summary>
     public class PrisonerCage : Interactable
     {
         public const float TrueChance = 0.82f, SeekRange = 12f, LeashRange = 16f, Reach = 2.3f, SwingEvery = 1.15f;
@@ -52,7 +40,6 @@ namespace Deepbound.World
 
         protected override void ServerUse(PlayerProgress who) => ServerOpen(Random.value < TrueChance);
 
-        /// <summary>Server: the lock breaks (forced outcome in tests).</summary>
         public void ServerOpen(bool honest)
         {
             if (Now.Value != State.Caged) return;
@@ -88,7 +75,7 @@ namespace Deepbound.World
                 Pos.Value = transform.position;
                 Yaw.Value = transform.eulerAngles.y;
                 health.Died += _ => ServerFall();
-                // Caged, nothing reaches them (the dead pass a prisoner by).
+
                 health.IncomingModifiers.Add((dmg, from) => Now.Value == State.Free ? dmg : 0f);
             }
             BuildVisual();
@@ -111,7 +98,6 @@ namespace Deepbound.World
 
         private void Gone() { if (IsSpawned) NetworkObject.Despawn(); }
 
-        // ---- Server: follow the party, cut at the dead ----
         private void Update()
         {
             if (IsServer && Now.Value == State.Free && agent != null && agent.enabled && agent.isOnNavMesh) Think();
@@ -124,7 +110,7 @@ namespace Deepbound.World
             if (agent.velocity.sqrMagnitude > 0.05f) Yaw.Value = Quaternion.LookRotation(agent.velocity).eulerAngles.y;
             if (Time.time < nextThink) return;
             nextThink = Time.time + 0.2f;
-            // The leader: the nearest standing player.
+
             PlayerLife leader = null; float best = float.MaxValue;
             foreach (var p in PlayerLife.All)
             {
@@ -135,7 +121,7 @@ namespace Deepbound.World
             if (leader == null) { agent.isStopped = true; return; }
             agent.isStopped = false;
             if (best > 40f) { agent.Warp(leader.transform.position - leader.transform.forward * 2f); return; }
-            // The nearest of the dead near me and not far from the party; never a sleeping guardian.
+
             target = null; float tBest = SeekRange;
             foreach (var e in EnemyBrain.All)
             {
@@ -174,7 +160,6 @@ namespace Deepbound.World
                 victim.Tag("Freed delver").ServerDamage(dmg, transform.position + Vector3.up, NetworkObjectId);
         }
 
-        // ---- Every peer ----
         [Rpc(SendTo.ClientsAndHost)] private void SwingRpc() { if (rig != null) rig.Play(RigAction.Swing, 0.35f); Sfx.Play(Sound.Swing, transform.position + Vector3.up, 0.6f, 1f); }
 
         [Rpc(SendTo.ClientsAndHost)]
@@ -211,7 +196,7 @@ namespace Deepbound.World
                 transform.position = Vector3.Lerp(transform.position, Pos.Value, 1f - Mathf.Exp(-12f * Time.deltaTime));
                 transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.Euler(0f, Yaw.Value, 0f), 1f - Mathf.Exp(-10f * Time.deltaTime));
             }
-            // Caged: they call out to the first player who comes near.
+
             if (Now.Value == State.Caged && Time.time >= nextCall)
             {
                 var me = NetworkPlayer.Local;
@@ -238,20 +223,19 @@ namespace Deepbound.World
             var p = UI.UiScale.World(cam, transform.position + Vector3.up * 2.2f);
             if (p.z < 0f) return;
             float w = 110f;
-            GUI.Label(new Rect(p.x - 100f, p.y - 34f, 200f, 18f), DisplayName, new GUIStyle(UI.UiSkin.Small) { alignment = TextAnchor.MiddleCenter, fontSize = 12, normal = { textColor = new Color(0.6f, 0.9f, 1f) } });
+            GUI.Label(new Rect(p.x - 100f, p.y - 34f, 200f, 18f), DisplayName, UiSkin.Derive(UI.UiSkin.Small, new Color(0.6f, 0.9f, 1f), fontSize: 12, align: TextAnchor.MiddleCenter));
             UI.UiSkin.Rect(new Rect(p.x - w / 2f, p.y - 14f, w, 6f), new Color(0f, 0f, 0f, 0.6f));
             UI.UiSkin.Rect(new Rect(p.x - w / 2f, p.y - 14f, w * health.Fraction, 6f), new Color(0.45f, 0.8f, 1f));
         }
 
         private void BuildVisual()
         {
-            // The prisoner: a knight's frame in rags (grey), kneeling with bowed head while caged.
             body = new GameObject("Prisoner").transform;
             body.SetParent(transform, false);
             rig = CharacterArt.BuildKnight(body, new Color(0.38f, 0.36f, 0.33f));
             if (Now.Value == State.Caged) rig.PlayEmote(Emote.Kneel, 9999f);
             if (Now.Value == State.Dead || Now.Value == State.Bait) body.gameObject.SetActive(false);
-            // The cage: a standalone prop, so it stays when the delver walks out.
+
             cage = new GameObject("PrisonCage").transform;
             cage.position = transform.position;
             cage.rotation = transform.rotation;
@@ -261,7 +245,7 @@ namespace Deepbound.World
             for (int i = 0; i < 14; i++)
             {
                 float a = i * (360f / 14f);
-                if (a > 330f || a < 30f) continue; // the door's gap, facing out
+                if (a > 330f || a < 30f) continue;
                 MeshKit.Part(cage, "Bar", MeshKit.Cylinder(0.025f, 0.025f, 2.25f, 5), Mat.Steel, Quaternion.Euler(0f, a, 0f) * new Vector3(0f, 0f, 0.82f));
             }
             door = MeshKit.Pivot(cage, "Door", Quaternion.Euler(0f, -30f, 0f) * new Vector3(0f, 0f, 0.82f));

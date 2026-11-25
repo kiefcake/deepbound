@@ -4,12 +4,6 @@ using UnityEngine;
 
 namespace Deepbound.World
 {
-    /// <summary>
-    /// A pair of old plank doors in a doorway: they swing into the room when anyone (player or dead)
-    /// comes near and creak shut a few seconds after the last of them has gone. Purely visual and
-    /// local: no collider, so they never block a path, a swing or a shot - they just make rooms
-    /// rooms again, closing off the view and the light until you push through.
-    /// </summary>
     public class SwingDoor : MonoBehaviour
     {
         private Transform left, right;
@@ -66,7 +60,7 @@ namespace Deepbound.World
                 if (AnyoneNear()) lastNear = Time.time;
                 want = Time.time - lastNear < 3f ? 1f : 0f;
             }
-            // Thrown open quickly (someone is coming through); drifting shut slowly.
+
             open = Mathf.MoveTowards(open, want, Time.deltaTime * (want > open ? 3.2f : 0.9f));
             bool isOpen = open > 0.5f;
             if (isOpen != wasOpen)
@@ -77,7 +71,7 @@ namespace Deepbound.World
                     Sfx.Play(isOpen ? Sound.Creak : Sound.Step, transform.position + Vector3.up * 1.5f, isOpen ? 0.35f : 0.5f, isOpen ? Random.Range(0.85f, 1.1f) : 0.55f);
             }
             float k = open * open * (3f - 2f * open);
-            // Each leaf swings from across the doorway round to face into the room (a little past square).
+
             left.rotation = Quaternion.LookRotation(Vector3.Slerp(closedL, Quaternion.AngleAxis(Vector3.SignedAngle(closedL, inward, Vector3.up) * 1.05f, Vector3.up) * closedL, k));
             right.rotation = Quaternion.LookRotation(Vector3.Slerp(closedR, Quaternion.AngleAxis(Vector3.SignedAngle(closedR, inward, Vector3.up) * 1.05f, Vector3.up) * closedR, k));
         }

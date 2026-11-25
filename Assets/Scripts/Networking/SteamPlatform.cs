@@ -6,21 +6,6 @@ using UnityEngine;
 
 namespace Deepbound.Networking
 {
-    /// <summary>
-    /// Steam for playing with friends (2026-10-26): starts the Steam API, keeps a friends-only LOBBY while you host,
-    /// takes invites and "Join Game" from Steam, and lists your friends for the in-game invite and join panels.
-    ///
-    /// <para>
-    /// Until Deepbound has its own Steam app it runs as Valve's public test app, Spacewar (<see cref="AppId"/> 480):
-    /// friends see you "playing Spacewar". Every lobby we make carries <see cref="LobbyKey"/> = our build id, so a
-    /// stranger's Spacewar lobby is never joined, and a friend on a different build is told why.
-    /// </para>
-    ///
-    /// <para>
-    /// Off in every test run (smoke, shots, autoplay) and when Steam is not running: then hosting and joining fall
-    /// back to an IP address, exactly as before.
-    /// </para>
-    /// </summary>
     public class SteamPlatform : MonoBehaviour
     {
         public const uint AppId = 480;
@@ -28,7 +13,7 @@ namespace Deepbound.Networking
 
         public static SteamPlatform Instance { get; private set; }
         public static bool Ready => Instance != null && Instance.ready;
-        /// <summary>Why Steam is not available ("" while it is).</summary>
+
         public static string Problem { get; private set; } = "";
 
         private bool ready;
@@ -41,7 +26,7 @@ namespace Deepbound.Networking
         private Callback<LobbyInvite_t> invited;
 
         public struct Invite { public ulong From, Lobby; public string Name; public float At; }
-        /// <summary>Invites waiting for an answer (newest last); each is dropped after <see cref="InviteSeconds"/>.</summary>
+
         public readonly List<Invite> Invites = new List<Invite>();
         public const float InviteSeconds = 120f;
 
@@ -63,8 +48,6 @@ namespace Deepbound.Networking
         {
             try
             {
-                // Run as Spacewar without Steam launching us: the app id rides in the environment (steam_appid.txt
-                // next to the exe says the same).
                 Environment.SetEnvironmentVariable("SteamAppId", AppId.ToString());
                 Environment.SetEnvironmentVariable("SteamGameId", AppId.ToString());
                 if (!Packsize.Test()) { Problem = "Steam library mismatch."; return; }
@@ -79,7 +62,6 @@ namespace Deepbound.Networking
             }
             catch (Exception e)
             {
-                // Missing steam_api64.dll or similar: play on without Steam.
                 Problem = "Steam could not start.";
                 Debug.Log("[Steam] init threw: " + e.Message);
                 return;
@@ -94,14 +76,12 @@ namespace Deepbound.Networking
             presenceJoin = Callback<GameRichPresenceJoinRequested_t>.Create(r => JoinFromConnect(r.m_rgchConnect));
             invited = Callback<LobbyInvite_t>.Create(OnInvited);
             Debug.Log("[Steam] ready as " + SteamFriends.GetPersonaName() + " (" + SteamUser.GetSteamID() + ")");
-            // Started by a friend's "Join Game" while closed: Steam passes the lobby on the command line.
+
             var args = Environment.GetCommandLineArgs();
             for (int i = 0; i + 1 < args.Length; i++)
                 if (args[i] == "+connect_lobby") JoinFromConnect("+connect_lobby " + args[i + 1]);
         }
 
-        /// <summary>Steam's per-connection send buffer is 512 KB by default; the first sync of a whole floor to a joining
-        /// guest can be a burst bigger than that, and a full buffer refuses reliable messages. 8 MB, for every connection.</summary>
         private static void RaiseSendBuffer()
         {
             var size = System.Runtime.InteropServices.Marshal.AllocHGlobal(4);
@@ -125,7 +105,6 @@ namespace Deepbound.Networking
         {
             if (!ready)
             {
-                // Steam opened after the game: pick it up (only between parties, every few seconds).
                 var net = NetworkManager.Singleton;
                 bool inParty = net != null && (net.IsClient || net.IsServer);
                 if (!inParty && Problem.StartsWith("Steam is not running") && Time.unscaledTime >= retryAt)
@@ -147,9 +126,6 @@ namespace Deepbound.Networking
             ready = false;
         }
 
-        // ---------------------------------------------------------------- hosting
-
-        /// <summary>Host: open a friends-only lobby for the party that just started.</summary>
         public static void OpenLobby()
         {
             if (!Ready) return;
@@ -169,17 +145,15 @@ namespace Deepbound.Networking
             SteamMatchmaking.SetLobbyData(lobby, LobbyKey, NetworkLauncher.BuildId);
             SteamMatchmaking.SetLobbyData(lobby, "host", SteamUser.GetSteamID().m_SteamID.ToString());
             SteamMatchmaking.SetLobbyData(lobby, "name", SteamFriends.GetPersonaName());
-            // Friends see "Join Game" on you in their Steam friends list.
+
             SteamFriends.SetRichPresence("connect", "+connect_lobby " + lobby.m_SteamID);
             SteamFriends.SetRichPresence(LobbyKey, NetworkLauncher.BuildId);
             SteamFriends.SetRichPresence("status", "Hosting a Deepbound party");
             Debug.Log("[Steam] lobby " + lobby.m_SteamID + " open");
         }
 
-        /// <summary>Host: invite one friend (they get a Steam notification and an in-game prompt).</summary>
         public static bool InviteFriend(ulong friend) => InLobby && SteamMatchmaking.InviteUserToLobby(Instance.lobby, new CSteamID(friend));
 
-        /// <summary>Host: Steam's own invite dialog (needs the overlay; the in-game list works without it).</summary>
         public static void OpenInviteOverlay() { if (InLobby) SteamFriends.ActivateGameOverlayInviteDialog(Instance.lobby); }
 
         public void LeaveLobby()
@@ -190,14 +164,10 @@ namespace Deepbound.Networking
             SteamFriends.ClearRichPresence();
         }
 
-        /// <summary>The session ended (host stopped or guest left): leave the lobby too.</summary>
         public static void SessionEnded() { if (Ready) Instance.LeaveLobby(); }
-
-        // ---------------------------------------------------------------- joining
 
         private void OnInvited(LobbyInvite_t r)
         {
-            // Only invites to a game of ours (Spacewar's id) are worth showing.
             if (r.m_ulGameID != AppId) return;
             Invites.RemoveAll(i => i.From == r.m_ulSteamIDUser);
             Invites.Add(new Invite { From = r.m_ulSteamIDUser, Lobby = r.m_ulSteamIDLobby, Name = SteamFriends.GetFriendPersonaName(new CSteamID(r.m_ulSteamIDUser)), At = Time.unscaledTime });
@@ -212,7 +182,6 @@ namespace Deepbound.Networking
                 if (parts[i] == "+connect_lobby" && ulong.TryParse(parts[i + 1], out var id)) { Join(id); return; }
         }
 
-        /// <summary>Join a friend's lobby; once inside, connect to its host (any party you are in is left first).</summary>
         public static void Join(ulong lobbyId)
         {
             if (!Ready || lobbyId == 0)
@@ -247,7 +216,7 @@ namespace Deepbound.Networking
         private void OnLobbyEntered(LobbyEnter_t r, bool ioFailure)
         {
             var id = new CSteamID(r.m_ulSteamIDLobby);
-            // 1 = k_EChatRoomEnterResponseSuccess
+
             if (ioFailure || r.m_EChatRoomEnterResponse != 1)
             {
                 Debug.Log("[Steam] lobby join failed: response " + r.m_EChatRoomEnterResponse + (ioFailure ? " (io failure)" : ""));
@@ -270,9 +239,6 @@ namespace Deepbound.Networking
             launcher.StartSteamClient(hostId, string.IsNullOrEmpty(name) ? SteamFriends.GetFriendPersonaName(new CSteamID(hostId)) : name);
         }
 
-        // ---------------------------------------------------------------- friends
-
-        /// <summary>Friends, those in a Deepbound party first, then online, then the rest (refreshed every 2 s).</summary>
         public static List<Friend> Friends()
         {
             if (!Ready) return Instance != null ? Instance.friends : new List<Friend>();

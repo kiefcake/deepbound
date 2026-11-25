@@ -7,17 +7,6 @@ using UnityEngine.AI;
 
 namespace Deepbound.Enemies
 {
-    /// <summary>
-    /// The Wraith: a drifting spectre that keeps its distance, flings shadow bolts, and
-    /// every few seconds lets out a Wail — a ring on the floor under you that hurts if you
-    /// are still in it when it lands. Get close and it slips away.
-    ///
-    /// <para>
-    /// <b>Ethereal</b>: half of all damage passes through it unless it is pinned down —
-    /// chilled, stunned, marked, or standing in consecrated ground. One player alone can
-    /// grind it down; a party that combos makes it solid.
-    /// </para>
-    /// </summary>
     public class WraithBrain : EnemyBrain
     {
         public const float EtherealTaken = 0.5f;
@@ -28,21 +17,20 @@ namespace Deepbound.Enemies
         private float nextWail, nextSlip, wailAt = -1f;
         private Vector3 wailSpot;
 
-        /// <summary>Pinned: chilled, stunned, marked or in Consecrate — takes full damage.</summary>
         public bool Pinned => IsStunned || health.Chilled.Value || health.Marked.Value || ClericKit.InConsecration(transform.position);
 
         public override void OnNetworkSpawn()
         {
             base.OnNetworkSpawn();
             nextWail = Time.time + 3f;
-            // Ethereal: half of it passes through (was 60%: ranged, evasive AND that slippery made the late floors a slog).
+
             if (IsServer) health.IncomingModifiers.Add((dmg, from) => Pinned ? dmg : dmg * EtherealTaken);
         }
 
         protected override void Update()
         {
             if (HeldByStun()) return;
-            // Everyone: the spectre hovers and sways.
+
             if (Rig != null) Rig.transform.localPosition = new Vector3(0f, 0.25f + Mathf.Sin(Time.time * 2.1f + NetworkObjectId) * 0.12f, 0f);
 
             if (IsServer && !IsDead && wailAt > 0f)
@@ -58,7 +46,6 @@ namespace Deepbound.Enemies
         {
             agent.stoppingDistance = preferredRange;
 
-            // Too close: slip away through the dark.
             if (distanceToTarget < 3.5f && Time.time >= nextSlip)
             {
                 nextSlip = Time.time + slipCooldown;
@@ -87,7 +74,6 @@ namespace Deepbound.Enemies
             return false;
         }
 
-        /// <summary>A stun ends the wail, as it does every other caster's: it used to land when the stun wore off, with its ring long gone.</summary>
         public override void ServerStun(float seconds)
         {
             if (wailAt > 0f) { wailAt = -1f; CancelWailRpc(); }

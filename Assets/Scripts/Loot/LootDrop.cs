@@ -7,35 +7,17 @@ using UnityEngine;
 
 namespace Deepbound.Loot
 {
-    /// <summary>
-    /// An item lying on the dungeon floor. Walk over it to take it.
-    ///
-    /// <para>
-    /// Pickup is server-decided — the server checks who is standing on it and applies it
-    /// to that player's <see cref="PlayerProgress"/> — so two players touching it in the
-    /// same frame cannot both get it. A relic you already own stays on the floor for a
-    /// teammate instead of being wasted.
-    /// </para>
-    /// </summary>
     public class LootDrop : NetworkBehaviour
     {
         private const float PickupRadius = 1.3f, MagnetRadius = 2.6f;
 
         private bool Magnetic => Kind.Value == LootKind.Gold || Kind.Value == LootKind.Embers;
-        /// <summary>Gold or embers: what a pet fetches.</summary>
+
         public bool IsMoney => Magnetic;
 
-        // Pet fetch (2026-11-07): who has had a pet watching this pile, and since when.
         private PlayerLife fetcher;
         private float fetchSince;
 
-        /// <summary>
-        /// Server: a standing player with a pet, within <see cref="Player.PetCompanion.FetchRadius"/> and in sight of this
-        /// pile, has it brought over once it has lain there <see cref="Player.PetCompanion.FetchDelay"/> (the pet runs out
-        /// for it on every screen). The nearest such player wins.
-        /// </summary>
-        /// <summary>The same test on every peer, so the pet runs only for what will be fetched: level-ish, and in sight
-        /// (bodies do not block; a door or wall within 0.3 m of the pile does).</summary>
         public static bool PetCanReach(Vector3 owner, Vector3 pile)
         {
             if (Mathf.Abs(owner.y - pile.y) > 2.5f) return false;
@@ -68,7 +50,6 @@ namespace Deepbound.Loot
             return best;
         }
 
-        /// <summary>How far this player's coin magnet reaches (Packrat x1.5).</summary>
         private static float MagnetOf(PlayerLife life) => Legacy.Has(life, Boon.Packrat) ? MagnetRadius * Legacy.PackratMagnet : MagnetRadius;
 
         private PlayerLife NearestCollector(out float reach)
@@ -86,7 +67,6 @@ namespace Deepbound.Loot
             return best;
         }
 
-        /// <summary>Every drop on this peer, so the minimap need not search the scene each frame.</summary>
         public static readonly List<LootDrop> All = new List<LootDrop>();
 
         public override void OnNetworkDespawn() => All.Remove(this);
@@ -104,18 +84,15 @@ namespace Deepbound.Loot
         private float phase;
         private float pickupAllowedAt, bornAt;
 
-        /// <summary>A relic drop's relic (the low five bits; a relic SET DOWN keeps its tier in the next two).</summary>
         public Relic RelicId => (Relic)(Amount.Value & 31);
         public int RelicTier => (Amount.Value >> 5) & 3;
-        /// <summary>Server: who set this relic down; they do not pick it straight back up until they have stepped away.</summary>
+
         public ulong SetDownBy = ulong.MaxValue;
         private bool setterLeft;
         public const float SetDownStepAway = 2.4f;
         private bool landed;
         private const float HopSeconds = 0.55f;
 
-        /// <summary>Server: spawn drops from a table roll, scattered around a point.</summary>
-        /// <param name="share">Times to roll the table (fractions roll once more by chance): co-op loot, see <see cref="Enemies.Difficulty.KillLootShare"/>. Gold and embers from every roll land as one pile each.</param>
         public static void ServerSpawnFromTable(NetworkObject prefab, LootTable table, Vector3 at, float goldScale, float share = 1f)
         {
             var raw = new List<(LootKind, int)>();
@@ -131,7 +108,7 @@ namespace Deepbound.Loot
             }
             gold = Enemies.Difficulty.Gold(Mathf.RoundToInt(gold * Enemies.Difficulty.CoinCut));
             if (gold > 0) rolls.Add((LootKind.Gold, gold));
-            // Omens and floor events promise more embers: most embers come through here, and they used to miss the bonus.
+
             embers = Enemies.Difficulty.Embers(Mathf.RoundToInt(embers * World.DungeonDirector.OmenEmbers * World.DungeonDirector.EventEmbers * Enemies.Difficulty.CoinCut));
             if (embers > 0) rolls.Add((LootKind.Embers, embers));
             for (int i = 0; i < rolls.Count; i++)
@@ -152,14 +129,12 @@ namespace Deepbound.Loot
             BuildVisual();
             phase = Random.value * 10f;
             bornAt = Time.time;
-            // A short delay so loot visibly lands before it vanishes into whoever was
-            // standing on the corpse.
+
             pickupAllowedAt = Time.time + 0.35f;
         }
 
         private Transform relicColumn;
 
-        // Under water (play-test 2026-11-01: "hard to see loot under water") the loot bobs on the surface instead.
         private float lift, nextWaterCheck;
         private float Buoyancy()
         {
@@ -174,7 +149,6 @@ namespace Deepbound.Loot
 
         private void Update()
         {
-            // Standing in a relic's column of light tints the whole view: it steps aside when you are close.
             if (relicColumn != null)
             {
                 var cam = Art.ViewCamera.Current;
@@ -186,7 +160,7 @@ namespace Deepbound.Loot
                 phase += Time.deltaTime;
                 visual.localPosition = new Vector3(0f, 0.35f + Mathf.Sin(phase * 2.2f) * 0.07f + Buoyancy(), 0f);
                 visual.localRotation = Quaternion.Euler(0f, phase * 70f, 0f);
-                // Spilled from the body: a quick spinning hop, growing to size, and a bump on landing.
+
                 float age = Time.time - bornAt;
                 if (age < HopSeconds)
                 {
@@ -201,7 +175,7 @@ namespace Deepbound.Loot
                     visual.localScale = Vector3.one;
                     Vfx.Ring(transform.position + Vector3.up * 0.04f, 0.35f, new Color(1f, 0.85f, 0.45f, 0.6f), 0.3f);
                 }
-                // Coins and embers drift toward whoever is near enough to collect them.
+
                 if (Magnetic && Time.time >= pickupAllowedAt)
                 {
                     var near = NearestCollector(out float magnet);
@@ -256,11 +230,6 @@ namespace Deepbound.Loot
         private bool crumbled;
         private PlayerProgress routedTo;
 
-        /// <summary>
-        /// Who a find should go to (2026-11-04, ten-floor party run: whoever ran fastest took 41 sigils and 36 relics while the
-        /// Cleric beside them got 11 and 15, and the Rogue had every relic at its top tier by floor 6). Under shared loot a
-        /// sigil or relic goes to the party's poorest member once the finder is this far ahead; finders keepers is untouched.
-        /// </summary>
         private const int FairShareGap = 3;
 
         private PlayerProgress FairShare(PlayerProgress finder, System.Func<PlayerProgress, int> wealth, System.Func<PlayerProgress, bool> canTake)
@@ -293,13 +262,12 @@ namespace Deepbound.Loot
                 var fair = FairShare(progress, p => p.RelicWealth, p => p.CanTakeRelic(relic));
                 if (fair != progress && fair.ServerAddRelic(relic, keptTier)) return true;
                 routedTo = null;
-                // A relic you already carry would only empower yours: leave it while a teammate lacks it.
+
                 bool teammateNeeds = false;
                 foreach (var pl in PlayerLife.All)
                     if (pl != null && pl.TryGetComponent<PlayerProgress>(out var other) && other != progress && !other.HasRelic(relic) && other.CanTakeRelic(relic)) teammateNeeds = true;
                 if ((!progress.HasRelic(relic) || !teammateNeeds) && progress.ServerAddRelic(relic, keptTier)) return true;
-                // A relic nobody can take used to lie there for ever with its beam lit (the autoplay run stood
-                // on one for ten minutes). It breaks down into embers instead.
+
                 foreach (var pl in PlayerLife.All)
                     if (pl != null && pl.TryGetComponent<PlayerProgress>(out var other) && other.CanTakeRelic(relic)) return false;
                 int embers = 15 + 10 * Mathf.Max(0, World.DungeonDirector.Layout != null ? World.DungeonDirector.Layout.Depth : 0);
@@ -310,7 +278,6 @@ namespace Deepbound.Loot
             }
             if (kind == LootKind.PotionHP || kind == LootKind.PotionMP)
             {
-                // Into the pouch while it has room; a full pouch leaves it on the floor for someone else.
                 var pouch = progress.GetComponent<Player.Flasks>();
                 if (pouch == null) return false;
                 var k = kind == LootKind.PotionHP ? Player.Flasks.Kind.Health : Player.Flasks.Kind.Mana;
@@ -350,7 +317,6 @@ namespace Deepbound.Loot
         [Rpc(SendTo.ClientsAndHost)]
         private void PickedUpRpc(ulong playerObjectId)
         {
-            // Whoever took it sees it at once, under the crosshair.
             if (NetworkPlayer.Local != null && NetworkPlayer.Local.NetworkObjectId == playerObjectId)
             {
                 var k = Kind.Value;
@@ -360,9 +326,8 @@ namespace Deepbound.Loot
                 else if (IsPart(k)) UI.GameHud.Pickup("part" + (int)k, Amount.Value, " " + Crafting.PartName(PartOf(k)), Crafting.PartColor(PartOf(k)));
                 else if (k == LootKind.Rune) UI.GameHud.Pickup("rune" + Amount.Value, 1, " " + Runes.Name((Rune)Amount.Value), Runes.Color((Rune)Amount.Value));
                 else if (k == LootKind.Relic) UI.GameHud.Pickup("relic" + Amount.Value, 1, " " + Relics.Name(RelicId) + (RelicTier > 0 ? " " + (RelicTier == 1 ? "II" : "III") : ""), Relics.GemColor(RelicId), Relics.Describe(RelicId));
-                // Potions: the pouch says it, with the count (Flasks.AddedRpc).
             }
-            // Relics announce themselves; gold and embers just make their noise.
+
             var at = transform.position + Vector3.up * 0.4f;
             if (Kind.Value == LootKind.Gold) Sfx.Play(Sound.Coins, at, 0.6f);
             else if (Kind.Value == LootKind.Embers) Sfx.Play(Sound.Fire, at, 0.45f, 1.6f);
@@ -373,8 +338,6 @@ namespace Deepbound.Loot
 
         public static bool IsPart(LootKind k) => k == LootKind.Bone || k == LootKind.Cloth || k == LootKind.Iron;
         public static Part PartOf(LootKind k) => k == LootKind.Bone ? Part.Bone : k == LootKind.Cloth ? Part.Cloth : Part.Iron;
-
-        // ------------------------------------------------------------------
 
         private void BuildVisual()
         {
@@ -400,7 +363,6 @@ namespace Deepbound.Loot
 
             if (Kind.Value == LootKind.PotionHP || Kind.Value == LootKind.PotionMP)
             {
-                // A stoppered bottle, red or blue, glowing faintly through the glass.
                 var pc = Kind.Value == LootKind.PotionHP ? new Color(0.95f, 0.2f, 0.2f) : new Color(0.3f, 0.5f, 1f);
                 var bottle = MeshKit.Part(visual, "Bottle", MeshKit.Lathe("potionBottle", new[]
                 {
@@ -414,7 +376,6 @@ namespace Deepbound.Loot
 
             if (Kind.Value == LootKind.RareItem)
             {
-                // A gold-banded flask, or a bound tome, in the item's colour, with a tall glint so it is seen across a room.
                 var item = (Progression.RareItem)Amount.Value;
                 var rc = Progression.RareItems.Color(item);
                 if (Progression.RareItems.IsTome(item))
@@ -439,7 +400,6 @@ namespace Deepbound.Loot
 
             if (Kind.Value == LootKind.Rune)
             {
-                // A small rounded rune-stone with a glowing band in the rune's colour.
                 var rc = Runes.Color((Rune)Amount.Value);
                 MeshKit.Part(visual, "Stone", MeshKit.Ball(0.12f, 8, 6), Mat.StoneWall, Vector3.zero, Vector3.zero, new Vector3(1f, 0.7f, 1f));
                 var band = MeshKit.Part(visual, "Band", MeshKit.Cylinder(0.125f, 0.125f, 0.03f, 10), Mat.Glow, Vector3.zero);
@@ -450,7 +410,6 @@ namespace Deepbound.Loot
 
             if (Kind.Value == LootKind.Sigil)
             {
-                // A violet rune-stone: a flat tablet with a glowing glyph, turning slowly.
                 MeshKit.Part(visual, "Tablet", MeshKit.Box(new Vector3(0.22f, 0.3f, 0.06f)), Mat.StoneWall, Vector3.zero);
                 var glyph = MeshKit.Part(visual, "Glyph", MeshKit.Box(new Vector3(0.05f, 0.2f, 0.07f)), Mat.Glow, Vector3.zero);
                 ArtLibrary.SetGlow(glyph.GetComponent<Renderer>(), LootInfo.SigilColor * 1.8f);
@@ -462,7 +421,6 @@ namespace Deepbound.Loot
 
             if (IsPart(Kind.Value))
             {
-                // Crafting parts: a femur, a folded rag, a twist of scrap; a faint glint so they read on a dark floor.
                 var col = Crafting.PartColor(PartOf(Kind.Value));
                 if (Kind.Value == LootKind.Bone)
                 {
@@ -485,7 +443,6 @@ namespace Deepbound.Loot
 
             if (Kind.Value == LootKind.Embers)
             {
-                // A little cluster of glowing shards: more embers, more shards.
                 int shards = Mathf.Clamp(2 + Amount.Value / 3, 3, 9);
                 for (int i = 0; i < shards; i++)
                 {
@@ -501,10 +458,6 @@ namespace Deepbound.Loot
             }
         }
 
-        /// <summary>
-        /// A relic: a gem in a gold cage, with a tall shaft of its colour so it can be seen
-        /// from across a room. Picking one up is the run's best moment; it should look it.
-        /// </summary>
         private void BuildRelicVisual(Relic relic)
         {
             var color = Relics.GemColor(relic);
@@ -524,7 +477,7 @@ namespace Deepbound.Loot
             var beam = MeshKit.Part(transform, "Beam", MeshKit.Cylinder(0.07f, 0.03f, 11f, 8), Mat.Glow, Vector3.zero);
             ArtLibrary.SetGlow(beam.GetComponent<Renderer>(), color * 1.4f);
             beam.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            // A soft column of its light round the beam, a slow ring on the floor, and rising sparks.
+
             var column = MeshKit.Part(transform, "Column", MeshKit.Cylinder(0.45f, 0.2f, 7f, 12), Mat.Smoke, Vector3.zero);
             relicColumn = column.transform;
             ArtLibrary.Tint(column.GetComponent<Renderer>(), new Color(color.r, color.g, color.b, 0.14f));

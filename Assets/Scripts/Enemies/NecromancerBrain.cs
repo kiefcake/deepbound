@@ -6,19 +6,6 @@ using UnityEngine.AI;
 
 namespace Deepbound.Enemies
 {
-    /// <summary>
-    /// Necromancer: the priority target. It hangs at the back of a room, flinging shadow
-    /// bolts, and does two things that make every other enemy worse:
-    ///
-    /// <list type="bullet">
-    /// <item><b>Bone Mend</b> — a green circle fills around it; when it completes, every
-    ///   undead inside heals a third of its health. Interrupt it (a bash, or any big hit
-    ///   during the cast) or the fight resets.</item>
-    /// <item><b>Raise</b> — every so often it pulls two fresh skeletons out of the floor.</item>
-    /// </list>
-    /// Fragile. The lesson is "kill the healer first", which is a Mage job — or a Knight
-    /// willing to walk past everything else.
-    /// </summary>
     public class NecromancerBrain : EnemyBrain
     {
         [SerializeField] private NetworkObject minionPrefab;
@@ -70,7 +57,7 @@ namespace Deepbound.Enemies
                 nextRaise = Time.time + raiseCooldown;
                 busyUntil = Time.time + 1.4f;
                 PlayActionRpc(RigAction.Cast, 1.4f);
-                // Its first raise tears a RIFT open (2026-11-13): it keeps calling the dead until someone breaks it.
+
                 if (!riftOpened)
                 {
                     riftOpened = true;
@@ -84,7 +71,7 @@ namespace Deepbound.Enemies
                 for (int i = 0; i < 2; i++)
                 {
                     var pos = World.DropSpots.Stand(transform.position, transform.position + Quaternion.Euler(0f, i * 180f + 45f, 0f) * Vector3.forward * 2.5f, 0.3f, 0.8f);
-                    var m = World.DungeonDirector.ServerSpawnEntering(minionPrefab, pos, transform.rotation, 0f, 0f); // raised: up through the floor
+                    var m = World.DungeonDirector.ServerSpawnEntering(minionPrefab, pos, transform.rotation, 0f, 0f);
                     var brain = m.GetComponent<EnemyBrain>();
                     brain.NoLoot = true;
                     brain.ServerScale(scaledPlayersBase, 0);
@@ -93,7 +80,6 @@ namespace Deepbound.Enemies
                 return true;
             }
 
-            // Too close: back off toward preferred range.
             if (distanceToTarget < 5f)
             {
                 var away = transform.position - target.transform.position;
@@ -105,7 +91,6 @@ namespace Deepbound.Enemies
             return false;
         }
 
-        /// <summary>Its "melee" is a shadow bolt: attackRange is long, the strike fires a projectile.</summary>
         protected override void Strike()
         {
             if (target == null) return;
@@ -131,9 +116,7 @@ namespace Deepbound.Enemies
             foreach (var h in CombatQuery.Circle(transform.position, mendRadius, Team.Enemies))
             {
                 if (h.Team != Team.Enemies || h.GetComponent<TrainingDummy>() != null) continue;
-                // A third of a boss's health every 8 s outhealed a whole party (2026-10-23, the autoplay run: the Tide
-                // Lich and the Unsung took 50,000 damage and stayed at 90%; the "Sir Aldous takes no damage" mystery).
-                // Guardians take a sliver, champions a little; the rank and file the full mend.
+
                 var hb = h.GetComponent<EnemyBrain>();
                 float frac = hb is BossBrain ? BossMendFraction : hb != null && hb.IsChampion ? ChampionMendFraction : mendFraction;
                 h.ServerHeal(h.Max.Value * frac);
@@ -161,8 +144,6 @@ namespace Deepbound.Enemies
             CancelTelegraphRpc();
         }
 
-        // ------------------------------------------------------------------
-
         [Rpc(SendTo.ClientsAndHost)]
         private void MendTelegraphRpc(Vector3 at, float radius, float duration)
         {
@@ -175,8 +156,6 @@ namespace Deepbound.Enemies
         [Rpc(SendTo.ClientsAndHost)]
         private void MendFxRpc(Vector3[] healed)
         {
-            // Green rings on everything it mended, so the party sees who keeps the dead standing.
-            // Its own dark cue: it used the party's revive chime, so an enemy mending its dead sounded like a friend getting up.
             Sfx.Play(Sound.Shade, transform.position + Vector3.up, 0.9f, 0.7f);
             Sfx.Play(Sound.Rattle, transform.position + Vector3.up, 0.5f, 0.8f);
             var green = new Color(0.45f, 1f, 0.5f);

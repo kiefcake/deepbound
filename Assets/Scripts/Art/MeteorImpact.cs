@@ -2,11 +2,6 @@ using UnityEngine;
 
 namespace Deepbound.Art
 {
-    /// <summary>
-    /// Where a meteor lands: a fireball, a shockwave racing out, rock flung everywhere, then a
-    /// smouldering crater — glowing cracks, little flames and smoke — that dies down over a
-    /// few seconds, so you can see where it hit after the noise is over.
-    /// </summary>
     public class MeteorImpact : MonoBehaviour
     {
         private static readonly Color Fire = new Color(1f, 0.5f, 0.15f);
@@ -40,7 +35,6 @@ namespace Deepbound.Art
 
         private void Build()
         {
-            // The scorch: a dark disc, a raised rim of broken stone, and molten cracks.
             MeshKit.Part(transform, "Scorch", MeshKit.Cylinder(radius * 0.85f, radius * 0.85f, 0.02f, 20), Mat.Dark, Vector3.up * 0.015f);
             for (int i = 0; i < 9; i++)
             {

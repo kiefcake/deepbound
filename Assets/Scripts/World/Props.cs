@@ -3,10 +3,6 @@ using UnityEngine;
 
 namespace Deepbound.World
 {
-    /// <summary>
-    /// Dungeon dressing. Static props go into a <see cref="MeshKit.Batcher"/> so they cost
-    /// nothing per-object; anything that animates (torches, braziers) is a real object.
-    /// </summary>
     public static class Props
     {
         private static readonly Vector2[] PillarProfile =
@@ -15,25 +11,22 @@ namespace Deepbound.World
             new Vector2(0.48f, 0.6f), new Vector2(0.45f, 1f),
         };
 
-        /// <summary>A stone pillar from floor to ceiling, with a stepped base and capital.</summary>
         public static void Pillar(MeshKit.Batcher b, Vector3 floor, float height)
         {
             b.Add(MeshKit.Lathe("pillarBase", PillarProfile, 8), Mat.StoneWall, Matrix4x4.Translate(floor));
             b.Add(MeshKit.Cylinder(0.45f, 0.45f, height - 1.6f, 8), Mat.StoneWall, Matrix4x4.Translate(floor + Vector3.up * 0.8f));
-            // Capital: the base profile flipped upside down.
+
             b.Add(MeshKit.Lathe("pillarBase", PillarProfile, 8), Mat.StoneWall,
                 Matrix4x4.TRS(floor + Vector3.up * height, Quaternion.Euler(180f, 0f, 0f), Vector3.one));
         }
 
         public static void Crate(MeshKit.Batcher b, Vector3 floor, float size, float yaw)
         {
-            // A downloaded crate (2026-11-20, docs/CREDITS.md) when it is in the build; the code-built one below otherwise.
             if (b.AddModel(((int)(floor.x * 3f + floor.z * 5f) & 1) == 0 ? "wooden_crate_01" : "wooden_crate_02", size, floor, yaw)) return;
             var rot = Quaternion.Euler(0f, yaw, 0f);
             var c = floor + Vector3.up * size / 2f;
             b.AddBox(c, Vector3.one * size, Mat.Wood, rot);
 
-            // Edge battens, slightly proud of the faces — what makes a box read as a crate.
             float h = size / 2f, t = size * 0.12f;
             for (int i = 0; i < 4; i++)
             {
@@ -42,7 +35,6 @@ namespace Deepbound.World
             }
             b.AddBox(c + Vector3.up * (h - t / 2f + 0.005f), new Vector3(size + 0.02f, t, size + 0.02f) * 1f, Mat.Wood, rot);
 
-            // Plank seams on each face, a cross-brace on two of them and iron corner caps: a plain box read as a block.
             float seam = size * 0.025f;
             for (int f = 0; f < 4; f++)
             {
@@ -69,11 +61,6 @@ namespace Deepbound.World
                 1f, 0.32f, 0.42f, new[] { 0.22f, 0.72f }, (int)(floor.x * 7f + floor.z * 13f));
         }
 
-        /// <summary>
-        /// A coopered barrel (2026-11-13 asset pass; it was one smooth lathe): twelve staves with dark seams between them over a
-        /// dark core, iron hoops with rivets, a sunken lid of planks with a bung. <paramref name="add"/> places one part
-        /// (mesh, material, local position, yaw), so it serves the static batcher and loose props alike.
-        /// </summary>
         public static void StavedBarrel(System.Action<Mesh, string, Vector3, float> add, float height, float endR, float bellyR, float[] hoops, int seed)
         {
             const int Staves = 12;
@@ -108,7 +95,7 @@ namespace Deepbound.World
                     add(MeshKit.Box(new Vector3(0.022f, 0.022f, 0.022f)), Mat.Steel, new Vector3(Mathf.Sin(a) * (r + 0.006f), y, Mathf.Cos(a) * (r + 0.006f)), 0f);
                 }
             }
-            // The lid sits a little down inside the chime, planked, with a bung.
+
             float lidY = height - 0.035f, lidR = endR * 0.93f;
             add(MeshKit.Cylinder(lidR, lidR, 0.02f, 14), Mat.Wood, new Vector3(0f, lidY - 0.01f, 0f), twist);
             for (int k = -1; k <= 1; k += 2)
@@ -116,7 +103,6 @@ namespace Deepbound.World
             add(MeshKit.Cylinder(0.035f, 0.03f, 0.03f, 8), Mat.Wood, new Vector3(lidR * 0.45f, lidY + 0.01f, 0f), 0f);
         }
 
-        /// <summary>A scatter of bones and a skull — evidence of the last party that came through.</summary>
         public static void BonePile(MeshKit.Batcher b, Vector3 floor, System.Random rng)
         {
             for (int i = 0; i < 6; i++)
@@ -140,7 +126,6 @@ namespace Deepbound.World
             }
         }
 
-        /// <summary>The boss's throne: a stepped dais and a high-backed stone seat.</summary>
         public static void Throne(MeshKit.Batcher b, Vector3 floor, Quaternion facing)
         {
             b.AddBox(floor + facing * new Vector3(0f, 0.2f, 0f), new Vector3(6f, 0.4f, 4f), Mat.StoneWall, facing);
@@ -152,10 +137,6 @@ namespace Deepbound.World
             b.AddBox(floor + facing * new Vector3(-1.2f, 2.2f, -0.6f), new Vector3(0.3f, 0.9f, 1.6f), Mat.Gold, facing);
         }
 
-        /// <summary>
-        /// The wandering merchant: a hooded, stooped figure with a lantern behind a trestle
-        /// table of wares. Purely visual; trading is handled by PlayerProgress and the HUD.
-        /// </summary>
         public static void Merchant(Transform parent, Vector3 floor, Vector3 lookAt, MeshKit.Batcher b)
         {
             var root = new GameObject("Merchant").transform;
@@ -181,8 +162,7 @@ namespace Deepbound.World
             var eyeR = MeshKit.Part(root, "EyeR", MeshKit.Ball(0.015f, 6, 4), Mat.Glow, new Vector3(0.045f, 1.48f, 0.2f));
             ArtLibrary.SetGlow(eyeL.GetComponent<Renderer>(), new Color(1f, 0.85f, 0.3f) * 2f);
             ArtLibrary.SetGlow(eyeR.GetComponent<Renderer>(), new Color(1f, 0.85f, 0.3f) * 2f);
-            // A travelling pack: a rounded leather sack with a buckled flap, shoulder straps, a side
-            // pouch and a dented pot, and a bedroll strapped across the top.
+
             var pack = MeshKit.Pivot(root, "Pack", new Vector3(0f, 1.0f, -0.4f), new Vector3(-6f, 0f, 0f));
             var leather = new Color(0.42f, 0.29f, 0.17f);
             ArtLibrary.Tint(MeshKit.Part(pack, "Sack", MeshKit.Ball(0.5f, 12, 10), Mat.Leather, Vector3.zero, default, new Vector3(0.46f, 0.56f, 0.3f)).GetComponent<Renderer>(), leather);
@@ -198,23 +178,21 @@ namespace Deepbound.World
                 ArtLibrary.Tint(MeshKit.Part(roll, "Tie", MeshKit.Cylinder(0.106f, 0.106f, 0.03f, 10), Mat.Leather, new Vector3(0f, ry, 0f)).GetComponent<Renderer>(), leather * 0.55f);
             MeshKit.MergeParts(pack);
 
-            // Lantern on a crook staff.
             MeshKit.Part(root, "Staff", MeshKit.Cylinder(0.025f, 0.03f, 2.1f, 6), Mat.Wood, new Vector3(0.48f, 0f, 0.15f));
             MeshKit.Part(root, "Crook", MeshKit.Box(new Vector3(0.3f, 0.04f, 0.04f)), Mat.Wood, new Vector3(0.6f, 2.05f, 0.15f));
             var lantern = MeshKit.Pivot(root, "Lantern", new Vector3(0.72f, 1.78f, 0.15f));
             MeshKit.Part(lantern, "Cage", MeshKit.Cylinder(0.09f, 0.08f, 0.22f, 6), Mat.Steel, Vector3.zero);
             AddFlame(lantern, new Vector3(0f, 0.04f, 0f), 0.45f, new Color(1f, 0.75f, 0.35f), 5f, 9f, true);
 
-            // Trestle table of wares between him and the party.
             var table = root.position + root.forward * 0.9f;
             b.AddBox(table + Vector3.up * 0.85f, new Vector3(1.8f, 0.08f, 0.7f), Mat.Wood, root.rotation);
             b.AddBox(table + root.right * 0.75f + Vector3.up * 0.42f, new Vector3(0.08f, 0.84f, 0.6f), Mat.Wood, root.rotation);
             b.AddBox(table - root.right * 0.75f + Vector3.up * 0.42f, new Vector3(0.08f, 0.84f, 0.6f), Mat.Wood, root.rotation);
-            // His wares stay on the table when he walks off on an errand (2026-11-08: they used to walk with him).
+
             var wares = new GameObject("SilasWares").transform;
             wares.SetParent(root.parent, false);
             wares.SetPositionAndRotation(root.position, root.rotation);
-            // His wares: two healing draughts, a bowl of embers, a sigil tablet and a charm.
+
             Vector3 Local(float along) => root.InverseTransformPoint(table + root.right * along + Vector3.up * 0.89f);
             foreach (float along in new[] { -0.65f, -0.4f })
             {
@@ -240,7 +218,7 @@ namespace Deepbound.World
             MeshKit.Part(wares, "Charm", MeshKit.Cylinder(0.08f, 0.08f, 0.03f, 12), Mat.Gold, Local(0.6f) + new Vector3(0f, 0.02f, 0f));
             var stone = MeshKit.Part(wares, "CharmStone", MeshKit.Ball(0.05f, 8, 6), Mat.Glow, Local(0.6f) + new Vector3(0f, 0.05f, 0f));
             ArtLibrary.SetGlow(stone.GetComponent<Renderer>(), new Color(0.45f, 0.7f, 1f) * 1.6f);
-            // A little rack of pendants at the table's end (he sells them since 2026-10-20).
+
             var rack = root.InverseTransformPoint(table + root.right * 0.95f + Vector3.up * 0.89f);
             MeshKit.Part(wares, "PendantRackPost", MeshKit.Box(new Vector3(0.03f, 0.45f, 0.03f)), Mat.Wood, rack + new Vector3(0f, 0.22f, 0f));
             MeshKit.Part(wares, "PendantRackBar", MeshKit.Box(new Vector3(0.36f, 0.025f, 0.025f)), Mat.Wood, rack + new Vector3(0f, 0.44f, 0f));
@@ -259,11 +237,6 @@ namespace Deepbound.World
 
         public enum Folk { Smith, Priest, Tailor, Driver, Sergeant, Runewright, Barkeep, Lutist, Fiddler, Drummer, Drinker }
 
-        /// <summary>
-        /// The camp's people: a simple standing figure with a bare face (no hoods), dressed by trade:
-        /// the smith in a leather apron with a hammer, the priest tonsured in grey with a censer, the
-        /// tailor in plum with a measuring tape, the driver in a long coat and a tall hat.
-        /// </summary>
         public static Transform Townsfolk(Transform parent, Vector3 floor, Vector3 lookAt, Folk folk)
         {
             var root = new GameObject(folk.ToString()).transform;
@@ -284,7 +257,6 @@ namespace Deepbound.World
             {
                 if (folk == Folk.Priest)
                 {
-                    // Hands pressed together in prayer at the chest: upper arm down and forward, forearm up to the hands.
                     var shoulder = new Vector3(s * 0.27f, 1.3f, 0f);
                     var elbow = new Vector3(s * 0.22f, 1.02f, 0.17f);
                     var wrist = new Vector3(s * 0.035f, 1.14f, 0.28f);
@@ -294,7 +266,7 @@ namespace Deepbound.World
                     ArtLibrary.Tint(palm.GetComponent<Renderer>(), skin);
                     continue;
                 }
-                // Arms that hang from the shoulders (they used to float below them), bent a little at the elbow.
+
                 var sh = new Vector3(s * 0.27f * bulk, 1.39f, 0f);
                 var el = new Vector3(s * 0.31f * bulk, 1.07f, 0.02f);
                 var wr = new Vector3(s * 0.31f * bulk, 0.83f, 0.08f);
@@ -314,7 +286,7 @@ namespace Deepbound.World
                     ArtLibrary.Tint(apron.GetComponent<Renderer>(), new Color(0.3f, 0.2f, 0.12f));
                     var beard = MeshKit.Part(root, "Beard", MeshKit.Ball(0.1f, 8, 6), Mat.Cloth, new Vector3(0f, 1.53f, 0.09f), default, new Vector3(1f, 1.2f, 0.8f));
                     ArtLibrary.Tint(beard.GetComponent<Renderer>(), new Color(0.35f, 0.22f, 0.12f));
-                    // The hammer in his right hand (he works the anvil with it), a leather bracer on each forearm, apron straps.
+
                     MeshKit.Part(root, "Haft", MeshKit.Cylinder(0.022f, 0.022f, 0.5f, 6), Mat.Wood, new Vector3(0.31f * bulk, 0.79f, 0.1f), new Vector3(90f, 0f, 0f));
                     MeshKit.Part(root, "HammerHead", MeshKit.Box(new Vector3(0.17f, 0.08f, 0.09f)), Mat.Steel, new Vector3(0.31f * bulk, 0.79f, 0.58f));
                     foreach (float bs in new[] { -1f, 1f })
@@ -328,19 +300,18 @@ namespace Deepbound.World
                     ArtLibrary.Tint(cap.GetComponent<Renderer>(), new Color(0.32f, 0.2f, 0.11f));
                     break;
                 case Folk.Priest:
-                    // A tonsure: a ring of grey hair round a bare crown.
+
                     var hair = MeshKit.Part(root, "Tonsure", MeshKit.Cylinder(0.135f, 0.135f, 0.06f, 12), Mat.Cloth, new Vector3(0f, 1.66f, 0.01f));
                     ArtLibrary.Tint(hair.GetComponent<Renderer>(), new Color(0.65f, 0.65f, 0.62f));
                     var sash = MeshKit.Part(root, "Stole", MeshKit.Box(new Vector3(0.1f, 0.9f, 0.03f)), Mat.Cloth, new Vector3(0f, 0.95f, 0.27f));
                     ArtLibrary.Tint(sash.GetComponent<Renderer>(), new Color(0.75f, 0.6f, 0.25f));
-                    // A fat purse at his belt, which says more about him than the stole.
+
                     var purse = MeshKit.Part(root, "Purse", MeshKit.Ball(0.07f, 8, 6), Mat.Leather, new Vector3(0.24f, 0.82f, 0.18f), default, new Vector3(1f, 1.2f, 0.9f));
                     ArtLibrary.Tint(purse.GetComponent<Renderer>(), new Color(0.45f, 0.3f, 0.15f));
                     MeshKit.Part(root, "PurseTie", MeshKit.Cylinder(0.025f, 0.025f, 0.02f, 8), Mat.Gold, new Vector3(0.24f, 0.9f, 0.18f));
                     break;
                 case Folk.Sergeant:
                 {
-                    // A drillmaster: a dented kettle helm, a mail collar, a scar of a moustache and a wooden practice sword.
                     MeshKit.Part(root, "Helm", MeshKit.Cylinder(0.14f, 0.15f, 0.12f, 12), Mat.Steel, new Vector3(0f, 1.72f, 0f));
                     MeshKit.Part(root, "HelmBrim", MeshKit.Cylinder(0.22f, 0.22f, 0.02f, 14), Mat.Steel, new Vector3(0f, 1.67f, 0f));
                     MeshKit.Part(root, "Mail", MeshKit.Cylinder(0.2f, 0.26f, 0.14f, 10), Mat.Steel, new Vector3(0f, 1.38f, 0f));
@@ -348,7 +319,7 @@ namespace Deepbound.World
                     ArtLibrary.Tint(tache.GetComponent<Renderer>(), new Color(0.25f, 0.16f, 0.1f));
                     MeshKit.Part(root, "PracticeSword", MeshKit.Box(new Vector3(0.05f, 0.02f, 0.8f)), Mat.Wood, new Vector3(0.31f * bulk, 0.79f, 0.5f));
                     MeshKit.Part(root, "SwordGuard", MeshKit.Box(new Vector3(0.18f, 0.04f, 0.03f)), Mat.Wood, new Vector3(0.31f * bulk, 0.79f, 0.11f));
-                    // A drillmaster's tabard: the castle's colours, a white chevron.
+
                     var tabard = MeshKit.Part(root, "Tabard", MeshKit.Box(new Vector3(0.36f, 0.62f, 0.025f)), Mat.Cloth, new Vector3(0f, 1.0f, 0.25f * bulk));
                     ArtLibrary.Tint(tabard.GetComponent<Renderer>(), new Color(0.42f, 0.08f, 0.08f));
                     var chevron = MeshKit.Part(root, "Chevron", MeshKit.Box(new Vector3(0.22f, 0.05f, 0.01f)), Mat.Cloth, new Vector3(0f, 1.12f, 0.265f * bulk));
@@ -357,8 +328,6 @@ namespace Deepbound.World
                 }
                 case Folk.Runewright:
                 {
-                    // The runewright: a deep-blue robe, silver hair in a long braid, a circlet set with a cold stone,
-                    // and runes glowing on her palms.
                     var hairY = MeshKit.Part(root, "Hair", MeshKit.Ball(0.135f, 10, 8), Mat.Cloth, new Vector3(0f, 1.66f, -0.02f));
                     ArtLibrary.Tint(hairY.GetComponent<Renderer>(), new Color(0.78f, 0.78f, 0.82f));
                     var braid = MeshKit.Part(root, "Braid", MeshKit.Cylinder(0.035f, 0.02f, 0.6f, 6), Mat.Cloth, new Vector3(0f, 1.3f, -0.15f));
@@ -377,7 +346,6 @@ namespace Deepbound.World
                 }
                 case Folk.Barkeep:
                 {
-                    // Marta the alewife: copper hair in a kerchief, a white apron, a cloth over her shoulder.
                     var hairB = MeshKit.Part(root, "Hair", MeshKit.Ball(0.13f, 10, 8), Mat.Cloth, new Vector3(0f, 1.67f, -0.03f));
                     ArtLibrary.Tint(hairB.GetComponent<Renderer>(), new Color(0.55f, 0.25f, 0.1f));
                     var kerchief = MeshKit.Part(root, "Kerchief", MeshKit.Cylinder(0.14f, 0.12f, 0.07f, 12), Mat.Cloth, new Vector3(0f, 1.73f, -0.01f));
@@ -390,7 +358,6 @@ namespace Deepbound.World
                 }
                 case Folk.Drinker:
                 {
-                    // Old Hollis, the regular: a battered felt hat, grey stubble, a patched coat, a pewter tankard.
                     var hatH = MeshKit.Part(root, "Hat", MeshKit.Cylinder(0.14f, 0.125f, 0.15f, 10), Mat.Cloth, new Vector3(0f, 1.71f, -0.01f), new Vector3(-5f, 0f, 4f));
                     ArtLibrary.Tint(hatH.GetComponent<Renderer>(), new Color(0.22f, 0.18f, 0.14f));
                     var brimH = MeshKit.Part(root, "Brim", MeshKit.Cylinder(0.22f, 0.22f, 0.02f, 12), Mat.Cloth, new Vector3(0f, 1.71f, -0.01f), new Vector3(-5f, 0f, 4f));
@@ -408,7 +375,6 @@ namespace Deepbound.World
                 }
                 case Folk.Lutist:
                 {
-                    // A lute across the body: a round back, a long neck angled up to the left, a bent-back pegbox.
                     var feather = MeshKit.Part(root, "Cap", MeshKit.Cylinder(0.15f, 0.12f, 0.08f, 12), Mat.Cloth, new Vector3(0f, 1.73f, 0f));
                     ArtLibrary.Tint(feather.GetComponent<Renderer>(), new Color(0.15f, 0.25f, 0.15f));
                     MeshKit.Part(root, "Feather", MeshKit.Box(new Vector3(0.02f, 0.25f, 0.04f)), Mat.Bone, new Vector3(0.1f, 1.85f, -0.05f), new Vector3(-20f, 0f, -25f));
@@ -421,7 +387,6 @@ namespace Deepbound.World
                 }
                 case Folk.Fiddler:
                 {
-                    // A fiddle under the chin and a bow across it; a shock of grey hair.
                     var hairF = MeshKit.Part(root, "Hair", MeshKit.Ball(0.14f, 10, 8), Mat.Cloth, new Vector3(0f, 1.68f, -0.03f), default, new Vector3(1.1f, 0.9f, 1f));
                     ArtLibrary.Tint(hairF.GetComponent<Renderer>(), new Color(0.62f, 0.6f, 0.58f));
                     var fiddle = MeshKit.Part(root, "Fiddle", MeshKit.Ball(0.1f, 10, 6), Mat.Wood, new Vector3(-0.17f, 1.38f, 0.22f), new Vector3(10f, 30f, 60f), new Vector3(0.75f, 1.4f, 0.4f));
@@ -432,7 +397,6 @@ namespace Deepbound.World
                 }
                 case Folk.Drummer:
                 {
-                    // A frame drum held up in the left hand, a beater in the right; a broad-brimmed hat.
                     MeshKit.Part(root, "Brim", MeshKit.Cylinder(0.24f, 0.24f, 0.02f, 14), Mat.Leather, new Vector3(0f, 1.74f, 0f));
                     MeshKit.Part(root, "Hat", MeshKit.Cylinder(0.12f, 0.13f, 0.14f, 12), Mat.Leather, new Vector3(0f, 1.8f, 0f));
                     MeshKit.Part(root, "DrumRim", MeshKit.Cylinder(0.24f, 0.24f, 0.07f, 16), Mat.Wood, new Vector3(-0.2f, 1.1f, 0.3f), new Vector3(80f, 0f, 20f));
@@ -442,7 +406,7 @@ namespace Deepbound.World
                     break;
                 }
                 case Folk.Tailor:
-                    // Dark hair drawn back into a bun, a fringe over the brow, a shawl over the shoulders and a pincushion on her wrist.
+
                     var bun = MeshKit.Part(root, "Hair", MeshKit.Ball(0.11f, 8, 6), Mat.Cloth, new Vector3(0f, 1.7f, -0.09f));
                     ArtLibrary.Tint(bun.GetComponent<Renderer>(), new Color(0.16f, 0.1f, 0.07f));
                     var hairCap = MeshKit.Part(root, "HairCap", MeshKit.Ball(0.138f, 10, 8), Mat.Cloth, new Vector3(0f, 1.665f, -0.012f), default, new Vector3(1f, 0.78f, 1f));
@@ -467,12 +431,10 @@ namespace Deepbound.World
             float neckY = 1.52f;
             if (folk == Folk.Priest)
             {
-                // He kneels: everything sinks, the robe pooling on a cushion; a censer smokes on the stones beside him.
                 const float kneel = 0.42f;
                 foreach (Transform c in root) c.localPosition += Vector3.down * kneel;
                 neckY -= kneel;
-                // The robe pools round his knees, and his shins and the soles of his sandals stick out behind:
-                // from any side he reads as kneeling, not as a short man standing in a hole.
+
                 var hem = MeshKit.Part(root, "Hem", MeshKit.Ball(0.36f, 12, 6), Mat.Cloth, new Vector3(0f, 0.15f, 0.02f), default, new Vector3(1.12f, 0.3f, 1.05f));
                 ArtLibrary.Tint(hem.GetComponent<Renderer>(), coat * 0.92f);
                 foreach (float s in new[] { -1f, 1f })
@@ -495,7 +457,7 @@ namespace Deepbound.World
             var idle = Art.FolkIdle.Attach(root, neckY, "Head", "Eye", "Beard", "Tonsure", "Hair", "HairCap", "Brim", "Hat", "Kerchief", "Cap", "Feather",
                 "EyeWhite", "Pupil", "Glint", "Cheek", "Brow", "Nose", "Mouth", "Ear", "Jaw", "Helm", "HelmBrim", "Moustache", "Circlet", "CircletStone");
             if (folk == Folk.Priest) { idle.RestPitch = 26f; idle.Prays = true; idle.PrayAt = root.TransformPoint(new Vector3(0f, 1.2f - 0.42f, 0.32f)); idle.IncenseAt = root.TransformPoint(new Vector3(0.55f, 0.25f, 0.3f)); }
-            // Who they are (names over heads, greetings) and what they do while nobody is at the counter.
+
             (idle.Who, idle.DisplayName, idle.Trade, idle.Work) = folk switch
             {
                 Folk.Smith => ((World.FolkId?)World.FolkId.Hobb, "Hobb Ironside", "Smith", Art.FolkIdle.WorkKind.Hammer),
@@ -522,10 +484,6 @@ namespace Deepbound.World
             return root;
         }
 
-        /// <summary>
-        /// Puts one side's arm (and anything named in <paramref name="extra"/> on that side) under a pivot at the shoulder,
-        /// so the arm can swing; returns the pivot.
-        /// </summary>
         private static Transform GroupArm(Transform root, float side, float bulk, params string[] extra)
         {
             var pivot = new GameObject(side > 0f ? "ArmR" : "ArmL").transform;
@@ -539,12 +497,6 @@ namespace Deepbound.World
             return pivot;
         }
 
-        /// <summary>
-        /// The camp folk's figure (rebuilt 2026-10-20, the user: "improve npc design"): legs and boots under a
-        /// tunic (or a long robe for the priest, the tailor, the runewright and the driver), a shaped torso
-        /// with a belt, a collar and shoulders, a neck, and a face with ears, a nose, brows, eyes with whites
-        /// and pupils, and a mouth. The trade details are added by <see cref="Townsfolk"/>.
-        /// </summary>
         private static void FolkFigure(Transform root, Folk folk, Color coat, Color skin, float bulk)
         {
             bool robed = folk == Folk.Priest || folk == Folk.Tailor || folk == Folk.Runewright || folk == Folk.Driver;
@@ -561,7 +513,7 @@ namespace Deepbound.World
                 ArtLibrary.Tint(skirt.GetComponent<Renderer>(), coat * 0.92f);
                 var hem = MeshKit.Part(root, "Hem", MeshKit.Cylinder(0.315f * bulk, 0.315f * bulk, 0.05f, 12), Mat.Cloth, new Vector3(0f, 0.04f, 0f), default, new Vector3(1f, 1f, 0.85f));
                 ArtLibrary.Tint(hem.GetComponent<Renderer>(), coat * 0.55f);
-                // Toes of shoes peeping out under the hem.
+
                 foreach (float s in new[] { -1f, 1f })
                 {
                     var toe = MeshKit.Part(root, "Shoe", MeshKit.Ball(0.06f, 8, 6), Mat.Leather, new Vector3(s * 0.1f, 0.03f, 0.25f), default, new Vector3(1f, 0.55f, 1.4f));
@@ -593,7 +545,7 @@ namespace Deepbound.World
                 new Vector2(0.225f, 0.9f), new Vector2(0.25f, 1.08f), new Vector2(0.275f, 1.3f), new Vector2(0.245f, 1.42f), new Vector2(0.12f, 1.49f), new Vector2(0f, 1.5f),
             }, 12), Mat.Cloth, Vector3.zero, default, new Vector3(bulk, 1f, bulk * 0.78f));
             ArtLibrary.Tint(torso.GetComponent<Renderer>(), coat);
-            // Front placket with buttons, a belt and buckle, a collar, and rounded shoulders.
+
             var placket = MeshKit.Part(root, "Placket", MeshKit.Box(new Vector3(0.05f, 0.5f, 0.012f)), Mat.Cloth, new Vector3(0f, 1.18f, 0.205f * bulk));
             ArtLibrary.Tint(placket.GetComponent<Renderer>(), coat * 0.7f);
             for (int i = 0; i < 4; i++) MeshKit.Part(root, "Button", MeshKit.Ball(0.012f, 5, 3), Mat.Gold, new Vector3(0f, 1.0f + i * 0.11f, 0.214f * bulk));
@@ -610,7 +562,6 @@ namespace Deepbound.World
             var neck = MeshKit.Part(root, "NeckSkin", MeshKit.Cylinder(0.055f, 0.06f, 0.1f, 8), Mat.Bone, new Vector3(0f, 1.52f, 0.01f));
             ArtLibrary.Tint(neck.GetComponent<Renderer>(), skin * 0.95f);
 
-            // The head and face.
             var head = MeshKit.Part(root, "Head", MeshKit.Ball(0.13f, 12, 10), Mat.Bone, new Vector3(0f, 1.63f, 0.02f), default, new Vector3(0.94f, 1.08f, 1f));
             ArtLibrary.Tint(head.GetComponent<Renderer>(), skin);
             var jaw = MeshKit.Part(root, "Jaw", MeshKit.Ball(0.095f, 10, 8), Mat.Bone, new Vector3(0f, 1.56f, 0.05f), default, new Vector3(1f, 0.7f, 0.95f));
@@ -636,14 +587,12 @@ namespace Deepbound.World
             }
         }
 
-        /// <summary>A cylinder limb from <paramref name="a"/> to <paramref name="b"/> (local to <paramref name="parent"/>).</summary>
         private static GameObject Limb(Transform parent, string name, Vector3 a, Vector3 b, float radius)
         {
             var d = b - a;
             return MeshKit.Part(parent, name, MeshKit.Cylinder(radius, radius * 0.9f, d.magnitude, 6), Mat.Cloth, a, Quaternion.FromToRotation(Vector3.up, d).eulerAngles);
         }
 
-        /// <summary>A crouching gargoyle on a plinth: hunched body, folded wings, horned head.</summary>
         public static void Gargoyle(MeshKit.Batcher b, Vector3 floor, Quaternion facing)
         {
             Matrix4x4 T(Vector3 local, Vector3 euler, Vector3 scale) => Matrix4x4.TRS(floor + facing * local, facing * Quaternion.Euler(euler), scale);
@@ -659,7 +608,6 @@ namespace Deepbound.World
             }
         }
 
-        /// <summary>A standing iron candelabra: a tall stem and a crown of candles.</summary>
         public static void Candelabra(Transform parent, MeshKit.Batcher b, Vector3 floor, Color fire)
         {
             b.Add(MeshKit.Cylinder(0.25f, 0.18f, 0.12f, 8), Mat.Steel, Matrix4x4.Translate(floor));
@@ -681,10 +629,6 @@ namespace Deepbound.World
             l.shadows = LightShadows.None;
         }
 
-        /// <summary>
-        /// A gothic lancet window set into a wall: stone frame, a pointed head, and panes of
-        /// coloured glass glowing as if lit from beyond, throwing coloured light into the room.
-        /// </summary>
         public static void StainedGlass(Transform parent, MeshKit.Batcher b, Vector3 wallFace, Vector3 inward, float height, int seed)
         {
             var rot = Quaternion.LookRotation(inward);
@@ -704,7 +648,7 @@ namespace Deepbound.World
                 }
             var top = MeshKit.Part(parent, "PaneTop", MeshKit.Box(new Vector3(0.5f, 0.5f, 0.03f)), Mat.Glow, center + Vector3.up * 1.7f + inward * 0.03f, (rot * Quaternion.Euler(0f, 0f, 45f)).eulerAngles);
             ArtLibrary.SetGlow(top.GetComponent<Renderer>(), palette[rng.Next(palette.Length)] * 1.1f);
-            // Lead cames between the panes.
+
             b.AddBox(center + inward * 0.05f, new Vector3(0.05f, 3.2f, 0.04f), Mat.Dark, rot);
             var l = new GameObject("GlassLight").AddComponent<Light>();
             l.transform.SetParent(parent, false);
@@ -716,10 +660,8 @@ namespace Deepbound.World
             l.shadows = LightShadows.None;
         }
 
-        /// <summary>Cobweb strands across an upper corner (translucent, catches the torchlight).</summary>
         public static void Cobweb(Transform parent, Vector3 corner, Vector3 alongA, Vector3 alongB, float size)
         {
-            // Its own pivot, merged at the end (2026-11-16 perf: eight strand renderers a web became two).
             var web = MeshKit.Pivot(parent, "Cobweb", Vector3.zero);
             parent = web;
             var strand = MeshKit.Box(new Vector3(0.008f, 0.008f, 1f));
@@ -742,7 +684,6 @@ namespace Deepbound.World
             MeshKit.MergeParts(web);
         }
 
-        /// <summary>A rack of spare arms against a wall: swords and a spear.</summary>
         public static void WeaponRack(MeshKit.Batcher b, Vector3 floor, Quaternion facing)
         {
             Matrix4x4 T(Vector3 local, Vector3 euler) => Matrix4x4.TRS(floor + facing * local, facing * Quaternion.Euler(euler), Vector3.one);
@@ -761,27 +702,19 @@ namespace Deepbound.World
             b.Add(MeshKit.Lathe("spearTip", new[] { new Vector2(0.05f, 0f), new Vector2(0f, 0.25f) }, 4), Mat.Steel, T(new Vector3(0.95f, 2.4f, 0.32f), new Vector3(-4f, 0f, 0f)));
         }
 
-        /// <summary>
-        /// The carriage that carries the party down: a covered wagon on four spoked wheels,
-        /// drawn by a skeletal horse with cold blue eyes. Forward is local +Z (horse end).
-        /// </summary>
         public static void Carriage(Transform parent, MeshKit.Batcher b, Vector3 floor, Quaternion facing)
         {
             Matrix4x4 T(Vector3 local, Vector3 euler) => Matrix4x4.TRS(floor + facing * local, facing * Quaternion.Euler(euler), Vector3.one);
             Matrix4x4 TQ(Vector3 local, Quaternion rot) => Matrix4x4.TRS(floor + facing * local, facing * rot, Vector3.one);
 
-            // Lathe shells spin about Y; this lays the axis along the wagon (Z) and turns
-            // the open half of the shell downward, so the arc is the roof.
             var roof = Quaternion.Euler(0f, 0f, 90f) * Quaternion.Euler(90f, 0f, 0f);
 
-            // Bed and sides.
             b.Add(MeshKit.Box(new Vector3(2.2f, 0.15f, 3.8f)), Mat.Wood, T(new Vector3(0f, 1f, 0f), Vector3.zero));
             b.Add(MeshKit.Box(new Vector3(0.1f, 0.6f, 3.8f)), Mat.Wood, T(new Vector3(1.05f, 1.35f, 0f), Vector3.zero));
             b.Add(MeshKit.Box(new Vector3(0.1f, 0.6f, 3.8f)), Mat.Wood, T(new Vector3(-1.05f, 1.35f, 0f), Vector3.zero));
             b.Add(MeshKit.Box(new Vector3(2.2f, 0.6f, 0.1f)), Mat.Wood, T(new Vector3(0f, 1.35f, 1.85f), Vector3.zero));
             b.Add(MeshKit.Box(new Vector3(2.3f, 0.08f, 3.9f)), Mat.Steel, T(new Vector3(0f, 1.66f, 0f), Vector3.zero));
 
-            // Canvas cover on hoops: half-cylinder shells.
             for (int i = 0; i < 4; i++)
             {
                 float z = -1.6f + i * 1.07f;
@@ -791,7 +724,6 @@ namespace Deepbound.World
             b.Add(MeshKit.Lathe("canvas", new[] { new Vector2(1.06f, -1.8f), new Vector2(1.06f, 1.8f) }, 12, true, 180f),
                 Mat.Cloth, TQ(new Vector3(0f, 1.66f, 0f), roof));
 
-            // Wheels: a rim, a hub and spokes.
             for (int i = 0; i < 4; i++)
             {
                 float side = i % 2 == 0 ? 1f : -1f;
@@ -806,17 +738,14 @@ namespace Deepbound.World
                 }
             }
 
-            // Shafts to the horse, and the driver's bench.
             b.Add(MeshKit.Box(new Vector3(0.08f, 0.08f, 2.6f)), Mat.Wood, T(new Vector3(0.5f, 1.05f, 3.1f), new Vector3(-6f, 0f, 0f)));
             b.Add(MeshKit.Box(new Vector3(0.08f, 0.08f, 2.6f)), Mat.Wood, T(new Vector3(-0.5f, 1.05f, 3.1f), new Vector3(-6f, 0f, 0f)));
             b.Add(MeshKit.Box(new Vector3(1.9f, 0.1f, 0.5f)), Mat.Wood, T(new Vector3(0f, 1.9f, 1.75f), Vector3.zero));
 
-            // Rear step: where the party climbs aboard.
             b.Add(MeshKit.Box(new Vector3(1.2f, 0.1f, 0.4f)), Mat.Wood, T(new Vector3(0f, 0.45f, -2.1f), Vector3.zero));
 
             SkeletalHorse(b, floor + facing * new Vector3(0f, 0f, 4.3f), facing);
 
-            // Lanterns on hooks at the front corners.
             for (int i = 0; i < 2; i++)
             {
                 var hook = new GameObject("CarriageLantern").transform;
@@ -831,13 +760,12 @@ namespace Deepbound.World
         {
             Matrix4x4 T(Vector3 local, Vector3 euler, float s = 1f) => Matrix4x4.TRS(floor + facing * local, facing * Quaternion.Euler(euler), Vector3.one * s);
 
-            // Spine, ribs, pelvis, neck, skull, four legs.
             b.Add(MeshKit.Box(new Vector3(0.08f, 0.08f, 1.7f)), Mat.Bone, T(new Vector3(0f, 1.55f, 0f), Vector3.zero));
             for (int i = 0; i < 5; i++)
             {
                 b.Add(MeshKit.Lathe("horseRib", new[] { new Vector2(0.32f, 0f), new Vector2(0.34f, 0.03f), new Vector2(0.32f, 0.06f) }, 10, true, 220f),
                     Mat.Bone, Matrix4x4.TRS(floor + facing * new Vector3(0f, 1.55f, 0.45f - i * 0.18f),
-                        // Axis along the spine, arc centred under it so the ribs hang down.
+
                         facing * Quaternion.Euler(0f, 0f, -110f) * Quaternion.Euler(90f, 0f, 0f), Vector3.one));
             }
             b.Add(MeshKit.Box(new Vector3(0.45f, 0.2f, 0.3f)), Mat.Bone, T(new Vector3(0f, 1.5f, -0.85f), Vector3.zero));
@@ -850,12 +778,11 @@ namespace Deepbound.World
                 b.Add(MeshKit.Box(new Vector3(0.07f, 1.5f, 0.07f)), Mat.Bone, T(new Vector3(side, 0.75f, z), new Vector3(i < 2 ? 4f : -6f, 0f, 0f)));
                 b.Add(MeshKit.Box(new Vector3(0.12f, 0.08f, 0.16f)), Mat.Bone, T(new Vector3(side, 0.04f, z + 0.03f), Vector3.zero));
             }
-            // Harness collar.
+
             b.Add(MeshKit.Lathe("collar", new[] { new Vector2(0.18f, 0f), new Vector2(0.22f, 0.05f), new Vector2(0.18f, 0.1f) }, 10), Mat.Leather,
                 T(new Vector3(0f, 1.72f, 0.75f), new Vector3(40f, 0f, 0f)));
         }
 
-        /// <summary>A gold rune ring on the floor: "stand here to board".</summary>
         public static void BoardingCircle(Transform parent, Vector3 center, float radius)
         {
             var root = new GameObject("BoardingCircle").transform;
@@ -884,7 +811,6 @@ namespace Deepbound.World
             light.intensity = 2f;
         }
 
-        /// <summary>An iron ring chandelier on a chain, with candle flames around its rim.</summary>
         public static void Chandelier(Transform parent, MeshKit.Batcher b, Vector3 at, float chainLength, Color fire)
         {
             b.Add(MeshKit.Cylinder(0.03f, 0.03f, chainLength, 4), Mat.Steel, Matrix4x4.Translate(at));
@@ -902,11 +828,10 @@ namespace Deepbound.World
                 var wick = MeshKit.Part(root, "Wick" + i, MeshKit.Ball(0.03f, 6, 4), Mat.Glow, Quaternion.Euler(0f, i * 60f, 0f) * new Vector3(0f, 0.33f, 1.15f));
                 ArtLibrary.SetGlow(wick.GetComponent<Renderer>(), fire * 1.8f);
             }
-            // One light for the whole ring, at its centre (an invisible flame drives the flicker).
+
             AddFlame(root, new Vector3(0f, 0.2f, 0f), 0.01f, fire, 9f, 16f, false);
         }
 
-        /// <summary>A long cloth banner hanging from a wall rod.</summary>
         public static void Banner(Transform parent, Vector3 at, Vector3 outward, Color color)
         {
             var root = new GameObject("Banner").transform;
@@ -919,11 +844,11 @@ namespace Deepbound.World
                 var tassel = MeshKit.Part(root, "Tassel", MeshKit.Cylinder(0.03f, 0.012f, 0.28f, 6), Mat.Cloth, new Vector3(s * 0.74f, -0.3f, 0.1f));
                 ArtLibrary.Tint(tassel.GetComponent<Renderer>(), new Color(0.85f, 0.65f, 0.25f));
             }
-            // The cloth hangs from a pivot at the rod so it can stir.
+
             var hang = MeshKit.Pivot(root, "Hang", new Vector3(0f, 0f, 0.1f));
             var cloth = MeshKit.Part(hang, "Cloth", MeshKit.Box(new Vector3(1.2f, 2.3f, 0.03f)), Mat.Cloth, new Vector3(0f, -1.15f, 0f));
             ArtLibrary.Tint(cloth.GetComponent<Renderer>(), color);
-            // Swallowtail: two hanging points below the body.
+
             foreach (float s in new[] { -1f, 1f })
             {
                 var tail = MeshKit.Part(hang, "Tail", MeshKit.Box(new Vector3(0.6f, 0.6f, 0.03f)), Mat.Cloth, new Vector3(s * 0.3f, -2.3f, 0f), new Vector3(0f, 0f, 45f));
@@ -934,7 +859,7 @@ namespace Deepbound.World
             MeshKit.Part(hang, "TrimTop", MeshKit.Box(new Vector3(1.22f, 0.1f, 0.04f)), Mat.Gold, new Vector3(0f, -0.08f, 0f));
             foreach (float s in new[] { -1f, 1f })
                 MeshKit.Part(hang, "TrimSide", MeshKit.Box(new Vector3(0.05f, 2.25f, 0.04f)), Mat.Gold, new Vector3(s * 0.585f, -1.15f, 0f));
-            // The emblem: a gold skull over crossed bones, the arms of Cathedra.
+
             MeshKit.Part(hang, "EmblemSkull", MeshKit.Ball(0.16f, 10, 8), Mat.Gold, new Vector3(0f, -0.95f, 0.025f), default, new Vector3(1f, 1.05f, 0.35f));
             MeshKit.Part(hang, "EmblemJaw", MeshKit.Box(new Vector3(0.16f, 0.07f, 0.04f)), Mat.Gold, new Vector3(0f, -1.13f, 0.025f));
             foreach (float s in new[] { -1f, 1f })
@@ -945,7 +870,6 @@ namespace Deepbound.World
             hang.gameObject.AddComponent<BannerSway>();
         }
 
-        /// <summary>A cluster of melted candles with one shared light.</summary>
         public static void Candles(Transform parent, Vector3 floor, Color fire)
         {
             var root = new GameObject("Candles").transform;
@@ -956,7 +880,7 @@ namespace Deepbound.World
             {
                 var p = new Vector3((float)rng.NextDouble() - 0.5f, 0f, (float)rng.NextDouble() - 0.5f) * 0.6f;
                 float hgt = 0.14f + (float)rng.NextDouble() * 0.24f;
-                // Thicker wax and a drip at the foot: at 7 cm across the bodies vanished and the flames seemed to float.
+
                 MeshKit.Part(root, "Candle" + i, MeshKit.Cylinder(0.05f, 0.055f, hgt, 6), Mat.Bone, p);
                 MeshKit.Part(root, "Drip" + i, MeshKit.Cylinder(0.08f, 0.09f, 0.015f, 6), Mat.Bone, p);
                 var f = MeshKit.Part(root, "Wick" + i, MeshKit.Ball(0.025f, 6, 4), Mat.Glow, p + Vector3.up * (hgt + 0.03f));
@@ -973,13 +897,6 @@ namespace Deepbound.World
             root.GetComponent<Torch>().BaseIntensity = 2.2f;
         }
 
-        // ------------------------------------------------------------------
-        // Live props
-        // ------------------------------------------------------------------
-
-        /// <summary>
-        /// A wall torch. <paramref name="outward"/> points away from the wall, into the room.
-        /// </summary>
         public static Torch WallTorch(Transform parent, Vector3 wallPoint, Vector3 outward, bool shadows, Color? fire = null)
         {
             var root = new GameObject("Torch").transform;
@@ -993,19 +910,16 @@ namespace Deepbound.World
             MeshKit.Part(root, "Cup", MeshKit.Cylinder(0.05f, 0.08f, 0.1f, 6), Mat.Steel, new Vector3(0f, 0.25f, 0.33f), new Vector3(15f, 0f, 0f));
 
             var torch = AddFlame(root, new Vector3(0f, 0.36f, 0.36f), 0.7f, fire ?? new Color(1f, 0.62f, 0.32f), 7f, 10f, shadows);
-            MeshKit.MergeParts(root); // the bracket, cup and shaft never move: one mesh per material
+            MeshKit.MergeParts(root);
             return torch;
         }
 
-        /// <summary>A free-standing iron brazier. Boss rooms use cold blue fire.</summary>
         public static Torch Brazier(Transform parent, Vector3 floor, Color fire, bool shadows)
         {
             var root = new GameObject("Brazier").transform;
             root.SetParent(parent, false);
             root.position = floor;
 
-            // 2026-11-20: wrought-iron legs (the brushed steel striped under its own fire), splayed feet and a ring
-            // binding them halfway up.
             for (int i = 0; i < 3; i++)
             {
                 var dirL = Quaternion.Euler(0f, i * 120f, 0f);
@@ -1014,13 +928,13 @@ namespace Deepbound.World
                 MeshKit.Part(root, "Foot" + i, MeshKit.Box(new Vector3(0.09f, 0.05f, 0.2f)), Mat.Dark, dirL * new Vector3(0f, 0.025f, 0.38f), new Vector3(0f, i * 120f, 0f));
             }
             MeshKit.Part(root, "LegRing", MeshKit.Cylinder(0.27f, 0.27f, 0.04f, 10), Mat.Dark, new Vector3(0f, 0.45f, 0f));
-            // A blackened iron bowl (bright steel glared white under its own fire).
+
             ArtLibrary.Tint(MeshKit.Part(root, "Bowl", MeshKit.Lathe("brazierBowl", new[]
             {
                 new Vector2(0.1f, 0f), new Vector2(0.42f, 0.15f), new Vector2(0.5f, 0.3f), new Vector2(0.44f, 0.3f), new Vector2(0f, 0.18f),
             }, 10), Mat.Steel, new Vector3(0f, 0.95f, 0f)).GetComponent<Renderer>(), new Color(0.34f, 0.31f, 0.29f));
-            MeshKit.Part(root, "Coals", MeshKit.Cylinder(0.2f, 0.44f, 0.07f, 10), Mat.Glow, new Vector3(0f, 1.17f, 0f)); // fills the bowl: lower, it hid under the inner steel, which the flame lit to white
-            // Embers, not a lamp: a 0.8 m disc at fire x1.4 bloomed into a flat white plate under the flame. Deep, saturated, dim.
+            MeshKit.Part(root, "Coals", MeshKit.Cylinder(0.2f, 0.44f, 0.07f, 10), Mat.Glow, new Vector3(0f, 1.17f, 0f));
+
             Color.RGBToHSV(fire, out float ch, out float cs, out _);
             ArtLibrary.SetGlow(root.Find("Coals").GetComponent<Renderer>(), Color.HSVToRGB(ch, Mathf.Max(cs, 0.9f), 1f) * 0.55f);
 
@@ -1029,8 +943,6 @@ namespace Deepbound.World
             return brazier;
         }
 
-        /// <summary>A real camp bonfire on the ground: split logs leaned into a cone over a bed of embers and ash,
-        /// one big flame and two smaller ones round it (the camp's fire was a tripod brazier standing in an empty stone ring).</summary>
         public static Torch Bonfire(Transform parent, Vector3 floor, Color fire)
         {
             var root = new GameObject("Bonfire").transform;
@@ -1042,7 +954,7 @@ namespace Deepbound.World
             Color.RGBToHSV(fire, out float ch, out float cs, out _);
             ArtLibrary.SetGlow(bed.GetComponent<Renderer>(), Color.HSVToRGB(ch, Mathf.Max(cs, 0.92f), 1f) * 0.5f);
             bed.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            // Seven split logs leaned in to a point, charred at the top.
+
             for (int i = 0; i < 7; i++)
             {
                 float yaw = i * (360f / 7f) + (i % 2) * 9f;
@@ -1052,10 +964,10 @@ namespace Deepbound.World
                 var mid = (foot + top) * 0.5f;
                 var rot = Quaternion.FromToRotation(Vector3.up, (top - foot).normalized) * Quaternion.Euler(0f, yaw, 0f);
                 float len = Vector3.Distance(foot, top);
-                MeshKit.Part(root, "Log" + i, MeshKit.Cylinder(0.09f, 0.07f + (i % 3) * 0.01f, len, 7), Mat.Wood, foot, rot.eulerAngles); // Cylinder grows up from its base
+                MeshKit.Part(root, "Log" + i, MeshKit.Cylinder(0.09f, 0.07f + (i % 3) * 0.01f, len, 7), Mat.Wood, foot, rot.eulerAngles);
                 MeshKit.Part(root, "Char" + i, MeshKit.Cylinder(0.078f, 0.07f, len * 0.35f, 7), Mat.Dark, Vector3.Lerp(foot, top, 0.65f), rot.eulerAngles);
             }
-            // Two logs lying across the bed, glowing where they burn.
+
             for (int i = 0; i < 2; i++)
             {
                 var p = new Vector3(i == 0 ? 0.12f : -0.1f, 0.13f, i == 0 ? 0.08f : -0.12f);
@@ -1063,11 +975,11 @@ namespace Deepbound.World
                 MeshKit.Part(root, "Lying" + i, MeshKit.Cylinder(0.1f, 0.1f, 1.2f, 8), Mat.Dark, p + Quaternion.Euler(0f, yaw, 0f) * new Vector3(0.6f, 0f, 0f), new Vector3(0f, yaw, 90f));
             }
             var torch = AddFlame(root, new Vector3(0f, 0.12f, 0f), 3.4f, fire, 15f, 18f, true);
-            // Smaller licks round the main flame, no lights of their own.
+
             for (int i = 0; i < 3; i++)
             {
                 var at = Quaternion.Euler(0f, i * 120f + 40f, 0f) * new Vector3(0f, 0.1f, 0.34f);
-                AddFlame(root, at, 1.6f + i * 0.25f, fire, 0f, 1f, false, light: false); // no Torch: FlameLick flickers them
+                AddFlame(root, at, 1.6f + i * 0.25f, fire, 0f, 1f, false, light: false);
             }
             foreach (Transform c in root)
                 if (c.name == "Flame" && c != torch.Flame) c.gameObject.AddComponent<Art.FlameLick>();
@@ -1079,15 +991,14 @@ namespace Deepbound.World
         {
             var flame = MeshKit.Pivot(root, "Flame", at);
             flame.localScale = Vector3.one * size;
-            // Flames keep their colour: a pale fire bleaches to white under bloom, so saturate it first.
+
             Color.RGBToHSV(color, out float fh, out float fs, out float fv);
             var hot = Color.HSVToRGB(fh, Mathf.Max(fs, 0.82f), 1f);
             var outer = MeshKit.Part(flame, "Outer", MeshKit.Lathe("flame", new[]
             {
                 new Vector2(0f, 0f), new Vector2(0.07f, 0.05f), new Vector2(0.08f, 0.12f), new Vector2(0.04f, 0.24f), new Vector2(0f, 0.32f),
             }, 6, false), Mat.Glow, Vector3.zero);
-            // Keep flame emission modest and saturated: at high HDR values ACES + bloom
-            // desaturate it to white, and fire stops reading as fire.
+
             ArtLibrary.SetGlow(outer.GetComponent<Renderer>(), hot * 1.25f);
             outer.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
 
@@ -1097,7 +1008,7 @@ namespace Deepbound.World
             }, 6, false), Mat.Glow, new Vector3(0f, 0.01f, 0f));
             ArtLibrary.SetGlow(inner.GetComponent<Renderer>(), Color.Lerp(hot, Color.white, 0.35f) * 1.6f);
             inner.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            // Tongues: three thinner licks round the core, each flickering on its own (see Torch).
+
             for (int i = 0; i < 3; i++)
             {
                 var tongue = MeshKit.Pivot(flame, "Tongue" + i, Quaternion.Euler(0f, i * 120f + 30f, 0f) * new Vector3(0f, 0f, 0.035f), new Vector3(0f, i * 120f + 30f, 0f));

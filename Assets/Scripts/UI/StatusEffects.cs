@@ -8,25 +8,19 @@ using UnityEngine;
 
 namespace Deepbound.UI
 {
-    /// <summary>
-    /// Everything currently affecting you, as a row of badges above your health: green for help,
-    /// red for harm, gold for the run's conditions. A thin bar under a badge runs down its time.
-    /// Hover one to read it - hold ALT to free the cursor (or hover while the inventory or pause
-    /// menu is open).
-    /// </summary>
     public static class StatusEffects
     {
         public struct Status
         {
             public string Glyph, Name, Text, Lasts;
             public Color Color;
-            public float Left, Total; // seconds; Total 0 = untimed
+            public float Left, Total;
         }
 
         private static readonly Color Good = new Color(0.45f, 0.9f, 0.5f), Bad = new Color(0.95f, 0.38f, 0.32f), Run = new Color(0.95f, 0.78f, 0.4f);
         private static readonly List<Status> list = new List<Status>();
         private static Font glyphFont;
-        /// <summary>Screenshots: show this badge's tooltip as if hovered.</summary>
+
         public static int DebugHover = -1;
 
         private static double ServerNow => Unity.Netcode.NetworkManager.Singleton != null && Unity.Netcode.NetworkManager.Singleton.IsListening
@@ -119,7 +113,6 @@ namespace Deepbound.UI
         private static Status Timed(string glyph, string name, string text, Color color, double left, float total) =>
             new Status { Glyph = glyph, Name = name, Text = text, Color = color, Left = Mathf.Max(0f, (float)left), Total = Mathf.Max(total, (float)left), Lasts = Mathf.CeilToInt(Mathf.Max(0f, (float)left)) + " s left" };
 
-        /// <summary>Draw the row from (x, y) rightward; returns true if the mouse is over a badge.</summary>
         public static void Draw(NetworkPlayer player, float x, float y, bool cursorFree)
         {
             var all = Gather(player);
@@ -150,7 +143,6 @@ namespace Deepbound.UI
                 GUI.Label(new Rect(rowEnd, y + 7f, 120f, 18f), "ALT: inspect", UiSkin.Derive(UiSkin.Small, new Color(0.75f, 0.72f, 0.65f, 0.75f), 11));
             if (hover < 0) return;
 
-            // The tooltip card above the badge.
             var h = all[hover];
             var body = new GUIStyle(UiSkin.Small) { wordWrap = true, fontSize = 13, normal = { textColor = new Color(0.92f, 0.9f, 0.85f) } };
             const float tw = 300f;
@@ -159,9 +151,9 @@ namespace Deepbound.UI
             float tx = Mathf.Min(x + hover * (size + gap), UiScale.W - tw - 8f), ty = y - th - 8f;
             UiSkin.Rect(new Rect(tx - 1.5f, ty - 1.5f, tw + 3f, th + 3f), new Color(h.Color.r, h.Color.g, h.Color.b, 0.9f));
             UiSkin.Rect(new Rect(tx, ty, tw, th), new Color(0.04f, 0.035f, 0.03f, 0.96f));
-            GUI.Label(new Rect(tx + 10f, ty + 6f, tw - 20f, 22f), h.Name.ToUpperInvariant(), new GUIStyle(UiSkin.Small) { fontSize = 14, fontStyle = FontStyle.Bold, normal = { textColor = h.Color } });
+            GUI.Label(new Rect(tx + 10f, ty + 6f, tw - 20f, 22f), h.Name.ToUpperInvariant(), UiSkin.Derive(UiSkin.Small, h.Color, fontSize: 14, fontStyle: FontStyle.Bold));
             GUI.Label(new Rect(tx + 10f, ty + 28f, tw - 20f, textH + 4f), h.Text, body);
-            GUI.Label(new Rect(tx + 10f, ty + th - 22f, tw - 20f, 18f), h.Lasts, new GUIStyle(UiSkin.Small) { fontSize = 11, fontStyle = FontStyle.Italic, normal = { textColor = new Color(0.75f, 0.72f, 0.65f) } });
+            GUI.Label(new Rect(tx + 10f, ty + th - 22f, tw - 20f, 18f), h.Lasts, UiSkin.Derive(UiSkin.Small, new Color(0.75f, 0.72f, 0.65f), fontSize: 11, fontStyle: FontStyle.Italic));
         }
     }
 }

@@ -7,17 +7,8 @@ using UnityEngine.InputSystem;
 
 namespace Deepbound.UI
 {
-    /// <summary>
-    /// TALKING TO THE CAMP FOLK (2026-11-08, the user: "tie the dialogue option to the character not where they are,
-    /// give the important npcs, and tavern maid dialogue options. they should also give out quests").
-    /// Look at Silas, Hobb, Aldric, Vey, Corwin, Brann, Ysolde or Marta within talking range - wherever their errands have
-    /// taken them - and press F. The panel offers their trade (the stall panel, the wardrobe, the runes, a mead), WORK
-    /// (their quest, see <c>DungeonDirector.Bounties</c>), the news, who they are (more with favour) and goodbye.
-    /// Number keys or clicks choose; Esc, F or walking off ends it. Local, on the owner; added by <see cref="NetworkPlayer"/>.
-    /// </summary>
     public class Dialogue : MonoBehaviour
     {
-        /// <summary>The camp person under the local player's crosshair, within talking range (null: nobody).</summary>
         public static Art.FolkIdle Aimed { get; private set; }
         public static bool Open { get; private set; }
         public static FolkId? Talking => Open && local != null ? local.who : (FolkId?)null;
@@ -33,7 +24,7 @@ namespace Deepbound.UI
         private string line;
         private int about;
         private float openedAt;
-        /// <summary>Who we asked the server to hold still (through the talk and any panel it opened).</summary>
+
         private FolkId? holding;
         private readonly List<(string label, System.Action act)> options = new List<(string, System.Action)>();
 
@@ -52,7 +43,6 @@ namespace Deepbound.UI
             FolkId.Marta => "Marta", _ => "the peddler",
         };
 
-        /// <summary>F was pressed with nothing nearer to do: start talking to whoever is aimed at. True if it did.</summary>
         public static bool TryBegin()
         {
             if (local == null || Aimed == null || Open || !Aimed.Who.HasValue) return false;
@@ -60,10 +50,9 @@ namespace Deepbound.UI
             return true;
         }
 
-        /// <summary>Tests: open a conversation without aiming.</summary>
         public static void DebugBegin(FolkId w) { if (local != null) local.Begin(w); }
         public static void DebugClose() { if (local != null) local.Close(); }
-        /// <summary>Tests: the option labels showing now.</summary>
+
         public static List<string> DebugOptions()
         {
             var l = new List<string>();
@@ -95,7 +84,6 @@ namespace Deepbound.UI
 
         private GameHud Hud => GetComponent<GameHud>();
 
-        /// <summary>Keep <paramref name="w"/> at their place while the local player uses their station (released with the panel).</summary>
         public static void HoldFor(FolkId w) { if (local != null) local.Hold(w); }
 
         private void Hold(FolkId w)
@@ -118,12 +106,11 @@ namespace Deepbound.UI
             if (player == null || !player.IsOwner) return;
             bool can = DungeonDirector.InLobby && life != null && !life.Downed.Value;
             Aimed = can && !Open && !OtherPanelOpen && !GameHud.MenuOpen ? FindAimed() : null;
-            // A workstation the crosshair actually enters, nearer than the person, comes first (2026-11-12): Hobb stands
-            // right behind his anvil, Silas behind his table; looking up at their faces still talks to them.
+
             if (Aimed != null && World.CampStations.Aimed(player.AimOrigin, player.AimForward, out float sd) != null
                 && sd < Vector3.Distance(player.AimOrigin, Vector3.Lerp(Aimed.transform.position, Aimed.HeadTop, 0.65f)))
                 Aimed = null;
-            // Held through the talk AND the stall / wardrobe / runes it opened; let go once every panel is shut.
+
             if (holding != null && !Open && !GameHud.MenuOpen && !Wardrobe.Open) Release();
             if (!Open) return;
             if (!can || !FolkPlaces.InReach(who, transform.position, 1.2f)) { Close(); return; }
@@ -140,9 +127,8 @@ namespace Deepbound.UI
                     }
         }
 
-        private static bool OtherPanelOpen => BlackjackTable.LocalOpen || DiceTable.LocalOpen || PokerDiceTable.LocalSeated || CharacterSelect.Open || PauseMenu.Open || Wardrobe.Open || DevMenu.Open;
+        private static bool OtherPanelOpen => BlackjackTable.LocalOpen || PokerDiceTable.LocalSeated || CharacterSelect.Open || PauseMenu.Open || Wardrobe.Open || DevMenu.Open;
 
-        /// <summary>The camp person nearest the crosshair, within talking range and roughly looked at.</summary>
         private Art.FolkIdle FindAimed()
         {
             var eye = player.AimOrigin;
@@ -164,7 +150,6 @@ namespace Deepbound.UI
             return best;
         }
 
-        // ---- The choices ----
         private void Build()
         {
             options.Clear();
@@ -227,7 +212,6 @@ namespace Deepbound.UI
             }
         }
 
-        /// <summary>The Work page's state: true when there is an offer you can take now (text in <paramref name="say"/>).</summary>
         private bool WorkOffer(DungeonDirector d, out string say)
         {
             int idx = d.QuestIndexFrom(who);
@@ -251,7 +235,6 @@ namespace Deepbound.UI
             return true;
         }
 
-        // ---- Drawing ----
         private GUIStyle optStyle, nameStyle, bodyStyle, taskStyle;
 
         private void OnGUI()
@@ -282,7 +265,6 @@ namespace Deepbound.UI
                 }
             }
 
-            // To the right of the crosshair so the person's face stays in view (the controls hint hides while it is open).
             float pw = Mathf.Min(580f, W * 0.46f);
             float textH = bodyStyle.CalcHeight(new GUIContent(say ?? ""), pw - 40f);
             var taskBold = new GUIStyle(taskStyle) { fontStyle = FontStyle.Bold, normal = { textColor = new Color(0.95f, 0.9f, 0.8f) } };
@@ -291,7 +273,7 @@ namespace Deepbound.UI
             float rewardH = reward != null ? rewardGold.CalcHeight(new GUIContent(reward), pw - 40f) : 0f;
             float extra = (task != null ? taskH + 6f : 0f) + (reward != null ? rewardH + 4f : 0f);
             float ph = 54f + textH + extra + 14f + options.Count * 34f + 14f;
-            // Above the potion belt and the ability bar (it sat over both).
+
             var r = new Rect(W - pw - 36f, Mathf.Max(70f, H - ph - Mathf.Max(150f, H * 0.2f)), pw, ph);
             UiSkin.Panel(r, 0.95f);
 
@@ -303,7 +285,7 @@ namespace Deepbound.UI
                 int fav = d.Favour(who);
                 string pips = "";
                 for (int i = 0; i < DungeonDirector.MaxFavourDiscount; i++) pips += i < fav ? "●" : "○";
-                GUI.Label(new Rect(r.xMax - 200, r.y + 14, 180, 24), "FAVOUR  " + pips, new GUIStyle(UiSkin.Small) { alignment = TextAnchor.MiddleRight, fontSize = 13, normal = { textColor = UiSkin.Gold } });
+                GUI.Label(new Rect(r.xMax - 200, r.y + 14, 180, 24), "FAVOUR  " + pips, UiSkin.Derive(UiSkin.Small, UiSkin.Gold, fontSize: 13, align: TextAnchor.MiddleRight));
             }
             float y = r.y + 46f;
             GUI.Label(new Rect(r.x + 20, y, pw - 40, textH), say ?? "", bodyStyle);

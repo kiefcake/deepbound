@@ -4,14 +4,6 @@ using UnityEngine;
 
 namespace Deepbound.World
 {
-    /// <summary>
-    /// HOLDING STILL FOR A CONVERSATION (2026-11-08, the user: "npcs must not move while in dialogue"). Errands run on the
-    /// server clock (<see cref="FolkRounds"/>), the same on every peer. While anyone talks or trades with a person, the
-    /// server stops that person's own clock: <see cref="FolkClock"/> = server time minus everything they have spent held,
-    /// so they stand where they were and pick up the errand where they left it. Synced: the held bits, when each hold
-    /// began, and the total held so far. A hold whose players have gone (disconnect) or that runs past
-    /// <see cref="MaxHoldSeconds"/> lets go on its own.
-    /// </summary>
     public partial class DungeonDirector
     {
         public const int FolkSlots = 16;
@@ -24,14 +16,13 @@ namespace Deepbound.World
 
         private static double ServerNow => NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening ? NetworkManager.Singleton.ServerTime.Time : Time.timeAsDouble;
 
-        /// <summary>A person's own errand clock (any peer): the server clock less the time they have been held.</summary>
         public static double FolkClock(FolkId who, double clock)
         {
             var d = Instance;
             int i = (int)who;
             if (d == null || i >= d.FolkPausedTotal.Count || i >= d.FolkHeldAt.Count) return clock;
             double t = clock - d.FolkPausedTotal[i];
-            // Measured on the raw server clock (the rounds clock can carry a test shift; the hold began on the raw one).
+
             if ((d.FolkHeld.Value & (1 << i)) != 0) t -= System.Math.Max(0.0, ServerNow - d.FolkHeldAt[i]);
             return t;
         }
@@ -44,7 +35,6 @@ namespace Deepbound.World
             while (FolkPausedTotal.Count < FolkSlots) FolkPausedTotal.Add(0);
         }
 
-        /// <summary>Server: <paramref name="client"/> starts or stops talking/trading with <paramref name="who"/>.</summary>
         public void ServerHoldFolk(FolkId who, ulong client, bool on)
         {
             int i = (int)who;
@@ -72,7 +62,6 @@ namespace Deepbound.World
             }
         }
 
-        /// <summary>Server, every frame: holds whose players left, or that ran too long, let go.</summary>
         private void TickFolkHolds()
         {
             if (FolkHeld.Value == 0 || NetworkManager.Singleton == null) return;

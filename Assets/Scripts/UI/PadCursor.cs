@@ -3,16 +3,9 @@ using UnityEngine.InputSystem;
 
 namespace Deepbound.UI
 {
-    /// <summary>
-    /// Gamepad menus (2026-10-27, backlog "gamepad menu navigation"): whenever the cursor is free (any menu, shop,
-    /// forge, the title screen, character select), the left stick steers the mouse pointer, A clicks and the
-    /// right stick scrolls, so every IMGUI panel works on a pad without each one learning it. The pause menu's
-    /// main list keeps its own d-pad focus. Windows only (it moves the real pointer and clicks with it), only
-    /// while the game window has focus, and never in test or bot runs.
-    /// </summary>
     public class PadCursor : MonoBehaviour
     {
-        private const float Speed = 1.1f; // screen heights per second at full tilt
+        private const float Speed = 1.1f;
         private bool held;
         private float scrollCarry;
 
@@ -24,7 +17,6 @@ namespace Deepbound.UI
             go.AddComponent<PadCursor>();
         }
 
-        /// <summary>For tests: would the pad drive the pointer right now?</summary>
         public static bool Driving { get; private set; }
 
         private void Update()
@@ -38,7 +30,6 @@ namespace Deepbound.UI
             var stick = g.leftStick.ReadValue();
             if (stick.sqrMagnitude > 0.04f)
             {
-                // A curve: fine control near the centre, quick across the screen at full tilt.
                 var v = stick * stick.magnitude * Speed * Screen.height * Time.unscaledDeltaTime;
                 var at = mouse.position.ReadValue() + v;
                 at.x = Mathf.Clamp(at.x, 1f, Screen.width - 2f);

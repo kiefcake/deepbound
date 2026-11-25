@@ -2,12 +2,6 @@ using UnityEngine;
 
 namespace Deepbound.Art
 {
-    /// <summary>
-    /// Dust and ash drifting in the air around the local camera, tinted by the floor: grey
-    /// grit in the Ossuary, pale spores in the Drowned Vaults, violet glints under the
-    /// Hollow Throne, embers in the Black Cathedral. Pure atmosphere: a few specks a
-    /// second, spawned in a shell around the viewer so the air never looks empty.
-    /// </summary>
     public class AmbientMotes : MonoBehaviour
     {
         private float next;

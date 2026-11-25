@@ -5,12 +5,6 @@ using UnityEngine;
 
 namespace Deepbound.UI
 {
-    /// <summary>
-    /// FLOOR REPORT (2026-11-22, "keep grinding"): when a floor's guardian falls, a small panel on the right lists what
-    /// each player did on that floor alone - damage dealt, kills, combos, damage taken and downs - with a star on the
-    /// floor's top damage. Built from the run statistics on <see cref="PlayerProgress"/> (synced to everyone), snapshotted
-    /// as the floor begins, so every peer shows the same table. Stays up for <see cref="ShowSeconds"/>.
-    /// </summary>
     public static class FloorReport
     {
         public const float ShowSeconds = 14f;
@@ -24,7 +18,6 @@ namespace Deepbound.UI
 
         private static Snap Read(PlayerProgress p) => new Snap { Kills = p.Kills.Value, Damage = p.DamageDealt.Value, Combos = p.CombosTriggered.Value, Taken = p.DamageTaken.Value, Downs = p.Downs.Value };
 
-        /// <summary>A floor began: remember where everyone's tallies stood.</summary>
         public static void Begin()
         {
             start.Clear();
@@ -32,7 +25,6 @@ namespace Deepbound.UI
                 if (l != null && l.TryGetComponent<PlayerProgress>(out var p)) start[p.NetworkObjectId] = Read(p);
         }
 
-        /// <summary>The guardian fell: build the table and show it.</summary>
         public static void Finish(int floor)
         {
             Rows.Clear();
@@ -40,7 +32,7 @@ namespace Deepbound.UI
             {
                 if (l == null || !l.TryGetComponent<PlayerProgress>(out var p)) continue;
                 var now = Read(p);
-                start.TryGetValue(p.NetworkObjectId, out var was); // a player who joined mid-floor counts from zero
+                start.TryGetValue(p.NetworkObjectId, out var was);
                 var np = l.GetComponent<NetworkPlayer>();
                 Rows.Add(new Row
                 {
@@ -53,7 +45,6 @@ namespace Deepbound.UI
             shownAt = Time.time;
         }
 
-        /// <summary>Shots: a four-player table with sample numbers.</summary>
         public static void DebugFill()
         {
             Rows.Clear();
@@ -78,7 +69,7 @@ namespace Deepbound.UI
             GUI.color = new Color(1f, 1f, 1f, a);
             UiSkin.Panel(r, 0.9f);
             UiSkin.Rect(new Rect(r.x, r.y, r.width, 3), UiSkin.Gold);
-            GUI.Label(new Rect(r.x + 14, r.y + 8, pw - 28, 24), "FLOOR " + floorNumber + " REPORT", new GUIStyle(UiSkin.Heading) { fontSize = 17 });
+            GUI.Label(new Rect(r.x + 14, r.y + 8, pw - 28, 24), "FLOOR " + floorNumber + " REPORT", UiSkin.Derive(UiSkin.Heading, UiSkin.Heading.normal.textColor, fontSize: 17));
             var head = new GUIStyle(UiSkin.Small) { fontSize = 11, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleRight, normal = { textColor = new Color(1f, 1f, 1f, 0.55f) } };
             float[] cols = { 210f, 270f, 340f, 405f, 462f };
             string[] heads = { "DAMAGE", "KILLS", "COMBOS", "TAKEN", "DOWNS" };

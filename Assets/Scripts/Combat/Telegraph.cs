@@ -4,14 +4,6 @@ using UnityEngine;
 
 namespace Deepbound.Combat
 {
-    /// <summary>
-    /// A ground warning for an area attack. One rule for every shape - "when it is full, it hits" -
-    /// drawn so the timing reads at a glance: a dim zone, a fill growing from the centre (or the near
-    /// end, or the apex), a bright sweep line riding the fill's edge, a rim that pulses faster as the
-    /// hit nears and blinks white in the last moments, and a flash on the ground when it lands.
-    /// Shapes: circles (slams, novas, pools), lanes (charges, beams) and cones (cleaves).
-    /// Colour says what it does: red hurts, blue freezes, green poisons, violet maddens.
-    /// </summary>
     public class Telegraph : MonoBehaviour
     {
         private static readonly Dictionary<Object, Telegraph> BySource = new Dictionary<Object, Telegraph>();
@@ -27,24 +19,19 @@ namespace Deepbound.Combat
         private float lineLength, lineWidth;
         private Color color;
 
-        /// <summary>Friendly area effects (a Mage's Meteor) are blue, so players do not dodge their own team's spells.</summary>
-        // Toned down 2026-10-21 (the user: "enemy AoE is way too visible ... the player should see it but
-        // not only it"): fainter zones and fills, a dimmer rim and sweep, a softer landing flash. The rim
-        // still beats faster and blinks just before the hit, so the timing reads as clearly as before.
         public static readonly Color Friendly = new Color(0.25f, 0.6f, 1f, 0.24f);
         public static readonly Color Harm = new Color(1f, 0.15f, 0.05f, 0.24f);
         public static readonly Color Frost = new Color(0.45f, 0.8f, 1f, 0.24f);
         public static readonly Color Poison = new Color(0.45f, 0.95f, 0.2f, 0.24f);
         public static readonly Color Madness = new Color(0.8f, 0.3f, 1f, 0.24f);
-        /// <summary>How bright rims, sweeps and the landing flash are (1 = the old, loud look).</summary>
+
         public const float Glow = 0.5f;
 
-        private static Mesh disc, ring, strip, coneFan, coneEdge;
+        private static Mesh disc, ring, strip, coneFan;
         private static Mesh Disc => disc ??= GridDisc(6, 48);
         private static Mesh Ring => ring ??= MeshKit.Lathe("telegraphRing", new[] { new Vector2(0.95f, 0f), new Vector2(1f, 0.02f), new Vector2(0.95f, 0.03f) }, 48, false);
         private static Mesh Strip => strip ??= GridStrip(2, 16);
 
-        /// <summary>A flat unit disc in rings, so it can bend over uneven floor.</summary>
         private static Mesh GridDisc(int rings, int seg)
         {
             var v = new List<Vector3> { Vector3.zero };
@@ -73,7 +60,6 @@ namespace Deepbound.Combat
             return m;
         }
 
-        /// <summary>A flat unit square (centred, -0.5..0.5) in a grid, long along Z.</summary>
         private static Mesh GridStrip(int nx, int nz)
         {
             var v = new List<Vector3>();
@@ -97,7 +83,6 @@ namespace Deepbound.Combat
             return m;
         }
 
-        /// <param name="source">Owner for cancelling. Null = an independent telegraph (several can exist at once).</param>
         public static void Show(Vector3 center, float radius, float duration, Object source, Color? tint = null)
         {
             Cancel(source);
@@ -105,7 +90,7 @@ namespace Deepbound.Combat
             t.shape = Shape.Circle;
             t.radius = radius;
             t.zone = MeshKit.Part(t.transform, "Zone", Disc, Mat.Telegraph, Vector3.zero, Vector3.zero, new Vector3(radius, 1f, radius)).GetComponent<Renderer>();
-            // The rim, plus faint inner rings so a big circle still reads as a circle from inside it.
+
             t.rim = MeshKit.Part(t.transform, "Edge", Ring, Mat.Glow, Vector3.zero, Vector3.zero, new Vector3(radius, 1f, radius)).GetComponent<Renderer>();
             var inner = MeshKit.Part(t.transform, "Inner", Ring, Mat.Glow, Vector3.up * 0.002f, Vector3.zero, new Vector3(radius * 0.5f, 1f, radius * 0.5f)).GetComponent<Renderer>();
             ArtLibrary.SetGlow(inner, (Color)t.Rgb * 0.6f * Glow);
@@ -114,10 +99,6 @@ namespace Deepbound.Combat
             t.Finish();
         }
 
-        /// <summary>
-        /// A lane warning for a charge or a beam: a strip from <paramref name="origin"/> along
-        /// <paramref name="direction"/>, filling from the near end. Same rule: full = hit.
-        /// </summary>
         public static void ShowLine(Vector3 origin, Vector3 direction, float length, float width, float duration, Object source, Color? tint = null)
         {
             Cancel(source);
@@ -132,7 +113,7 @@ namespace Deepbound.Combat
             var r = MeshKit.Part(t.transform, "EdgeR", Strip, Mat.Glow, new Vector3(width / 2f, 0.005f, length / 2f), Vector3.zero, new Vector3(0.09f, 1f, length)).GetComponent<Renderer>();
             var end = MeshKit.Part(t.transform, "EdgeEnd", Strip, Mat.Glow, new Vector3(0f, 0.005f, length), Vector3.zero, new Vector3(width, 1f, 0.09f)).GetComponent<Renderer>();
             t.rims = new[] { l, r, end };
-            // Chevrons down the lane point the way it will come.
+
             for (float z = 1.2f; z < length - 0.5f; z += 2.2f)
                 foreach (float s in new[] { -1f, 1f })
                 {
@@ -144,7 +125,6 @@ namespace Deepbound.Combat
             t.Finish();
         }
 
-        /// <summary>A cleave warning: a wedge of <paramref name="angle"/> degrees out to <paramref name="radius"/>, filling from the apex.</summary>
         public static void ShowCone(Vector3 apex, Vector3 direction, float angle, float radius, float duration, Object source, Color? tint = null)
         {
             Cancel(source);
@@ -172,11 +152,6 @@ namespace Deepbound.Combat
 
         private Color Rgb => new Color(color.r, color.g, color.b);
 
-        /// <summary>
-        /// The colour-blind option (2026-10-20): red (danger) and green (poison) are the pair most people with
-        /// colour blindness cannot tell apart, so red becomes magenta and green becomes yellow. Others stay.
-        /// </summary>
-        /// <summary>Tests: treat the option as on without touching the player's settings.</summary>
         public static bool ForceColorBlind;
 
         public static Color Accessible(Color c)
@@ -203,7 +178,6 @@ namespace Deepbound.Combat
             return t;
         }
 
-        // ---- Conforming to the floor (2026-10-20): circles and lanes used to float off steps and ramps ----
         private const int FieldN = 13;
         private float[] field;
         private float fieldMinX, fieldMinZ, fieldStep;
@@ -230,7 +204,7 @@ namespace Deepbound.Combat
                     field[i * FieldN + j] = h;
                     if (Mathf.Abs(h) > 0.06f) any = true;
                 }
-            if (!any) field = null; // flat floor: nothing to bend
+            if (!any) field = null;
         }
 
         private float FieldAt(float x, float z)
@@ -276,7 +250,7 @@ namespace Deepbound.Combat
         {
             SampleField();
             if (field != null) foreach (var r in GetComponentsInChildren<Renderer>()) Conform(r);
-            // A room-wide warning at the same alpha as a 2 m one painted the whole floor red: big zones fill fainter (the rim stays bright).
+
             float big = Mathf.Lerp(1f, 0.6f, Mathf.InverseLerp(4f, 12f, radius));
             if (zone != null) ArtLibrary.Tint(zone, new Color(color.r, color.g, color.b, color.a * 0.5f * big));
             ArtLibrary.Tint(fill.GetComponent<Renderer>(), new Color(color.r, color.g, color.b, Mathf.Min(0.42f, color.a * 1.35f) * big));
@@ -297,7 +271,7 @@ namespace Deepbound.Combat
         private void Update()
         {
             float k = Mathf.Clamp01((Time.time - start) / duration);
-            // Fill eases in, so the last stretch visibly races to the edge.
+
             float f = Mathf.Lerp(k, k * k, 0.35f);
             switch (shape)
             {
@@ -311,7 +285,7 @@ namespace Deepbound.Combat
                     sweep.localScale = new Vector3(radius * f, 1f, radius * f);
                     break;
             }
-            // The rim beats faster as the hit nears, then blinks white.
+
             float rate = Mathf.Lerp(3f, 16f, k);
             float pulse = 0.6f + 0.4f * Mathf.Sin((Time.time - start) * rate);
             var c = k > 0.82f && Mathf.Repeat((Time.time - start) * 14f, 1f) < 0.5f ? Color.Lerp(Rgb, Color.white, 0.6f) : Rgb;
@@ -328,7 +302,6 @@ namespace Deepbound.Combat
             }
         }
 
-        /// <summary>The moment it hits: a bright pulse on the ground in the shape that was warned.</summary>
         private void Land()
         {
             var p = transform.position;
@@ -346,8 +319,6 @@ namespace Deepbound.Combat
                     break;
             }
         }
-
-        // ---- Procedural wedge meshes (unit radius, opening along +Z) ----
 
         private static readonly Dictionary<int, Mesh> fans = new Dictionary<int, Mesh>(), arcs = new Dictionary<int, Mesh>();
 

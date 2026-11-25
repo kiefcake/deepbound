@@ -10,21 +10,6 @@ using UnityEngine.AI;
 
 namespace Deepbound.Enemies
 {
-    /// <summary>
-    /// The Tide Lich: floor 2's boss, and the fight that teaches movement.
-    ///
-    /// <list type="bullet">
-    /// <item><b>Bone Volley</b> — the staff glows, then a fan of five shards flies at its
-    ///   target. Answer: sidestep, or block it with a shield.</item>
-    /// <item><b>Drowning Pools</b> — a red circle fills under every player at once; anyone
-    ///   still standing in theirs when it fills is dragged under. Answer: keep moving —
-    ///   and do not stack, or one player's pool catches their friend.</item>
-    /// <item><b>Undertow Blink</b> — crowd it for too long and it vanishes and reappears
-    ///   across the room. Answer: the party has to chase, so whoever has the mobility
-    ///   should commit first.</item>
-    /// <item><b>Call of the Deep</b> — at half health it raises archers from the water.</item>
-    /// </list>
-    /// </summary>
     public class TideLichBrain : BossBrain
     {
         protected override DashStyle Dash => DashStyle.Blink;
@@ -41,7 +26,6 @@ namespace Deepbound.Enemies
         public override Progression.Deeds.Deed Deed => Progression.Deeds.Deed.TideLich;
         public override string Hint => "Keep moving off the pools it lays, and fight the whirlpool's pull toward the centre.";
 
-        // ---- Maelstrom: a whirlpool opens and drags everyone toward its drowning heart. ----
         private float maelstromUntil = -1f, nextMaelstrom, nextPull;
         private Vector3 maelstromAt;
         private const float MaelstromSeconds = 6.5f, MaelstromRadius = 13f, EyeRadius = 2.2f;
@@ -73,7 +57,7 @@ namespace Deepbound.Enemies
                 float d = to.magnitude;
                 if (d > MaelstromRadius) continue;
                 if (d < EyeRadius) p.Health.ServerDamage(Signature(9f), maelstromAt, NetworkObjectId);
-                // Stronger the closer you are; a sideways swirl so it reads as a whirlpool.
+
                 var swirl = Vector3.Cross(Vector3.up, to.normalized) * 1.2f;
                 KnockPlayer(p.Health, to.normalized * Mathf.Lerp(4.5f, 2f, d / MaelstromRadius) + swirl);
             }
@@ -104,11 +88,9 @@ namespace Deepbound.Enemies
             }
         }
 
-        // Tidal Surge, once it is wounded: a wall of black water rolls out from it.
         protected override float ShockwaveCooldown => health.Fraction < 0.6f ? 14f : 0f;
         protected override Color ShockwaveColor => new Color(0.3f, 0.9f, 0.75f);
 
-        // ---- Phases ----
         protected override float[] PhaseGates => new[] { 0.6f, 0.35f };
 
         protected override void OnPhaseGate(int index)
@@ -124,8 +106,7 @@ namespace Deepbound.Enemies
                 pools.Clear();
                 volleyAt = -1f;
                 PlayActionRpc(RigAction.Channel, 12f);
-                // Two emitters circling the Lich, wheeling one way then the other, with aimed bolts at
-                // anyone who stands still: the gaps move, so you have to move with them.
+
                 int arms = scaledPlayers <= 1 ? 3 : 4;
                 for (int e = 0; e < 2; e++)
                     StartPattern(new Pattern
@@ -137,10 +118,6 @@ namespace Deepbound.Enemies
             }
         }
 
-        /// <summary>
-        /// Survival: the Lich glides after the party while its spiral turns, so the pattern itself
-        /// travels. Wounded (after the first gate) it also throws short, fast whirls between attacks.
-        /// </summary>
         private void TickSpiral()
         {
             if (InSurvival)
@@ -154,7 +131,7 @@ namespace Deepbound.Enemies
             {
                 nextWhirl = Time.time + Mathf.Lerp(18f, 12f, Difficulty.Lead(scaledDepth));
                 PlayActionRpc(RigAction.Channel, 1f);
-                // READABILITY (2026-11-19): the whirl spat its first bolts the instant it began; now it gathers (and is heard) first.
+
                 GatherRpc(WhirlTell, 0.8f);
                 var whirl = StartPattern(new Pattern
                 {
@@ -182,7 +159,6 @@ namespace Deepbound.Enemies
         private const float WhirlTell = 0.6f;
         private const float SpiralSpeed = 12.5f;
 
-        // Its volleys already reach; it does not need a quick shot as well.
         protected override ProjectileKind? QuickKind => null;
 
         private float nextVolley, nextPool, nextBlink;
@@ -209,8 +185,6 @@ namespace Deepbound.Enemies
             {
                 ResolvePools();
 
-                // Measured every frame, not only when choosing an attack: the Lich's own
-                // swings and casts would otherwise pause the clock while it is crowded.
                 bool crowded = target != null && target.IsAlive && FlatDistance(target.transform.position) < crowdRange;
                 crowdedFor = crowded ? crowdedFor + Time.deltaTime : 0f;
 
@@ -243,7 +217,6 @@ namespace Deepbound.Enemies
                 return true;
             }
 
-            // Crowded: tolerate it briefly, then blink away.
             if (crowdedFor > crowdTolerance && Time.time >= nextBlink)
             {
                 Blink();
@@ -262,7 +235,7 @@ namespace Deepbound.Enemies
                 nextVolley = Time.time + volleyCooldown;
                 busyUntil = volleyAt + 0.5f;
                 PlayActionRpc(RigAction.Hurl, volleyWindup + 0.2f);
-                GatherRpc(volleyWindup, 0.6f); // READABILITY (2026-11-19): the second of drawing back was silent
+                GatherRpc(volleyWindup, 0.6f);
                 return true;
             }
 
@@ -328,7 +301,6 @@ namespace Deepbound.Enemies
             var room = DungeonDirector.Layout?.BossRoom;
             if (room == null) return;
 
-            // Of a handful of candidate spots in the room, take the one farthest from every player.
             var rng = new System.Random((int)(Time.time * 1000f));
             Vector3 best = transform.position;
             float bestScore = -1f;
@@ -343,7 +315,7 @@ namespace Deepbound.Enemies
 
             var from = transform.position;
             agent.Warp(best);
-            // Teleport, not interpolate: clients should see it vanish and reappear.
+
             GetComponent<NetworkTransform>().Teleport(best, transform.rotation, transform.localScale);
             BlinkFxRpc(from, best);
             Debug.Log("[Boss] Tide Lich blinked " + Vector3.Distance(from, best).ToString("F1") + "m");
@@ -352,12 +324,9 @@ namespace Deepbound.Enemies
 
         public override void ServerStun(float seconds)
         {
-            // A bash interrupts the volley.
             volleyAt = -1f;
             base.ServerStun(Mathf.Min(seconds, 0.6f));
         }
-
-        // ------------------------------------------------------------------
 
         [Rpc(SendTo.ClientsAndHost)]
         private void VolleyRpc(Vector3 origin, Vector3 aim, int count, float spread)

@@ -9,12 +9,6 @@ using UnityEngine;
 
 namespace Deepbound.World
 {
-    /// <summary>
-    /// The Wheel of Fate: a great carved stone wheel set into a wall, found now and then in
-    /// a fight room. One spin per floor for the whole party. It mostly gives — gold, healing,
-    /// embers, a sigil, rarely a relic — but sometimes it takes, and once in a while it
-    /// demands blood and the dead climb out around you.
-    /// </summary>
     public class FateWheel : Interactable
     {
         public enum Fate : byte { Fortune, Mending, Embers, Sigil, Relic, Blood, Ambush,
@@ -73,7 +67,6 @@ namespace Deepbound.World
             StartCoroutine(Resolve(pick, who));
         }
 
-        /// <summary>Server: the last fate the wheel gave (tests).</summary>
         public Fate LastFate { get; private set; }
 
         private IEnumerator Resolve(int pick, PlayerProgress who)
@@ -108,7 +101,7 @@ namespace Deepbound.World
                     break;
                 case Fate.Ambush: d?.ServerSpawnPack(front, 3, true); break;
                 case Fate.Jackpot:
-                    // Everything at once: a rain of gold, embers, a Sigil and a relic.
+
                     for (int i = 0; i < 10; i++)
                         d?.ServerDropLoot(front + Quaternion.Euler(0f, i * 36f, 0f) * Vector3.forward * 1.6f, LootKind.Gold, 15 + 10 * depth);
                     d?.ServerDropEmbers(front, 20 + 6 * depth);
@@ -116,7 +109,7 @@ namespace Deepbound.World
                     d?.ServerDropLoot(front + Vector3.right, LootKind.Relic, (int)Relics.Random());
                     break;
                 case Fate.Apothecary:
-                    // A health and a mana potion for everyone, and a frost and holy flask besides.
+
                     foreach (var p in PlayerLife.All)
                     {
                         if (p == null || !p.TryGetComponent<Flasks>(out var f)) continue;
@@ -125,36 +118,36 @@ namespace Deepbound.World
                     }
                     break;
                 case Fate.Fury:
-                    // Every ultimate filled to the brim.
+
                     foreach (var p in PlayerLife.All)
                         if (p != null && p.TryGetComponent<Ultimates>(out var u)) u.Charge.Value = Ultimates.ChargeMax;
                     break;
                 case Fate.Swiftness:
-                    // The shrine's Swiftness for the rest of the floor (unless already blessed).
+
                     foreach (var p in PlayerLife.All)
                         if (p != null && p.TryGetComponent<PlayerProgress>(out var prog) && prog.ActiveBlessing.Value == 0) prog.ServerBless(Blessing.Swiftness);
                     break;
                 case Fate.Foresight:
-                    // The whole floor on everyone's map.
+
                     foreach (var p in PlayerLife.All)
                         if (p != null && p.TryGetComponent<PlayerProgress>(out var prog)) prog.MapRevealed.Value = true;
                     break;
                 case Fate.Champion:
-                    // A named elite steps out of the dark: dangerous, and it carries a champion's hoard.
+
                     d?.ServerSpawnPack(front, 1, true, champion: true);
                     break;
                 case Fate.Taxman:
-                    // The wheel takes a tithe: a fifth of everyone's purse.
+
                     foreach (var p in PlayerLife.All)
                         if (p != null && p.TryGetComponent<PlayerProgress>(out var prog)) prog.ServerAddGold(-Mathf.RoundToInt(prog.Gold.Value * 0.2f));
                     break;
                 case Fate.Hex:
-                    // Everyone cursed for a while: less damage and healing.
+
                     foreach (var p in PlayerLife.All)
                         if (p != null && p.TryGetComponent<PlayerDebuffs>(out var db) && !p.Downed.Value) db.ServerCurse(20f, 0);
                     break;
                 case Fate.Again:
-                    // Fate is undecided: the wheel can be spun once more.
+
                     yield return new WaitForSeconds(0.4f);
                     Spun.Value = false;
                     break;
@@ -165,7 +158,6 @@ namespace Deepbound.World
         [Rpc(SendTo.ClientsAndHost)]
         private void SpinRpc(byte pick)
         {
-            // Land the chosen segment at the top, after a few whole turns.
             float seg = 360f / Segments.Length;
             spinFrom = angle;
             spinTo = angle - (angle % 360f) + 360f * 4f + pick * seg + seg / 2f;
@@ -184,7 +176,6 @@ namespace Deepbound.World
             Vfx.Embers(transform.position + transform.forward * 0.8f + Vector3.up * 2f, 20, s.color, 4f, 0.06f, 0.8f);
         }
 
-        /// <summary>What a fate did, for the title card.</summary>
         public static string Describe(Fate f) => f switch
         {
             Fate.Fortune => "Gold spills from the wheel",
@@ -206,7 +197,6 @@ namespace Deepbound.World
             _ => "",
         };
 
-        /// <summary>Tests: resolve a given fate at once.</summary>
         public void ServerDebugFate(Fate f, PlayerProgress who)
         {
             for (int i = 0; i < Segments.Length; i++)
@@ -226,7 +216,6 @@ namespace Deepbound.World
 
         private void BuildVisual()
         {
-            // A stone frame and plinth, the wheel itself with coloured segments, and a pointer at the top.
             MeshKit.Part(transform, "Plinth", MeshKit.Box(new Vector3(3f, 0.5f, 1f)), Mat.StoneWall, new Vector3(0f, 0.25f, 0f));
             foreach (float x in new[] { -1.35f, 1.35f })
                 MeshKit.Part(transform, "Post", MeshKit.Box(new Vector3(0.35f, 3.6f, 0.5f)), Mat.StoneWall, new Vector3(x, 2.1f, -0.1f));

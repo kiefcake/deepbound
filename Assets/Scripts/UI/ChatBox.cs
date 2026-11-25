@@ -5,12 +5,6 @@ using UnityEngine.InputSystem;
 
 namespace Deepbound.UI
 {
-    /// <summary>
-    /// Text chat. Enter opens a line at the bottom left, Enter sends, Esc cancels. While you type, the
-    /// game's keyboard device is switched off (IMGUI still gets the keystrokes), so W does not walk
-    /// you off a ledge and Q does not fire your ability. Messages go owner -> server -> everyone
-    /// (NetworkPlayer.ChatRpc); recent lines show for a while, the whole recent history while typing.
-    /// </summary>
     public class ChatBox : MonoBehaviour
     {
         public static bool Typing { get; private set; }
@@ -24,7 +18,6 @@ namespace Deepbound.UI
         private const float ShowSeconds = 12f;
         private const int Visible = 7;
 
-        /// <summary>Every peer: a message arrived.</summary>
         public static void Add(string who, Color color, string text)
         {
             lines.Add(new Line { Who = who, Color = color, Text = text, At = Time.time });
@@ -32,14 +25,11 @@ namespace Deepbound.UI
             if (NetworkPlayer.Local != null) Art.Sfx.Play2D(Art.Sound.Card, 0.25f);
         }
 
-        /// <summary>Tests: the last message text, or null.</summary>
         public static string Last => lines.Count > 0 ? lines[lines.Count - 1].Text : null;
         public static bool Heard(string text) { foreach (var l in lines) if (l.Text == text) return true; return false; }
 
         private void Update()
         {
-            // The keyboard comes back a beat after closing, once Enter or Esc is let go (so the same
-            // press does not reopen the chat or open the pause menu).
             if (enableKeysAt > 0f && Time.time >= enableKeysAt)
             {
                 enableKeysAt = -1f;
@@ -48,10 +38,10 @@ namespace Deepbound.UI
             var me = NetworkPlayer.Local;
             if (me == null) { if (Typing) Close(); return; }
             if (Time.time < reopenAfter) return;
-            // Open with Enter (or / ) when nothing else has the keyboard.
+
             var kb = Keyboard.current;
             if (!Typing && kb != null && (kb.enterKey.wasPressedThisFrame || kb.numpadEnterKey.wasPressedThisFrame || kb.slashKey.wasPressedThisFrame)
-                && !PauseMenu.Open && !CharacterSelect.Open && !Wardrobe.Open && !World.BlackjackTable.LocalOpen && !World.DiceTable.LocalOpen && !World.PokerDiceTable.LocalSeated)
+                && !PauseMenu.Open && !CharacterSelect.Open && !Wardrobe.Open && !World.BlackjackTable.LocalOpen && !World.PokerDiceTable.LocalSeated)
                 Open(kb.slashKey.wasPressedThisFrame ? "/" : "");
         }
 
@@ -71,7 +61,6 @@ namespace Deepbound.UI
             reopenAfter = Time.time + 0.35f;
         }
 
-        // The old party's messages must not show in the next session.
         private void OnDestroy() => lines.Clear();
 
         private void OnDisable()
@@ -90,14 +79,13 @@ namespace Deepbound.UI
 
         private void OnGUIBody()
         {
-            useGUILayout = false; // no GUILayout here: skip the layout pass (perf)
+            useGUILayout = false;
             if (NetworkPlayer.Local == null) return;
             UiSkin.Apply();
             float w = UiScale.W, h = UiScale.H;
             float x = 18f, bottom = h - 168f, width = Mathf.Min(460f, w * 0.38f);
             GUI.depth = -3;
 
-            // Recent lines (all of them, on a panel, while typing).
             int shown = 0;
             float now = Time.time;
             var body = new GUIStyle(UiSkin.Small) { wordWrap = true, fontSize = 14 };
@@ -113,12 +101,12 @@ namespace Deepbound.UI
                 UiSkin.Rect(new Rect(x - 4, bottom - 1, width + 8, lh + 2), new Color(0f, 0f, 0f, (Typing ? 0.55f : 0.35f) * alpha));
                 var nameStyle = new GUIStyle(body) { fontStyle = FontStyle.Bold, normal = { textColor = new Color(l.Color.r, l.Color.g, l.Color.b, alpha) } };
                 GUI.Label(new Rect(x, bottom, width - 12f, lh), l.Who + ":", nameStyle);
-                GUI.Label(new Rect(x, bottom, width - 12f, lh), PadFor(l.Who, nameStyle, body) + l.Text, new GUIStyle(body) { normal = { textColor = new Color(0.93f, 0.9f, 0.84f, alpha) } });
+                GUI.Label(new Rect(x, bottom, width - 12f, lh), PadFor(l.Who, nameStyle, body) + l.Text, UiSkin.Derive(body, new Color(0.93f, 0.9f, 0.84f, alpha)));
                 shown++;
             }
 
             if (!Typing) return;
-            // The input line.
+
             var e = Event.current;
             if (e.type == EventType.KeyDown && (e.keyCode == KeyCode.Return || e.keyCode == KeyCode.KeypadEnter))
             {
@@ -131,14 +119,13 @@ namespace Deepbound.UI
             if (e.type == EventType.KeyDown && e.keyCode == KeyCode.Escape) { e.Use(); Close(); return; }
             var field = new Rect(x - 4, h - 162f, width + 8, 26f);
             UiSkin.Rect(field, new Color(0f, 0f, 0f, 0.75f));
-            GUI.Label(new Rect(x, h - 160f, 60f, 22f), "Say:", new GUIStyle(UiSkin.Small) { fontStyle = FontStyle.Bold, normal = { textColor = UiSkin.Gold } });
+            GUI.Label(new Rect(x, h - 160f, 60f, 22f), "Say:", UiSkin.Derive(UiSkin.Small, UiSkin.Gold, fontStyle: FontStyle.Bold));
             GUI.SetNextControlName("ChatField");
-            draft = GUI.TextField(new Rect(x + 40f, h - 160f, width - 40f, 22f), draft, MaxLength, new GUIStyle(GUI.skin.textField) { fontSize = 14 });
+            draft = GUI.TextField(new Rect(x + 40f, h - 160f, width - 40f, 22f), draft, MaxLength, UiSkin.Derive(GUI.skin.textField, GUI.skin.textField.normal.textColor, fontSize: 14));
             if (focusNext) { GUI.FocusControl("ChatField"); focusNext = false; }
-            GUI.Label(new Rect(x, h - 134f, width, 18f), "Enter to send   ·   Esc to cancel", new GUIStyle(UiSkin.Small) { fontSize = 11, normal = { textColor = new Color(1f, 1f, 1f, 0.45f) } });
+            GUI.Label(new Rect(x, h - 134f, width, 18f), "Enter to send   ·   Esc to cancel", UiSkin.Derive(UiSkin.Small, new Color(1f, 1f, 1f, 0.45f), fontSize: 11));
         }
 
-        /// <summary>Spaces that push the message text past the bold name.</summary>
         private static string PadFor(string who, GUIStyle name, GUIStyle body)
         {
             float target = name.CalcSize(new GUIContent(who + ":  ")).x;

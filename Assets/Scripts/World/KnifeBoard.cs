@@ -8,18 +8,10 @@ using UnityEngine;
 
 namespace Deepbound.World
 {
-    /// <summary>
-    /// THE KNIFE BOARD by Brann's yard (2026-11-08, camp pastimes: "knife throwing ... three throws a round, scored by
-    /// ring"). Stand at the chalk line and press F: a gold mark swings over the painted rings; press F to let a knife fly at
-    /// it. Three knives a round, 0-10 each (bull 10, then 7, 4, 1). The best round of the camp visit is chalked on the post,
-    /// and BRANN'S WAGER pays once a visit: 24 or better is 25 gold, a perfect 30 is 60. Everyone sees the knives stick.
-    /// The NetworkObject stands <see cref="LineBack"/> m AHEAD of the chalk line (an F target at your feet only worked when you
-    /// looked down at it); the board is <see cref="Distance"/> metres past the line.
-    /// </summary>
     public class KnifeBoard : Interactable
     {
         public const float Distance = 5.5f, BoardRadius = 0.6f, BoardHeight = 1.55f, LineBack = 1.0f;
-        /// <summary>Where you stand to throw.</summary>
+
         public Vector3 LinePoint => transform.position - transform.forward * LineBack;
         public const int Knives = 3, WagerScore = 24, WagerGold = 25, PerfectGold = 60;
         public static readonly float[] Rings = { 0.08f, 0.2f, 0.36f, 0.55f };
@@ -31,7 +23,6 @@ namespace Deepbound.World
         private class Round { public int Thrown, Score, Visit; public bool Paid; }
         private readonly Dictionary<ulong, Round> rounds = new Dictionary<ulong, Round>();
 
-        // Local: the swinging mark and the knives in the board.
         private int localThrown, localScore;
         private float roundStarted = -1f;
         private Transform board, mark;
@@ -41,7 +32,6 @@ namespace Deepbound.World
         public override float Range => 2f;
         private static int Visit => DungeonDirector.Instance != null ? DungeonDirector.Instance.NextDepth.Value * 1000 + (int)(DungeonDirector.Instance.RunStartedAt.Value % 997) : 0;
 
-        /// <summary>Where the swinging mark is (board units, -1..1 of the board radius) at a time into the round.</summary>
         public static Vector2 MarkAt(float t) => new Vector2(Mathf.Sin(t * 2.3f) * 0.75f, Mathf.Sin(t * 3.4f + 1.1f) * 0.6f);
 
         public static int ScoreOf(Vector2 boardUnits)
@@ -69,7 +59,6 @@ namespace Deepbound.World
             Sfx.Play2D(Sound.Unsheathe, 0.6f);
         }
 
-        /// <summary>Shots: start aiming here, as F would.</summary>
         public void LocalDebugAim() { roundStarted = Time.time; localThrown = 0; localScore = 0; nextLocalThrow = Time.time; }
 
         private void ThrowLocal()
@@ -90,7 +79,6 @@ namespace Deepbound.World
             ServerThrow(who, at);
         }
 
-        /// <summary>Server: one knife lands at <paramref name="at"/> (board units). Public for tests.</summary>
         public int ServerThrow(PlayerProgress who, Vector2 at)
         {
             if (!rounds.TryGetValue(who.OwnerClientId, out var r)) rounds[who.OwnerClientId] = r = new Round();
@@ -120,7 +108,6 @@ namespace Deepbound.World
         {
             if (board != null)
             {
-                // The knife: a steel blade buried in the board, a leather grip sticking out toward the line.
                 var k = new GameObject("Knife").transform;
                 k.SetParent(board, false);
                 k.localPosition = new Vector3(at.x * BoardRadius, at.y * BoardRadius, -0.04f);
@@ -159,14 +146,14 @@ namespace Deepbound.World
         public override void OnNetworkSpawn()
         {
             base.OnNetworkSpawn();
-            // The chalk line at the stand, and the round board on its post ahead.
+
             var chalk = MeshKit.Part(transform, "ChalkLine", MeshKit.Box(new Vector3(1.6f, 0.01f, 0.06f)), Mat.Bone, new Vector3(0f, 0.01f, -LineBack + 0.3f));
             ArtLibrary.Tint(chalk.GetComponent<Renderer>(), new Color(0.9f, 0.88f, 0.82f));
             var post = transform.position + transform.forward * Distance;
             MeshKit.Part(transform, "Post", MeshKit.Box(new Vector3(0.18f, BoardHeight + 0.4f, 0.18f)), Mat.Wood, new Vector3(0f, 0f, Distance - LineBack + 0.15f) + Vector3.up * ((BoardHeight + 0.4f) / 2f));
             board = MeshKit.Pivot(transform, "Board", new Vector3(0f, BoardHeight, Distance - LineBack));
             board.localRotation = Quaternion.identity;
-            MeshKit.Part(board, "Wood", MeshKit.Cylinder(BoardRadius, BoardRadius, 0.08f, 20), Mat.Wood, new Vector3(0f, 0f, 0.08f), new Vector3(-90f, 0f, 0f)); // grows toward the line: its face is at z 0
+            MeshKit.Part(board, "Wood", MeshKit.Cylinder(BoardRadius, BoardRadius, 0.08f, 20), Mat.Wood, new Vector3(0f, 0f, 0.08f), new Vector3(-90f, 0f, 0f));
             var colours = new[] { new Color(0.8f, 0.15f, 0.12f), new Color(0.9f, 0.85f, 0.7f), new Color(0.15f, 0.15f, 0.15f), new Color(0.9f, 0.85f, 0.7f) };
             for (int i = Rings.Length - 1; i >= 0; i--)
             {

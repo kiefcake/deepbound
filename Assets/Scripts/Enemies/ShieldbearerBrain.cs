@@ -5,27 +5,17 @@ using UnityEngine;
 
 namespace Deepbound.Enemies
 {
-    /// <summary>
-    /// Shieldbearer: a skeleton behind a tower shield. From the front almost nothing gets
-    /// through (85% blocked) — flank it, or stun it and the shield drops. It advances
-    /// steadily, turns slowly, and answers anyone in its face with a shield shove that
-    /// knocks them back. A puzzle for the party: one holds its attention, another goes round.
-    /// </summary>
     public class ShieldbearerBrain : EnemyBrain
     {
         [SerializeField] private float frontalTaken = 0.15f, frontArc = 70f;
         private float lastClang;
 
-        /// <summary>Server clock time a kick or a bash knocked the shield aside until.</summary>
         public readonly NetworkVariable<double> GuardDownUntil = new NetworkVariable<double>();
 
-        /// <summary>The shield is knocked aside right now (anyone).</summary>
         public bool GuardDown => NetworkManager != null && NetworkManager.IsListening && NetworkManager.ServerTime.Time < GuardDownUntil.Value;
 
-        /// <summary>Is the shield up (anyone): not while stunned, nor while knocked aside.</summary>
         public bool ShieldUp => (Status.Value & 1) == 0 && !GuardDown && !IsDead;
 
-        /// <summary>Server: a kick or a bash knocks the shield wide for a few seconds.</summary>
         public void ServerBreakGuard(float seconds)
         {
             if (IsDead) return;
@@ -55,7 +45,7 @@ namespace Deepbound.Enemies
             if (IsStunned || GuardDown) return damage;
             var to = from - transform.position;
             to.y = 0f;
-            // Blasts centred on it (a meteor landing on its head) go round the shield.
+
             if (to.magnitude < 0.8f) return damage;
             if (Vector3.Angle(transform.forward, to) > frontArc) return damage;
             if (Time.time - lastClang > 0.25f)

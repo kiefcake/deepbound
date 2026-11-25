@@ -7,12 +7,6 @@ using UnityEngine;
 
 namespace Deepbound.Enemies
 {
-    /// <summary>
-    /// The Bell-ringer (2026-11-13, the user's silence foe): a tall dead sexton of the Black Cathedral with a cracked
-    /// bronze bell yoked on its back and a clapper for a club. It fights up close; every so often it heaves and RINGS
-    /// THE BELL: a pale ring rolls out along the floor, and whoever it passes under is SILENCED (no Q, E or ultimate) and
-    /// knocked back a little. The ring is low: JUMP it, as you jump a guardian's shockwave. A stun stops the swing.
-    /// </summary>
     public class BellringerBrain : EnemyBrain
     {
         [SerializeField] private float tollCooldown = 11f, tollWindup = 1.2f;
@@ -20,7 +14,7 @@ namespace Deepbound.Enemies
         private float nextToll, tollAt = -1f;
         private class Ring { public Vector3 Origin; public float Start; public readonly HashSet<ulong> Hit = new HashSet<ulong>(); }
         private readonly List<Ring> rings = new List<Ring>();
-        /// <summary>For tests: tolls rung, and players they silenced.</summary>
+
         public int Tolls { get; private set; }
         public int Silenced { get; private set; }
 
@@ -47,7 +41,6 @@ namespace Deepbound.Enemies
             TollWarnRpc(transform.position, windup);
         }
 
-        /// <summary>For tests: ring the bell now.</summary>
         public void ServerDebugToll(float windup) => BeginToll(windup);
 
         protected override void Update()
@@ -75,7 +68,7 @@ namespace Deepbound.Enemies
                 {
                     if (p == null || !p.Targetable || w.Hit.Contains(p.NetworkObjectId)) continue;
                     var d = p.transform.position - w.Origin;
-                    if (d.y > 0.45f) continue; // airborne: it passes under
+                    if (d.y > 0.45f) continue;
                     d.y = 0f;
                     if (Mathf.Abs(d.magnitude - r) > 0.8f) continue;
                     w.Hit.Add(p.NetworkObjectId);

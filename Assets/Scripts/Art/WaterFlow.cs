@@ -2,15 +2,10 @@ using UnityEngine;
 
 namespace Deepbound.Art
 {
-    /// <summary>
-    /// Moves a water surface: scrolls its ripple normal and the detail ripple in different
-    /// directions (through the renderer's property block, keeping its tint). A fall scrolls fast
-    /// and downward instead. Local only.
-    /// </summary>
     public class WaterFlow : MonoBehaviour
     {
         public bool Falling;
-        /// <summary>0..1: the Drowned Vaults' water thickening (ripples slow to a crawl).</summary>
+
         public static float Sluggish;
         private float clock;
         private static readonly int BaseSt = Shader.PropertyToID("_BaseMap_ST");

@@ -6,17 +6,10 @@ using UnityEngine;
 
 namespace Deepbound.World
 {
-    /// <summary>
-    /// Puzzle rooms and camp pastimes (2026-11-08, the user's list). The Watchers' Room and the Chime Room are special side
-    /// rooms (<see cref="RoomFeature.Statues"/>, <see cref="RoomFeature.Chimes"/>; FeatureSpots = coffer, centre), run by
-    /// <see cref="PuzzleRoom"/> (+ four <see cref="PuzzleStatue"/>s). The well (<see cref="WellFishing"/>) and Brann's knife
-    /// board (<see cref="KnifeBoard"/>) are camp stations.
-    /// </summary>
     public partial class DungeonDirector
     {
         [SerializeField] private NetworkObject puzzleMirrorPrefab, scaleWeightPrefab, statDraughtPrefab;
 
-        /// <summary>Server: the Draught room's flask, holding a random stat (StatDraught).</summary>
         private StatDraught SpawnDraught(DungeonLayout.Room room, Vector3 at)
         {
             if (room != null) at.y = room.Center.y + room.RaisedAt(at);
@@ -27,12 +20,10 @@ namespace Deepbound.World
             return dr;
         }
 
-        /// <summary>Tests: a draught at <paramref name="at"/>.</summary>
         public StatDraught ServerDebugDraught(Vector3 at) => statDraughtPrefab == null ? null : SpawnDraught(null, at);
         [SerializeField] private NetworkObject puzzleRoomPrefab, puzzleStatuePrefab, wellFishingPrefab, knifeBoardPrefab, bellFramePrefab, armWrestlePrefab;
         private int debugPuzzles;
 
-        /// <summary>Server, tests: puzzles solved this session.</summary>
         public int PuzzlesSolved { get; private set; }
 
         private PuzzleRoom SpawnPuzzle(PuzzleRoom.Kind kind, Vector3 centre, Vector3 coffer, int roomId)
@@ -51,7 +42,7 @@ namespace Deepbound.World
                 {
                     var s = Instantiate(puzzleStatuePrefab, Vfx.Floor(p.Centre.Value + PuzzleRoom.Axis(i) * PuzzleRoom.StatueRing), Quaternion.identity);
                     var st = s.GetComponent<PuzzleStatue>();
-                    byte target = (byte)((i + 2) % 4); // the statue at +Axis(i) sees the sigil looking along -Axis(i)
+                    byte target = (byte)((i + 2) % 4);
                     st.Group.Value = roomId;
                     st.Target.Value = target;
                     st.Facing.Value = (byte)((target + 1 + rng.Next(3)) % 4);
@@ -64,11 +55,6 @@ namespace Deepbound.World
             return p;
         }
 
-        /// <summary>
-        /// Server: lay out the light-beam room. A path with four turns from the lens row to the crystal row is drawn on the
-        /// grid, a mirror stands at each turn, the solution is found by trying the 16 settings, and the mirrors start in a
-        /// setting that misses (at least two of them wrong).
-        /// </summary>
         private void SpawnMirrors(PuzzleRoom p, int roomId, int seed)
         {
             var rng = new System.Random(seed ^ 0x5eed);
@@ -88,7 +74,7 @@ namespace Deepbound.World
             if (cells.Count == 0) return;
             var sols = Solutions(r0, r2, cells);
             int sol = sols[0];
-            // A start that misses, with at least two mirrors turned wrong.
+
             int start = sol;
             for (int tries = 0; tries < 64; tries++)
             {
@@ -117,10 +103,6 @@ namespace Deepbound.World
             }
         }
 
-        /// <summary>
-        /// Server: the Scales room's urns. Five different weights (1-7) lie on the door side of the room; the counterweight
-        /// is the sum of two of them (three from act three) and never equal to any one urn, so it always takes a choice.
-        /// </summary>
         private void SpawnScales(PuzzleRoom p, int roomId, int seed)
         {
             var rng = new System.Random(seed ^ 0x5ca1e);
@@ -141,7 +123,6 @@ namespace Deepbound.World
             var b = p.AxisB;
             for (int i = 0; i < ws.Count; i++)
             {
-                // A fan across the door side of the room, clear of the pans (which hang along the A axis).
                 var dir = Quaternion.AngleAxis(110f + i * 35f, Vector3.up) * b;
                 var want = p.Centre.Value + dir * (i % 2 == 0 ? 3.4f : 2.6f);
                 var at = Vfx.Floor(DropSpots.Settle(p.Centre.Value, want));
@@ -156,7 +137,6 @@ namespace Deepbound.World
 
         private static int Bits(int m) { int c = 0; while (m != 0) { c += m & 1; m >>= 1; } return c; }
 
-        /// <summary>Every setting (bit i = mirror i's state) of these mirrors that brings the beam to the crystal.</summary>
         private static List<int> Solutions(int sourceRow, int crystalRow, List<(int x, int r)> cells)
         {
             var found = new List<int>();
@@ -170,7 +150,6 @@ namespace Deepbound.World
             return found;
         }
 
-        /// <summary>Server: a puzzle is done. A chest takes the coffer's place, with a Sigil and gold before it.</summary>
         public void ServerPuzzleSolved(PuzzleRoom puzzle)
         {
             var at = puzzle.transform.position;
@@ -190,7 +169,6 @@ namespace Deepbound.World
             PuzzlesSolved++;
         }
 
-        /// <summary>Tests and shots: a puzzle right here (a fresh group id each time).</summary>
         public PuzzleRoom ServerDebugPuzzle(PuzzleRoom.Kind kind, Vector3 centre, Vector3 coffer) => SpawnPuzzle(kind, centre, coffer, 9000 + debugPuzzles++);
     }
 }

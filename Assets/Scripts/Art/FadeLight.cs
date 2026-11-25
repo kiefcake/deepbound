@@ -2,7 +2,6 @@ using UnityEngine;
 
 namespace Deepbound.Art
 {
-    /// <summary>Fades a light to nothing over its life, then removes it.</summary>
     public class FadeLight : MonoBehaviour
     {
         public float Life = 0.5f;

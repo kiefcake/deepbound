@@ -2,11 +2,6 @@ using UnityEngine;
 
 namespace Deepbound.Art
 {
-    /// <summary>
-    /// A guardian's end, every peer locally: the light goes out of its eyes, it lets go of a column
-    /// of pale light and a slow ring that rolls across the arena, the room's fires gutter for a breath
-    /// and come back, and soul-motes lift out of the body for a few seconds.
-    /// </summary>
     public class BossFall : MonoBehaviour
     {
         private float born;
@@ -23,7 +18,7 @@ namespace Deepbound.Art
             f.born = Time.time;
             f.color = color;
             f.fires = Object.FindObjectsByType<World.Torch>(FindObjectsSortMode.None);
-            // Its last shockwaves die with it (they no longer hurt; now they stop showing, too).
+
             foreach (var ring in Object.FindObjectsByType<ShockwaveRing>(FindObjectsSortMode.None)) Destroy(ring.gameObject);
             var pale = Color.Lerp(color, Color.white, 0.6f);
             f.beam = MeshKit.Part(go.transform, "Beam", MeshKit.Cylinder(0.6f, 0.9f, 1f, 16), Mat.Smoke, Vector3.zero, default, new Vector3(size, 30f, size)).transform;
@@ -49,7 +44,7 @@ namespace Deepbound.Art
         private void Update()
         {
             float t = Time.time - born;
-            // The column swells, then thins and fades.
+
             float k = t < 0.4f ? t / 0.4f : Mathf.Clamp01(1f - (t - 0.4f) / 3.6f);
             if (beam != null)
             {
@@ -59,10 +54,10 @@ namespace Deepbound.Art
                 ArtLibrary.Tint(r, new Color(pale.r, pale.g, pale.b, 0.22f * k));
             }
             if (glow != null) glow.intensity = 9f * k;
-            // The room's fires gutter low for a moment, then return.
+
             float gutter = t < 0.25f ? Mathf.Lerp(1f, 0.15f, t / 0.25f) : t < 1.6f ? 0.15f : Mathf.Lerp(0.15f, 1f, Mathf.Clamp01((t - 1.6f) / 1.4f));
             if (fires != null) foreach (var f in fires) if (f != null) f.Dim = gutter;
-            // Souls leaving it.
+
             if (t < 4f && Random.value < 0.5f)
                 Vfx.Embers(transform.position + Random.insideUnitSphere * 1.2f + Vector3.up, 1, Color.Lerp(color, Color.white, 0.5f), 1.4f, 0.05f, 1.4f);
         }

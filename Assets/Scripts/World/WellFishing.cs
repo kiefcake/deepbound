@@ -7,13 +7,6 @@ using UnityEngine;
 
 namespace Deepbound.World
 {
-    /// <summary>
-    /// FISHING THE WELL (2026-11-08, camp pastimes: "something quiet to do while friends shop"). F at the well drops a line
-    /// into the dark water. Wait: after a few seconds something BITES (a splash, the rope jerks, the prompt says so) and you
-    /// have <see cref="Window"/> seconds to press F again and haul it up. Too early or too late and it gets away. Mostly
-    /// junk worth a coin or two; sometimes drowned coins, an ember stone, a stoppered health potion; very rarely the
-    /// Well Pearl. <see cref="MaxCatches"/> catches a camp visit each, so it stays a pastime and not a mine.
-    /// </summary>
     public class WellFishing : Interactable
     {
         public const int MaxCatches = 6;
@@ -22,7 +15,6 @@ namespace Deepbound.World
         private class Line { public double BiteAt; public int Caught; public int Visit; public bool Cast; }
         private readonly Dictionary<ulong, Line> lines = new Dictionary<ulong, Line>();
 
-        // Local (the owner's view of their own line).
         private double localBite = -1;
         private int localCaught;
         private Transform rope, bob;
@@ -60,13 +52,12 @@ namespace Deepbound.World
             }
             line.Cast = false;
             double dt = Now - line.BiteAt;
-            // A little slack for the round trip.
+
             if (dt < -0.15 || dt > Window + 0.35) { MissRpc(who.OwnerClientId, dt < 0); return; }
             line.Caught++;
             ServerCatch(who, line.Caught);
         }
 
-        /// <summary>Shots: drop a line for someone with the bite <paramref name="wait"/> seconds away.</summary>
         public void ServerDebugCast(PlayerProgress who, float wait)
         {
             if (!lines.TryGetValue(who.OwnerClientId, out var line)) lines[who.OwnerClientId] = line = new Line();
@@ -74,7 +65,6 @@ namespace Deepbound.World
             CastRpc(who.OwnerClientId, line.BiteAt, line.Caught);
         }
 
-        /// <summary>Server: what comes up. Public for tests.</summary>
         public string ServerCatch(PlayerProgress who, int caught)
         {
             float r = Random.value;
@@ -138,7 +128,6 @@ namespace Deepbound.World
 
         private void Update()
         {
-            // The rope down the shaft, and the float that ducks when something bites.
             if (rope == null) return;
             for (int i = showing.Count - 1; i >= 0; i--) if (Time.time > showing[i].until) showing.RemoveAt(i);
             bool active = showing.Count > 0;
@@ -156,7 +145,7 @@ namespace Deepbound.World
         public override void OnNetworkSpawn()
         {
             base.OnNetworkSpawn();
-            rope = MeshKit.Part(transform, "FishLine", MeshKit.Box(new Vector3(0.015f, 1.3f, 0.015f)), Mat.Cloth, new Vector3(0.3f, 1.5f, 0f)).transform; // from the crossbeam (2.15) to the water (0.82)
+            rope = MeshKit.Part(transform, "FishLine", MeshKit.Box(new Vector3(0.015f, 1.3f, 0.015f)), Mat.Cloth, new Vector3(0.3f, 1.5f, 0f)).transform;
             ArtLibrary.Tint(rope.GetComponent<Renderer>(), new Color(0.75f, 0.7f, 0.6f));
             bob = MeshKit.Pivot(transform, "Float", new Vector3(0.3f, 0.86f, 0f));
             var f = MeshKit.Part(bob, "FloatBall", MeshKit.Ball(0.05f, 6, 4), Mat.Cloth, Vector3.zero);

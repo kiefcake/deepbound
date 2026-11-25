@@ -3,7 +3,6 @@ using UnityEngine;
 
 namespace Deepbound.Art
 {
-    /// <summary>Names of the baked materials in <c>Resources/Materials</c>. See ArtBaker.</summary>
     public static class Mat
     {
         public const string StoneWall = "StoneWall";
@@ -21,21 +20,10 @@ namespace Deepbound.Art
         public const string Flame = "Flame";
         public const string Telegraph = "Telegraph";
         public const string Water = "Water";
-        /// <summary>Translucent, unlit haze: smoke clouds.</summary>
+
         public const string Smoke = "Smoke";
     }
 
-    /// <summary>
-    /// Runtime access to the procedurally baked materials, plus per-renderer tinting.
-    ///
-    /// <para>
-    /// Tints (2026-10-21, "smooth as butter"): a renderer tinted once gets a cached copy of its
-    /// material in that colour, so it stays on URP's SRP Batcher (a MaterialPropertyBlock takes a
-    /// renderer off it, and nearly everything here is tinted: ~1000 draws a frame went the slow way).
-    /// A renderer whose colour changes again on a later frame (flames, fades, telegraphs) is
-    /// "animated": it goes back to the base material and uses a property block as before.
-    /// </para>
-    /// </summary>
     public static class ArtLibrary
     {
         private static readonly Dictionary<string, Material> Cache = new Dictionary<string, Material>();
@@ -60,10 +48,8 @@ namespace Deepbound.Art
 
         public static void Tint(Renderer renderer, Color color) => Apply(renderer, color, null);
 
-        /// <summary>Sets the glow colour of a renderer using the Glow material. HDR: values above 1 bloom.</summary>
         public static void SetGlow(Renderer renderer, Color hdrColor) => Apply(renderer, null, hdrColor);
 
-        /// <summary>Is this one of the baked materials (or a tinted copy of it)?</summary>
         public static bool Is(Material m, string name) => m != null && (m == Get(name) || (CloneBase.TryGetValue(m, out var b) && b == Get(name)));
 
         private class TintState { public Renderer R; public Material Base, Clone; public Color? Tint, Glow; public int Frame; public bool Animated; }
@@ -86,7 +72,6 @@ namespace Deepbound.Art
             }
             else if (mat != s.Base && mat != s.Clone)
             {
-                // Someone gave it another material (a pooled puff, a recoloured part): start over.
                 s.Base = mat; s.Clone = null; s.Tint = null; s.Glow = null; s.Animated = false; s.Frame = Time.frameCount;
             }
             if (s.Base == null) return;

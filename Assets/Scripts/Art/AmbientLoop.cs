@@ -2,10 +2,6 @@ using UnityEngine;
 
 namespace Deepbound.Art
 {
-    /// <summary>
-    /// A looped sound at a spot (2026-10-24: the fountain's running water), played only while the listener is
-    /// within <see cref="Range"/> so a floor of them costs nothing. Client-side; added at runtime.
-    /// </summary>
     public class AmbientLoop : MonoBehaviour
     {
         public float Range = 12f, Volume = 0.3f;

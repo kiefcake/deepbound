@@ -6,11 +6,6 @@ using UnityEngine;
 
 namespace Deepbound.Loot
 {
-    /// <summary>
-    /// Server-side effects of gear that touch damage dealt: bonus damage (Hunter's Tooth,
-    /// the Mantle's post-dodge strike) and on-kill effects (Bloodstone, Ember Locket).
-    /// Defensive effects live in <see cref="PlayerProgress"/>, beside the relic ones.
-    /// </summary>
     public static class GearEffects
     {
         private static bool hooked;
@@ -39,10 +34,10 @@ namespace Deepbound.Loot
             if (p.Wears(GearId.HuntersTooth) && target.TryGetComponent<EnemyBrain>(out var brain) && (brain.Elite.Value || brain is BossBrain || brain.IsChampion))
             {
                 m *= 1.15f;
-                // The tooth knows its quarry: the first hit on each one Marks it for everyone.
+
                 if (p.ToothMarked.Add(target.NetworkObjectId)) target.ServerMark(4f);
             }
-            // Banner of the Fallen: the strongest banner within 8 m lifts everyone near it (its bearer too).
+
             float banner = 0f;
             foreach (var pl in Player.PlayerLife.All)
             {
@@ -53,7 +48,7 @@ namespace Deepbound.Loot
                     banner = Mathf.Max(banner, bp.RelicPower(Relic.BannerOfTheFallen) * (band ? 1.5f : 1f));
             }
             if (banner > 0f) m *= 1f + 0.08f * banner;
-            // A tick of blight or a burning cloud is not the blow these were saved for.
+
             if (!Health.InTick && p.ServerConsumeDodgeStrike()) m *= 1.6f;
             if (!Health.InTick && p.ServerConsumePerfectStrike()) m *= PlayerProgress.PerfectStrikeMultiplier;
             if (p.Blessed(Blessing.Wrath)) m *= 1.15f;
@@ -67,11 +62,11 @@ namespace Deepbound.Loot
                 m *= curse.DamageMultiplier;
                 if (curse.Rooted && p.HasRelic(Relic.RootbreakerCharm)) m *= 1f + 0.5f * p.RelicPower(Relic.RootbreakerCharm);
             }
-            // Critical hits: a little luck, more with DEX.
+
             if (!World.DungeonDirector.TestMode && Random.value < CritChance(p))
             {
                 m *= p.HasRelic(Relic.WhettedFang) ? 2f + 0.25f * p.RelicTier(Relic.WhettedFang) : 1.75f;
-                // Frost Shard: a crit chills (it used to be a coin flip on every hit, the fifth chill source).
+
                 if (Relics.Has(p, Relics.Synergy.ColdSteel) && target.ServerConsumeChill())
                 {
                     m *= 1.4f;
@@ -84,12 +79,10 @@ namespace Deepbound.Loot
             return m;
         }
 
-        /// <summary>5% base, DEX, the Masterwork weapon, Whetted Fang and Frost Shard. Any peer (the Tab sheet shows it).</summary>
         public static float CritChance(PlayerProgress p) => 0.05f + p.BuildCritBonus + p.Value(Core.StatType.DEX) / 650f
             + (p.WeaponLevel.Value >= World.Anvil.MasterworkLevel ? World.Anvil.MasterworkCrit : 0f)
             + 0.1f * p.RelicPower(Relic.WhettedFang) + 0.05f * p.RelicPower(Relic.FrostCharm);
 
-        /// <summary>Hit counts start again each run.</summary>
         public static void ResetRun() { batonHits.Clear(); phylacteryHits.Clear(); }
 
         private static readonly System.Collections.Generic.Dictionary<ulong, int> batonHits = new System.Collections.Generic.Dictionary<ulong, int>();
@@ -103,9 +96,8 @@ namespace Deepbound.Loot
             if (p == null) return;
             if (target.IsAlive)
             {
-                // Witchbone Fetish: every 8 s, a hit Marks.
                 if (p.Wears(GearId.WitchboneFetish) && p.ServerConsumeFetish()) target.ServerMark(4f);
-                // Choirmaster's Baton: every tenth hit mends the bearer and everyone near them.
+
                 if (p.Wears(GearId.ChoirmastersBaton))
                 {
                     batonHits.TryGetValue(attackerId, out int b);
@@ -119,7 +111,7 @@ namespace Deepbound.Loot
                     }
                     batonHits[attackerId] = b;
                 }
-                // Lich's Phylactery: every fourth hit chills.
+
                 if (p.Wears(GearId.LichPhylactery))
                 {
                     phylacteryHits.TryGetValue(attackerId, out int n);
@@ -133,7 +125,7 @@ namespace Deepbound.Loot
             if (p.Wears(GearId.CrackedHourglass)) p.ShaveCooldownsRpc(1f);
             if (p.Wears(GearId.Bloodstone)) p.GetComponent<Health>().ServerHeal(p.GetComponent<Health>().Max.Value * 0.04f);
             if (p.Wears(GearId.CardinalVestments)) p.ServerJudgement(target.transform.position);
-            // Marrowgut's Rib: the kill bursts into bone shards (never a chain: shards that kill do not burst again).
+
             if (p.Wears(GearId.MarrowgutsRib) && !boneBursting)
             {
                 boneBursting = true;
@@ -143,7 +135,7 @@ namespace Deepbound.Loot
                 boneBursting = false;
                 p.BoneBurstFxRpc(at);
             }
-            // Cinder Crown: the kill leaves a burning patch (not from a patch's own kill).
+
             if (p.HasRelic(Relic.CinderCrown) && !CinderCrown.Ticking) CinderCrown.ServerDrop(p, target.transform.position);
             if (p.Wears(GearId.EmberLocket) && Random.value < 0.3f && World.DungeonDirector.Instance != null)
                 World.DungeonDirector.Instance.ServerDropEmbers(target.transform.position, 2);

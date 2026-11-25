@@ -3,28 +3,15 @@ using UnityEngine;
 
 namespace Deepbound.World
 {
-    /// <summary>
-    /// The spike floor of a Gauntlet (<see cref="RoomFeature.Gauntlet"/>): rows of spike plates
-    /// across the room's long axis. Every <see cref="Cycle"/> seconds a wave runs down the rows
-    /// (the way it runs flips each cycle): each row glows for <see cref="WarnSeconds"/>, then its
-    /// spikes punch up for <see cref="UpSeconds"/>, cutting players and the dead alike. Like the
-    /// pendulums, all of it is a function of the server clock, so nothing is synced. Read the
-    /// wave, step between the rows, and let the dead walk into it.
-    /// </summary>
     public class SpikeGauntlet : MonoBehaviour
     {
         public const float Cycle = 7f, Sweep = 3.6f, WarnSeconds = 0.8f, UpSeconds = 0.45f, RowHalf = 0.75f, GapHalf = 0.95f;
 
-        // ---- No two alike (2026-11-12, the user: "trap rooms are very easy to guess because they are usually the exact
-        // same layout"). From the room's DecorSeed (the same on every peer, nothing synced): how far apart the rows are,
-        // how the wave runs (a sweep, odd/even rows in turn, from the walls in to the middle and out, or a fresh shuffle
-        // every cycle), and in some rooms a gap in each row that zig-zags across, a lane to weave down.
         public enum Pattern { Sweep, Alternate, Converge, Shuffle }
         public static Pattern PatternOf(DungeonLayout.Room room) => (Pattern)((room.DecorSeed >> 3) & 3);
         public static float RowSpacing(DungeonLayout.Room room) => 2.2f + ((room.DecorSeed >> 6) % 5) * 0.25f;
         public static bool Weaves(DungeonLayout.Room room) => ((room.DecorSeed >> 9) & 1) == 1;
 
-        /// <summary>Row i's safe gap, as an offset across the room from its centre line (weaving rooms only).</summary>
         public static float GapAt(DungeonLayout.Room room, int i)
         {
             float half = (AlongX(room) ? room.Size.y : room.Size.x) / 2f - 0.6f;
@@ -45,7 +32,6 @@ namespace Deepbound.World
             return Mathf.Max(3, Mathf.FloorToInt((len - 6f) / RowSpacing(room)));
         }
 
-        /// <summary>The centre of row <paramref name="i"/> (on the floor).</summary>
         public static Vector3 RowCenter(DungeonLayout.Room room, int i)
         {
             int n = Rows(room);
@@ -53,7 +39,6 @@ namespace Deepbound.World
             return room.Center + (AlongX(room) ? new Vector3(t, 0f, 0f) : new Vector3(0f, 0f, t));
         }
 
-        /// <summary>Seconds since row i's spikes fired this cycle (negative: still to come).</summary>
         public static float SinceFire(DungeonLayout.Room room, int i, double time)
         {
             int n = Rows(room);
@@ -89,7 +74,6 @@ namespace Deepbound.World
             return s >= 0f && s < UpSeconds;
         }
 
-        /// <summary>Is <paramref name="p"/> on row i's strip of plates?</summary>
         public static bool OnRow(DungeonLayout.Room room, int i, Vector3 p)
         {
             var c = RowCenter(room, i);
@@ -118,7 +102,7 @@ namespace Deepbound.World
             {
                 var c = RowCenter(room, i);
                 var row = MeshKit.Pivot(go.transform, "Row" + i, c);
-                // The row's plate, in one piece, or two either side of its gap in a weaving room.
+
                 float gap = Weaves(room) ? GapAt(room, i) : float.NaN;
                 var segs = new System.Collections.Generic.List<(float from, float to)>();
                 if (float.IsNaN(gap)) segs.Add((-width / 2f, width / 2f));

@@ -2,10 +2,6 @@ using UnityEngine;
 
 namespace Deepbound.Art
 {
-    /// <summary>
-    /// A boss shockwave as you see it: a low, glowing wall of force racing outward from a
-    /// point, kicking up grit as it goes. Jump it, or dodge through it.
-    /// </summary>
     public class ShockwaveRing : MonoBehaviour
     {
         private float speed, maxRadius, age, nextDust;

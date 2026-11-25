@@ -7,22 +7,6 @@ using UnityEngine.AI;
 
 namespace Deepbound.Enemies
 {
-    /// <summary>
-    /// How a guardian closes in, and how it punishes those who hug it (2026-11-13, the user: "Dash variants per boss. The
-    /// Gravewarden shield-charges (blockable from the front), the Lich blinks behind you, the Cardinal leaps and slams" and
-    /// "add an outer ring attack that punishes hugging, so every class has to move").
-    /// <list type="bullet">
-    /// <item><see cref="DashStyle.Charge"/>: a red line, then a charge along it (Wardens, the Hollow King, the Unsung).</item>
-    /// <item><see cref="DashStyle.ShieldCharge"/>: the same, shield first; a Knight with the shield up in front of it stops
-    /// it dead, takes nothing and staggers it (<see cref="ShieldStopStagger"/>).</item>
-    /// <item><see cref="DashStyle.Blink"/>: frost gathers at its feet and behind its target, then it is THERE, and a
-    /// frost nova follows (<see cref="BlinkNovaDelay"/>).</item>
-    /// <item><see cref="DashStyle.Leap"/>: a circle at where its target is going, then it comes down on it.</item>
-    /// </list>
-    /// REPULSE: stand within <see cref="HugRange"/> of it for <see cref="HugSeconds"/> and a ring telegraph fills round it,
-    /// then everything inside <see cref="RepulseRadius"/> is struck and hurled out. Ranged classes get the dash, melee the ring.
-    /// All of it runs here in LateUpdate (subclasses return early from Update mid-attack; the old charge sat still for that).
-    /// </summary>
     public abstract partial class BossBrain
     {
         public enum DashStyle : byte { Charge, ShieldCharge, Blink, Leap }
@@ -38,7 +22,7 @@ namespace Deepbound.Enemies
         private Vector3 dashDir, dashFrom, dashTo;
         private readonly System.Collections.Generic.HashSet<Health> dashHit = new System.Collections.Generic.HashSet<Health>();
         private float hugSince = -1f, repulseReadyAt, repulseAt = -1f;
-        /// <summary>Server, tests: shield charges a raised shield has stopped; repulses made.</summary>
+
         public int ShieldStops { get; private set; }
         public int Repulses { get; private set; }
 
@@ -98,10 +82,8 @@ namespace Deepbound.Enemies
             return true;
         }
 
-        /// <summary>Server, tests: dashes begun (any style).</summary>
         public int BossDashCount { get; private set; }
 
-        /// <summary>Server, from LateUpdate.</summary>
         private void TickDash()
         {
             if (dashPhase == DashPhase.None) return;
@@ -134,7 +116,7 @@ namespace Deepbound.Enemies
                 EndDash();
                 return;
             }
-            // Moving.
+
             if (Dash == DashStyle.Leap)
             {
                 float k = Mathf.Clamp01((Time.time - dashPhaseAt) / LeapAir);
@@ -166,7 +148,6 @@ namespace Deepbound.Enemies
                 if (!dashHit.Add(victim)) continue;
                 if (Dash == DashStyle.ShieldCharge && victim.TryGetComponent<KnightKit>(out var knight) && knight.ShieldRaised && Vector3.Dot(victim.transform.forward, -dashDir) > 0.35f)
                 {
-                    // Stopped on a raised shield: nothing gets through, and the guardian reels.
                     ShieldStops++;
                     ServerAddStagger(ShieldStopStagger);
                     ShieldStopRpc(victim.transform.position + Vector3.up * 1.2f);
@@ -201,8 +182,6 @@ namespace Deepbound.Enemies
             busyUntil = Mathf.Min(busyUntil, Time.time + 0.5f);
         }
 
-        // ---------------------------------------------------------------- REPULSE
-
         private void TickRepulse()
         {
             if (Dormant || Immune || InEntrance || IsStunned) { hugSince = -1f; return; }
@@ -229,7 +208,6 @@ namespace Deepbound.Enemies
             ServerRepulse();
         }
 
-        /// <summary>Server: the ring fills round it, then it bursts (tests call this).</summary>
         public void ServerRepulse()
         {
             float tell = Tell(RepulseTell);
@@ -240,8 +218,6 @@ namespace Deepbound.Enemies
             PlayActionRpc(RigAction.Cast, tell);
             RepulseTellRpc(transform.position, tell);
         }
-
-        // ---------------------------------------------------------------- effects
 
         [Rpc(SendTo.ClientsAndHost)]
         private void BossDashRoarRpc(Vector3 at, byte style)
@@ -279,7 +255,7 @@ namespace Deepbound.Enemies
         private void LeapArcRpc(Vector3 from, Vector3 to, float left, float k)
         {
             if (IsServer || Rig == null) return;
-            // Clients see the arc from the same curve (the root moves by the network transform).
+
             Rig.transform.localPosition = Vector3.up * Mathf.Sin(k * Mathf.PI) * 3.2f;
             if (left <= 0.05f) Rig.transform.localPosition = Vector3.zero;
         }

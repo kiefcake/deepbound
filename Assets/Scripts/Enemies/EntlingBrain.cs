@@ -6,14 +6,6 @@ using UnityEngine;
 
 namespace Deepbound.Enemies
 {
-    /// <summary>
-    /// The Entling: a knee-high knot of root and rot that sprints at you, and when it reaches you
-    /// wraps its roots round your legs. While it holds on you cannot move a step (you can still
-    /// fight): it squeezes a little every second until it is killed, by you or by a friend.
-    /// Fragile, fast, and it never lets go on its own (a long safety limit aside), so the answer
-    /// is to kill it on the way in, or to turn round and cut it off you.
-    /// From floor 3 (the Drowned Vaults: roots through the stone) down.
-    /// </summary>
     public class EntlingBrain : EnemyBrain
     {
         private PlayerDebuffs held;
@@ -22,7 +14,7 @@ namespace Deepbound.Enemies
 
         protected override bool UsesMoveSet => false;
         public bool Holding => held != null;
-        /// <summary>The one it is after (tests).</summary>
+
         public Health Quarry => target;
 
         private static readonly System.Collections.Generic.List<EntlingBrain> Live = new System.Collections.Generic.List<EntlingBrain>();
@@ -33,7 +25,6 @@ namespace Deepbound.Enemies
             if (IsServer) Live.Add(this);
         }
 
-        /// <summary>Someone else's: another living Entling is after this player or already holds them.</summary>
         private bool Claimed(Health p)
         {
             foreach (var e in Live)
@@ -47,11 +38,6 @@ namespace Deepbound.Enemies
         private bool RootedByAnother(Health p) =>
             p.TryGetComponent<PlayerDebuffs>(out var d) && d.RootedBy.Value != ulong.MaxValue && d.RootedBy.Value != NetworkObjectId;
 
-        /// <summary>
-        /// One each (2026-10-21, the user: "entlings should target a player each if possible"): a pack of
-        /// Entlings spreads out, each going for a player no other Entling is after or holding, nearest first.
-        /// Only when every standing player is spoken for do two share one, by the usual rules.
-        /// </summary>
         protected override Health PickTarget()
         {
             if (held != null) return target;
@@ -71,8 +57,6 @@ namespace Deepbound.Enemies
 
         protected override void BeginAttack()
         {
-            // The tell is short: a crouch and a rattle of twigs, then the leap. READABILITY (2026-11-19): 0.45 s (was 0.35) and the
-            // twigs creak every time - the latch holds you for up to 12 s, so it has to be a blow you could have stepped away from.
             windup = 0.45f;
             attackArc = 80f;
             base.BeginAttack();
@@ -88,7 +72,7 @@ namespace Deepbound.Enemies
             if (target == null || held != null) return;
             if (FlatDistance(target.transform.position) > attackRange + 0.7f) return;
             if (!target.TryGetComponent<PlayerDebuffs>(out var deb) || deb.RootedBy.Value != ulong.MaxValue) return;
-            // Latch on: beside the player, facing them, roots round their legs.
+
             held = deb;
             holdUntil = Time.time + (target.TryGetComponent<Progression.PlayerProgress>(out var tp) && tp.HasRelic(Deepbound.Loot.Relic.RootbreakerCharm) ? 3f : HoldLimit);
             nextSqueeze = Time.time + 1f;
@@ -104,7 +88,6 @@ namespace Deepbound.Enemies
 
         protected override void Update()
         {
-            // Stunned, it still lets go when its time is up (the player's side checks too).
             if (IsServer && !IsDead && held != null && (Time.time >= holdUntil || held.RootedBy.Value != NetworkObjectId)) Release();
             if (HeldByStun()) return;
             if (IsServer && !IsDead && held != null)
@@ -134,7 +117,7 @@ namespace Deepbound.Enemies
         {
             if (held == null) return;
             held.ServerReleaseRoots(NetworkObjectId);
-            // Despawning (the floor ending) cannot send RPCs; the cages notice their Entling is gone.
+
             if (IsSpawned) LatchRpc(held.NetworkObjectId, false);
             held = null;
         }

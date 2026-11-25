@@ -8,14 +8,6 @@ using UnityEngine;
 
 namespace Deepbound.World
 {
-    /// <summary>
-    /// A HANGING CHANDELIER (2026-11-08, dungeon interactables: "shoot the chain, the chandelier crashes down on whatever
-    /// is under it"). An iron wheel of candles hangs over the middle of a combat room; its rope runs down to a cleat on
-    /// the wall. F at the cleat cuts the rope (anyone, any class): a ring telegraph flashes under it and
-    /// <see cref="FallSeconds"/> later it lands - the dead under it are crushed (most of their health, stunned), bosses
-    /// are staggered, and players caught under it are hurt too. Once a floor, each. The networked object stands at the
-    /// cleat; the chandelier hangs over <see cref="HangAt"/>.
-    /// </summary>
     public class Chandelier : Interactable
     {
         public const float Radius = 2.6f, FallSeconds = 0.75f, HangHeight = 4.6f;
@@ -38,7 +30,6 @@ namespace Deepbound.World
             StartCoroutine(Crash(who.NetworkObjectId));
         }
 
-        /// <summary>Server, tests: drop it now.</summary>
         public void ServerDebugDrop(ulong by) { if (!Fallen.Value) { Fallen.Value = true; DropRpc(); StartCoroutine(Crash(by)); } }
 
         private System.Collections.IEnumerator Crash(ulong by)
@@ -64,7 +55,7 @@ namespace Deepbound.World
                 else if (h.Team == Team.Players)
                     h.Tag("Chandelier").ServerDamage(h.Max.Value * 0.35f + h.Defense * Health.DefenseWeight, at + Vector3.up * 3f);
             }
-            OilSlick.ServerIgniteAt(at, by, Radius * 0.5f); // its candles light any oil it lands in
+            OilSlick.ServerIgniteAt(at, by, Radius * 0.5f);
             LandRpc(crushed);
         }
 
@@ -106,11 +97,11 @@ namespace Deepbound.World
         {
             if (built || HangAt.Value == Vector3.zero) return;
             built = true;
-            // The cleat: an iron hook on the wall with the rope wound round it.
+
             MeshKit.Part(transform, "Cleat", MeshKit.Box(new Vector3(0.3f, 0.08f, 0.08f)), Mat.Steel, new Vector3(0f, 1.25f, 0f));
             var coil = MeshKit.Part(transform, "Coil", MeshKit.Cylinder(0.07f, 0.07f, 0.16f, 8), Mat.Cloth, new Vector3(0f, 1.12f, 0f));
             ArtLibrary.Tint(coil.GetComponent<Renderer>(), new Color(0.55f, 0.45f, 0.3f));
-            // The chandelier: an iron wheel, eight candles, hung on a chain from the dark.
+
             var top = HangAt.Value + Vector3.up * HangHeight;
             wheel = new GameObject("ChandelierWheel").transform;
             wheel.SetParent(transform, true);
@@ -135,7 +126,7 @@ namespace Deepbound.World
             glow.range = 9f;
             glow.intensity = 2f;
             glow.shadows = LightShadows.None;
-            // The rope from the wheel down to the cleat: the thing you look at to know what F does.
+
             var from = top + Vector3.up * 0.1f;
             var to = transform.position + Vector3.up * 1.2f;
             rope = MeshKit.Part(transform, "Rope", MeshKit.Box(new Vector3(0.035f, 0.035f, 1f)), Mat.Cloth, Vector3.zero).transform;

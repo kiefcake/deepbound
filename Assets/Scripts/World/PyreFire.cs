@@ -3,13 +3,6 @@ using UnityEngine;
 
 namespace Deepbound.World
 {
-    /// <summary>
-    /// The great pyre in a Pyre Hall (<see cref="RoomFeature.Pyre"/>). Its beat is a pure function
-    /// of the server clock (like <see cref="Pendulum"/>): every <see cref="Period"/> seconds the fire
-    /// rears up, a ring telegraph fills for <see cref="Warn"/> seconds, then it ERUPTS out to
-    /// <see cref="EruptRadius"/>, burning players and the dead alike. The core always burns.
-    /// Fight at the walls, and lure the dead to the fire.
-    /// </summary>
     public class PyreFire : MonoBehaviour
     {
         public const float Period = 9f, Warn = 2.2f, CoreRadius = 2.3f, EruptRadius = 7f;
@@ -20,10 +13,8 @@ namespace Deepbound.World
         private Light glow;
         private float lastPhase;
 
-        /// <summary>0..Period: where this room's pyre is in its beat.</summary>
         public static float Phase(DungeonLayout.Room room, double time) => (float)((time + (room.DecorSeed & 1023) * 0.37) % Period);
 
-        /// <summary>The ring is filling: the eruption comes at the end of the beat.</summary>
         public static bool Warning(float phase) => phase >= Period - Warn;
 
         public static void Build(Transform parent, DungeonLayout.Room room)
@@ -34,7 +25,7 @@ namespace Deepbound.World
             var p = go.AddComponent<PyreFire>();
             p.room = room;
             var t = go.transform;
-            // A ring of black stones, a stack of crossed logs, skulls in the ash.
+
             for (int i = 0; i < 14; i++)
             {
                 float a = i * 360f / 14f * Mathf.Deg2Rad;
@@ -62,12 +53,11 @@ namespace Deepbound.World
         {
             if (room == null) return;
             float ph = Phase(room, Pendulum.Clock);
-            // The fire rears as the ring fills, and the warning is drawn the moment it starts.
+
             if (Warning(ph) && !Warning(lastPhase))
                 Combat.Telegraph.Show(room.Center + Vector3.up * 0.05f, EruptRadius, Period - ph, this, Combat.Telegraph.Harm);
             if (ph < lastPhase)
             {
-                // Eruption.
                 Vfx.Ring(room.Center + Vector3.up * 0.2f, EruptRadius, new Color(1f, 0.45f, 0.1f), 0.6f);
                 Vfx.Fireball(room.Center + Vector3.up * 1.2f, 3.2f, new Color(1f, 0.45f, 0.12f));
                 Vfx.Flash(room.Center + Vector3.up * 2f, new Color(1f, 0.5f, 0.15f), 7f, 18f, 0.5f);

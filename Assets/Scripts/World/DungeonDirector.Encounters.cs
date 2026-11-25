@@ -10,28 +10,15 @@ using UnityEngine.AI;
 
 namespace Deepbound.World
 {
-    /// <summary>
-    /// Set-piece encounters, layered on the director's floor loop:
-    ///
-    /// <list type="bullet">
-    /// <item><b>Sealed boss arena.</b> The boss waits, dormant, until every standing member of
-    ///   the party is inside its room (or someone hits it). Then the gates slam, its name is
-    ///   announced, and nobody leaves until it falls.</item>
-    /// <item><b>Ambush room.</b> One room per floor looks empty. Reach its middle and the gates
-    ///   drop and the dead claw up out of the floor in two waves — the second led by an
-    ///   elite. Break the ambush and a chest rises where it began.</item>
-    /// </list>
-    /// </summary>
     public partial class DungeonDirector
     {
         [Header("Encounters")]
         [SerializeField] private NetworkObject portcullisPrefab;
         [SerializeField] private NetworkObject leverPrefab;
         [SerializeField] private NetworkObject fountainPrefab;
-        /// <summary>The special side rooms' furniture (pedestals, beggar, bell, whetstone, mirror).</summary>
+
         [SerializeField] private NetworkObject sideShrinePrefab;
 
-        /// <summary>Server: one special-room piece, its kind set before it spawns (so every peer builds the right look).</summary>
         private void SpawnShrine(SideShrine.Kind kind, DungeonLayout.Room room, Vector3 at, int choice, int group)
         {
             var face = room.Center - at;
@@ -47,10 +34,8 @@ namespace Deepbound.World
 
         [SerializeField] private NetworkObject oathPlatesPrefab, oathStonePrefab, handTorchPrefab;
 
-        /// <summary>Tests: a hand torch here.</summary>
         public HandTorch ServerDebugTorch(Vector3 at) => handTorchPrefab == null ? null : Spawn(handTorchPrefab, at, Quaternion.identity).GetComponent<HandTorch>();
 
-        /// <summary>Server: the Oath Room's plates (placed after spawn) and its stone.</summary>
         private OathPlates SpawnOath(DungeonLayout.Room room, Vector3? a = null, Vector3? b = null, Vector3? stone = null, Vector3? coffer = null)
         {
             var obj = Instantiate(oathPlatesPrefab, room != null ? room.Center : (a ?? Vector3.zero), Quaternion.identity);
@@ -68,7 +53,6 @@ namespace Deepbound.World
             return plates;
         }
 
-        /// <summary>Server: the oath is kept. The coffer opens: a chest, a Sigil and gold for the party.</summary>
         public void ServerOathKept(OathPlates plates)
         {
             var at = plates.Coffer.Value;
@@ -88,14 +72,11 @@ namespace Deepbound.World
             OathsKept++;
         }
 
-        /// <summary>Server, for tests: oaths kept this session.</summary>
         public int OathsKept { get; private set; }
 
-        /// <summary>Tests: an oath right here (plates a and b, the stone beside a).</summary>
         public OathPlates ServerDebugOath(Vector3 a, Vector3 b, Vector3 coffer) =>
             oathPlatesPrefab == null ? null : SpawnOath(null, a, b, a + (b - a).normalized * -2f, coffer);
 
-        /// <summary>Tests: spawn a special-room piece near a spot.</summary>
         public SideShrine ServerDebugShrine(SideShrine.Kind kind, Vector3 at, int choice = 0)
         {
             if (sideShrinePrefab == null || Layout == null) return null;
@@ -109,7 +90,6 @@ namespace Deepbound.World
         }
         [SerializeField] private NetworkObject soulSkullPrefab;
 
-        /// <summary>Server: a player bled out; leave their Soul Skull where they fell.</summary>
         public void ServerSpawnSoulSkull(Player.PlayerLife who)
         {
             if (soulSkullPrefab == null || SoulSkull.For(who.NetworkObjectId) != null) return;
@@ -118,7 +98,6 @@ namespace Deepbound.World
             BledOutRpc(who.name);
         }
 
-        /// <summary>Server (screenshots): a skull on display, not tied to a real bleed-out.</summary>
         public SoulSkull ServerDebugSkull(Vector3 at, ulong soulId)
         {
             if (soulSkullPrefab == null) return null;
@@ -155,16 +134,13 @@ namespace Deepbound.World
         }
         private readonly List<Breach> breaches = new List<Breach>();
 
-        /// <summary>Server, smoke test: the floor's breaches, for forcing one.</summary>
         public int BreachCount => breaches.Count;
         public void ServerDebugTriggerBreach(int i) { if (i < breaches.Count) breaches[i].Occupied = 999f; }
         public CrackedWall BreachWall(int i) => i < breaches.Count ? breaches[i].Wall : null;
 
-        /// <summary>Plugs for every hollow wall; caches behind the secret ones.</summary>
         [SerializeField] private NetworkObject bargainAltarPrefab;
         [SerializeField] private NetworkObject cellarHatchPrefab;
 
-        /// <summary>Server: a bargain altar (tests call this with a fixed offer).</summary>
         public BargainAltar SpawnBargain(Vector3 at, Quaternion rot, int offer)
         {
             if (bargainAltarPrefab == null) return null;
@@ -175,7 +151,6 @@ namespace Deepbound.World
             return altar;
         }
 
-        /// <summary>Server: every cellar vault's tile, rope, chests, gold and guards.</summary>
         private void SpawnCellars(DungeonLayout layout)
         {
             if (cellarHatchPrefab == null) return;
@@ -201,7 +176,7 @@ namespace Deepbound.World
                 int tier = Mathf.RoundToInt(Tier(layout.Depth));
                 for (int g = 0; g < 5; g++) ServerDropLoot(cc + new Vector3(-half + 0.6f + g * 0.35f, 0.3f, half - 0.3f), LootKind.Gold, 10 + 5 * tier, settle: false);
                 if (rng.NextDouble() < 0.5) ServerDropLoot(cc + new Vector3(half - 0.5f, 0.3f, half - 0.5f), LootKind.Relic, (int)Relics.Random(), settle: false);
-                // Its keepers: two (three deeper) waiting in the dark.
+
                 if (!TestMode && skeletonPrefab != null)
                 {
                     int guards = 2 + (layout.Depth >= 4 ? 1 : 0);
@@ -238,13 +213,11 @@ namespace Deepbound.World
 
                     if (hole.Breach)
                     {
-                        // The ambush room has its own waves; its hollow wall stays quiet.
                         if (IsAmbushRoom(room)) continue;
                         breaches.Add(new Breach { Wall = wall, Room = room, Hole = hole, TriggerAfter = 3f + (float)rng.NextDouble() * 5f });
                         continue;
                     }
-                    // The cache (2026-11-12: more of them, and not all alike): a chest with a rune, a Sigil or a relic on
-                    // the plinth; a DRAUGHT standing alone in the dark (StatDraught); or a dead delver's HOARD of gold and embers.
+
                     var back = face + outward * (0.8f + WallHole.NicheDepth - 1.4f);
                     double roll = rng.NextDouble();
                     if (roll < 0.18 && statDraughtPrefab != null)
@@ -252,7 +225,7 @@ namespace Deepbound.World
                         SpawnDraught(room, back + outward * 0.3f);
                         continue;
                     }
-                    // A SHRINE OF TRADE-OFF (2026-11-13): a cursed bargain in the dark.
+
                     if (roll < 0.34 && bargainAltarPrefab != null)
                     {
                         SpawnBargain(back + outward * 0.1f, Quaternion.LookRotation(-outward), rng.Next(Progression.PlayerProgress.BargainCount));
@@ -276,7 +249,6 @@ namespace Deepbound.World
             }
         }
 
-        /// <summary>Breaches go once the party has been fighting in their room for a few seconds.</summary>
         private void TickBreaches()
         {
             foreach (var b in breaches)
@@ -307,7 +279,7 @@ namespace Deepbound.World
             for (int i = 0; i < count; i++)
             {
                 var prefab = PickEnemy(layout.Depth, theme, ref brute, ref necro, out int _);
-                // Inside the tunnel, staggered so they come out in a rush rather than a stack.
+
                 var at = face + outward * (1.6f + (i / 2) * 1.1f) + across * ((i % 2) - 0.5f) * 1.1f;
                 if (UnityEngine.AI.NavMesh.SamplePosition(at, out var hit, 2f, UnityEngine.AI.NavMesh.AllAreas)) at = hit.position;
                 var obj = Instantiate(prefab, at, Quaternion.LookRotation(-outward));
@@ -320,7 +292,6 @@ namespace Deepbound.World
             TitleCardRpc("BREACH", "The dead break through the walls");
         }
 
-        /// <summary>Server: has this floor's vault been opened? (Smoke test.)</summary>
         public bool VaultOpen => vault != null && vault.Open;
         private readonly Dictionary<PlayerLife, float> rescuedAt = new Dictionary<PlayerLife, float>();
 
@@ -332,19 +303,14 @@ namespace Deepbound.World
             public DungeonLayout.Room Room;
             public readonly List<Portcullis> Gates = new List<Portcullis>();
             public readonly List<EnemyBrain> Alive = new List<EnemyBrain>();
-            public int Wave; // 0 = waiting, 1-2 = fighting, 3 = broken
+            public int Wave;
             public float WaveAt;
-            /// <summary>How many were shut in when it sprang: the waves are sized for them, not the whole party.</summary>
+
             public int Party = 1;
-            /// <summary>Everyone shut in went down: the gates stood open for the rest to come to them.</summary>
+
             public bool Opened;
         }
 
-        /// <summary>
-        /// Co-op (2026-11-01, the user: "if the players split up they should be punished with a solo ambush, the doors
-        /// should open if the player or players inside get downed"). It shuts on whoever walks in, and its waves are sized
-        /// for them alone; when every one of them is down the gates lift, so the others can come in to raise them.
-        /// </summary>
         private static int InAmbushTrigger(DungeonLayout.Room room)
         {
             float trigger = Mathf.Min(room.Size.x, room.Size.y) / 2f - 2.5f;
@@ -359,29 +325,23 @@ namespace Deepbound.World
             return inside;
         }
 
-        /// <summary>Anyone still on their feet inside the ambush room.</summary>
         private static bool AnyoneStandingIn(DungeonLayout.Room room)
         {
             foreach (var p in PlayerLife.All)
                 if (p != null && !p.Downed.Value && p.Health != null && p.Health.IsAlive && room.Contains(p.transform.position, 0.5f)) return true;
             return false;
         }
-        /// <summary>A wave that will not end (one of the dead stuck in a wall, or wandered off) opens the gates anyway.</summary>
+
         public const float AmbushWaveLimit = 75f;
         private Ambush ambush;
 
-        // Read-only views for the smoke test and debugging.
         public DungeonLayout.Room AmbushRoom => ambush?.Room;
         public int AmbushWave => ambush?.Wave ?? -1;
-        /// <summary>Tests: how many the ambush shut in when it sprang.</summary>
+
         public int AmbushParty => ambush?.Party ?? 0;
-        /// <summary>Synced: a client's copy of bossSealed was always false, so it kept offering the rope and showing THE COUNT inside the arena.</summary>
+
         public readonly NetworkVariable<bool> BossSealedSync = new NetworkVariable<bool>();
         public bool BossSealed => IsServer ? bossSealed : BossSealedSync.Value;
-
-        // ------------------------------------------------------------------
-        // Setup
-        // ------------------------------------------------------------------
 
         private void ResetEncounters()
         {
@@ -415,7 +375,6 @@ namespace Deepbound.World
             }
         }
 
-        /// <summary>Choose the ambush room (before enemies spawn, so it stays empty) and hang gates.</summary>
         private void SetupEncounters(DungeonLayout layout)
         {
             if (portcullisPrefab == null) return;
@@ -428,10 +387,6 @@ namespace Deepbound.World
             ambush.Gates.AddRange(SpawnGates(ambush.Room));
         }
 
-        /// <summary>
-        /// The ambush room, from the seed alone: a combat room at least two steps from the start, so the first
-        /// fight is not an ambush. Objects placed earlier (the Wheel of Fate) ask too, to stay out of it.
-        /// </summary>
         private static DungeonLayout.Room PickAmbushRoom(DungeonLayout layout)
         {
             var rng = new System.Random(layout.Seed ^ 0xA3B);
@@ -440,10 +395,8 @@ namespace Deepbound.World
             return candidates.Count == 0 ? null : candidates[rng.Next(candidates.Count)];
         }
 
-        /// <summary>The ambush room - or the lair, which is kept just as clear of everything else.</summary>
         private bool IsAmbushRoom(DungeonLayout.Room room) => (ambush != null && ambush.Room == room) || IsLairRoom(room);
 
-        /// <summary>Sarcophagi in crypts, the vault's gate, levers and treasure, and the fountain.</summary>
         private void SetupFeatures(DungeonLayout layout)
         {
             int players = Mathf.Max(1, NetworkManager.ConnectedClientsIds.Count);
@@ -458,7 +411,7 @@ namespace Deepbound.World
                             var face = room.Center - spot;
                             face.y = 0f;
                             var obj = Spawn(sarcophagusPrefab, spot, Quaternion.LookRotation(face));
-                            bool brute = true, necro = true; // crypts hold the rank and file
+                            bool brute = true, necro = true;
                             var occupant = PickEnemy(layout.Depth, theme, ref brute, ref necro, out int _);
                             obj.GetComponent<Sarcophagus>().ServerLoad(occupant, players, layout.Depth, room.Id);
                         }
@@ -468,7 +421,7 @@ namespace Deepbound.World
                         vault = new Vault { Room = room };
                         vault.Gates.AddRange(SpawnGates(room));
                         SetGates(vault.Gates, true);
-                        // Three levers, each on a wall in a different room around the floor.
+
                         var lrng = new System.Random(layout.Seed ^ 0x1e7e);
                         var leverRooms = layout.Rooms.FindAll(r => r != room && r.Kind != RoomKind.Boss && r.Kind != RoomKind.Start && !IsAmbushRoom(r));
                         for (int li = 0; li < 3 && leverRooms.Count > 0; li++)
@@ -508,7 +461,6 @@ namespace Deepbound.World
 
                     case RoomFeature.Belfry when chestPrefab != null && room.FeatureSpots.Count >= 1:
                     {
-                        // The bell-loft's chest: the reward for the climb.
                         var face = room.Center - room.FeatureSpots[0];
                         face.y = 0f;
                         var rot = face.sqrMagnitude > 0.01f ? Quaternion.LookRotation(face) : Quaternion.identity;
@@ -536,7 +488,6 @@ namespace Deepbound.World
                         break;
                     case RoomFeature.Treasury when sideShrinePrefab != null:
                     {
-                        // Three different relics, one group.
                         var picks = new List<Relic>();
                         for (int tries = 0; tries < 40 && picks.Count < room.FeatureSpots.Count; tries++) { var r = Relics.Random(); if (!picks.Contains(r)) picks.Add(r); }
                         for (int k = 0; k < room.FeatureSpots.Count && k < picks.Count; k++)
@@ -561,7 +512,6 @@ namespace Deepbound.World
 
         private int leversAnnounced;
 
-        /// <summary>Server: a spot flush on a room's inner wall (away from doors) and the way it faces (into the room).</summary>
         private static Vector3 WallMount(DungeonLayout.Room room, System.Random rng, out Vector3 face)
         {
             for (int tries = 0; tries < 12; tries++)
@@ -572,7 +522,7 @@ namespace Deepbound.World
                 float half = (alongX ? room.Size.x : room.Size.y) / 2f - 1.6f;
                 float t = (float)(rng.NextDouble() * 2.0 - 1.0) * half;
                 if (room.Doors[side] && Mathf.Abs(t) < DungeonLayout.CorridorWidth) continue;
-                // Nor on a hollow wall or beside one (a lever once stood in front of a secret cache's corner).
+
                 var hollow = room.HoleOn(side);
                 if (hollow != null && Mathf.Abs(t - hollow.Along) < WallHole.Width / 2f + 1.4f) continue;
                 var n = new Vector3(d.x, 0f, d.y);
@@ -602,17 +552,13 @@ namespace Deepbound.World
             TitleCardRpc("THE VAULT OPENS", "Treasure lies within");
         }
 
-        /// <summary>
-        /// Anyone who falls (into a chasm, or through the world) climbs back out at the
-        /// nearest doorway of the room they fell in, a fifth of their health the poorer.
-        /// </summary>
         private void TickFalls()
         {
             if (Layout == null) return;
             foreach (var p in PlayerLife.All)
             {
                 if (p == null || p.transform.position.y > -3f || Layout.InCellar(p.transform.position)) continue;
-                // An undercroft's pit is a floor, not a fall (2026-11-14).
+
                 var pitRoom = Layout.RoomAt(p.transform.position);
                 if (pitRoom != null && pitRoom.Feature == RoomFeature.Undercroft && p.transform.position.y > -DungeonLayout.UndercroftDepth - 1.5f) continue;
                 if (rescuedAt.TryGetValue(p, out var t) && Time.time - t < 2f) continue;
@@ -633,11 +579,6 @@ namespace Deepbound.World
             }
         }
 
-        /// <summary>
-        /// Server: anyone standing under a gate as it falls is pushed through it into the room (2026-11-18: a bot in a lair's
-        /// doorway was shut OUT as the lair sealed on it, and the keeper hit it through the bars for minutes while the
-        /// "nobody inside" rule never fired, the doorway counting as the room). Returns how many were moved.
-        /// </summary>
         public const float UnderGate = 1.7f;
         private int ShoveUnderGates(List<Portcullis> gates, DungeonLayout.Room room)
         {
@@ -683,10 +624,6 @@ namespace Deepbound.World
             foreach (var g in gates) if (g != null) g.Closed.Value = closed;
         }
 
-        // ------------------------------------------------------------------
-        // Ticking (server, while exploring)
-        // ------------------------------------------------------------------
-
         private void TickEncounters()
         {
             TickBossArena();
@@ -706,13 +643,8 @@ namespace Deepbound.World
             TickContract();
         }
 
-        // ------------------------------------------------------------------
-        // Corridor flame traps
-        // ------------------------------------------------------------------
-
         private readonly Dictionary<Health, float> burnedAt = new Dictionary<Health, float>();
 
-        /// <summary>Server, tests: delvers a flame vent has burned.</summary>
         public int VentBurns { get; private set; }
 
         private void TickFlameJets()
@@ -729,26 +661,17 @@ namespace Deepbound.World
                     if (h == null || !h.IsAlive || h.Team == Team.Props) continue;
                     var d = h.transform.position - trap.At;
                     if (Mathf.Abs(Vector3.Dot(d, along)) > FlameJet.HalfWidth || Mathf.Abs(Vector3.Dot(d, trap.Across)) > DungeonLayout.CorridorWidth / 2f || Mathf.Abs(d.y) > 1.5f) continue;
-                    // A player is struck once a burst: the blow is the whole price, not a run of small burns.
+
                     if (burnedAt.TryGetValue(h, out float t) && Time.time - t < (h.Team == Team.Players ? FlameJet.Burn + 0.1f : 0.4f)) continue;
                     burnedAt[h] = Time.time;
                     if (h.Team == Team.Players) VentBurns++;
-                    // Traps hit hard (2026-10-21, the user: "damage on traps to go up"), on both sides; harder still since
-                    // 2026-11-01 ("make them more dangerous"), and by the difficulty setting.
+
                     h.ServerDamage(h.Team == Team.Players ? TrapBite(h) : 50f + 15f * Tier(Layout.Depth), trap.At);
                     if (!h.IsAlive && h.Team == Team.Enemies) EnvKillRpc(h.Center, 1);
                 }
             }
         }
 
-        // ------------------------------------------------------------------
-        // Shoves: into the abyss, off a balcony, down into a pit
-        // ------------------------------------------------------------------
-
-        /// <summary>
-        /// Server: an enemy was shoved hard (a kick, a bash). Where it would end up decides
-        /// whether it simply staggers, drops to a lower level, or falls into a chasm for good.
-        /// </summary>
         public void ServerCheckShove(Health target, Vector3 velocity, ulong by)
         {
             if (Layout == null || target == null || !target.IsAlive) return;
@@ -766,7 +689,7 @@ namespace Deepbound.World
                 AbyssFxRpc(to);
                 return;
             }
-            // A ledge: the ground beyond is well below the enemy's feet.
+
             if (Physics.Raycast(to + Vector3.up * 0.6f, Vector3.down, out var ground, 12f, ~0, QueryTriggerInteraction.Ignore) &&
                 ground.point.y < from.y - 1.2f && NavMesh.SamplePosition(ground.point, out var land, 1.5f, NavMesh.AllAreas))
                 brain.ServerFallTo(land.position, (from.y - land.position.y) * 0.06f, by);
@@ -782,10 +705,6 @@ namespace Deepbound.World
             Art.Sfx.Play(Art.Sound.Rattle, at, 1f, 0.6f);
             UI.GameHud.ShowCombo(at + Vector3.up * 1.5f, "INTO THE ABYSS", new Color(1f, 0.45f, 0.2f));
         }
-
-        // ------------------------------------------------------------------
-        // Pendulum halls: the blades cut anyone, players and the dead alike
-        // ------------------------------------------------------------------
 
         private readonly Dictionary<Health, float> bladeHitAt = new Dictionary<Health, float>();
 
@@ -826,10 +745,6 @@ namespace Deepbound.World
             }
         }
 
-        // ------------------------------------------------------------------
-        // Pyre halls and spike gauntlets (2026-10-20): beats on the server clock, like the pendulums
-        // ------------------------------------------------------------------
-
         private readonly Dictionary<int, float> pyrePhase = new Dictionary<int, float>();
         private readonly Dictionary<Health, float> hazardHitAt = new Dictionary<Health, float>();
         private float nextCoreBurn;
@@ -840,17 +755,8 @@ namespace Deepbound.World
             return false;
         }
 
-        /// <summary>
-        /// A trap's bite on a player (2026-11-01, "make them more dangerous"): what each trap deals, by the difficulty
-        /// setting too (Hard x1.3 ... Torment x2), which traps used to ignore.
-        /// </summary>
         public static float TrapHurt(float damage) => damage * Difficulty.Level.Damage;
 
-        /// <summary>
-        /// Corridor traps take a third of the player's health (2026-11-05, the user), whatever the floor, class or difficulty.
-        /// DEF is added back so armour does not soften it; a dodge, a block or a shield still does.
-        /// </summary>
-        // A burn can kill, and a death can spawn (bone piles, splits): walk a copy of Health.All.
         private static readonly System.Collections.Generic.List<Health> jetScratch = new System.Collections.Generic.List<Health>();
         private static System.Collections.Generic.List<Health> JetScratch() { jetScratch.Clear(); jetScratch.AddRange(Health.All); return jetScratch; }
 
@@ -919,7 +825,7 @@ namespace Deepbound.World
                         {
                             if (h == null || !h.IsAlive || h.Team == Team.Props) continue;
                             if (!SpikeGauntlet.OnRow(room, i, h.transform.position - Vector3.up * 0.05f)) continue;
-                            // Impaled: a moment pinned on the row (the next row may be coming).
+
                             HazardHit(h, h.transform.position, 44f + 13f * tier, 100f + 28f * tier, Vector3.up * 5f, 0, SpikeGauntlet.UpSeconds + 0.1f, 0.5f);
                         }
                     }
@@ -934,17 +840,12 @@ namespace Deepbound.World
             Art.Vfx.Embers(at, 8, new Color(1f, 0.75f, 0.45f), 5f, 0.04f, 0.4f);
         }
 
-        // ------------------------------------------------------------------
-        // Ritual chamber: braziers ward the room's dead and raise more, until smashed
-        // ------------------------------------------------------------------
-
         public readonly NetworkVariable<bool> RitualActive = new NetworkVariable<bool>();
         private DungeonLayout.Room ritualRoom;
         private readonly List<Breakable> ritualBraziers = new List<Breakable>();
         private float nextRitualSummon;
         private int ritualSummons;
 
-        /// <summary>Anyone: is this spot inside a ritual chamber whose braziers still burn?</summary>
         public static bool InRitualWard(Vector3 at)
         {
             if (Instance == null || !Instance.RitualActive.Value || Layout == null) return false;
@@ -965,7 +866,7 @@ namespace Deepbound.World
                 ServerDropEmbers(ritualRoom.Center + Vector3.up * 0.5f, 6);
                 return;
             }
-            // While the party is in the room, the circle raises one of the dead every so often.
+
             bool occupied = false;
             foreach (var p in PlayerLife.All) if (p != null && ritualRoom.Contains(p.transform.position)) { occupied = true; break; }
             if (!occupied || ritualSummons >= 4) return;
@@ -982,15 +883,6 @@ namespace Deepbound.World
             RiseFxRpc(new[] { at });
         }
 
-        // ------------------------------------------------------------------
-        // Water: cistern basins slow everyone; frost freezes what stands in them
-        // ------------------------------------------------------------------
-
-        /// <summary>
-        /// Anyone: movement multiplier for standing here. Cistern water slows; on the Drowned Vaults the
-        /// water periodically thickens to a sucking mire that halves a player's speed (the dead, who do not
-        /// tire, wade through it at 80%).
-        /// </summary>
         public static float WaterSlow(Vector3 at, bool player = false)
         {
             if (Layout == null) return 1f;
@@ -1002,10 +894,6 @@ namespace Deepbound.World
 
         public static bool InWater(Vector3 at) => WaterSlow(at) < 1f;
 
-        /// <summary>
-        /// Anyone: the height of the water over <paramref name="at"/> (a flooded floor's sheet, risen with the tide,
-        /// or a cistern basin), or null where it is dry. Loot floats up to it so it is not lost in the murk.
-        /// </summary>
         public static float? WaterSurface(Vector3 at)
         {
             if (Layout == null || InLobby) return null;
@@ -1025,7 +913,6 @@ namespace Deepbound.World
                 return;
             }
 
-            // Wake only when the whole standing party is inside: until then it sleeps and cannot be hurt.
             bool allIn = AllStandingInside(Layout.BossRoom, 1f);
             if (allIn)
             {
@@ -1037,12 +924,11 @@ namespace Deepbound.World
                 bool hallowed = Hallowed.Value;
                 if (hallowed)
                 {
-                    // The Reliquary's song reached the guardian: it wakes weakened and burned by it.
                     var bh = boss.GetComponent<Combat.Health>();
                     bh.ServerSetFraction(HallowedHealth);
                     bh.IncomingModifiers.Insert(0, (dmg, from) => dmg * HallowedVulnerability);
                 }
-                // The sanctum: each lit brazier opens the guardian up a little more.
+
                 if (Layout.BossRoom.Quirk == BossQuirk.Sanctum)
                     boss.GetComponent<Combat.Health>().IncomingModifiers.Insert(0, (dmg, from) => dmg * (1f + ArenaEngine.SanctumPerBrazier * ArenaEngine.LitBraziers));
                 nextSnuff = Time.time + 15f;
@@ -1060,10 +946,6 @@ namespace Deepbound.World
             else TellWhoHoldsTheGuardian();
         }
 
-        /// <summary>
-        /// The guardian sleeps until everyone standing is inside, and nothing told a player that. Someone who stopped at the
-        /// door, or wandered off, held the fight up with no way for the others to know why (2026-11-04).
-        /// </summary>
         private void TellWhoHoldsTheGuardian()
         {
             var outside = new List<string>();
@@ -1091,7 +973,6 @@ namespace Deepbound.World
 
             if (ambush.Wave == 0)
             {
-                // Whoever walked in is shut in; a party that split up meets it short-handed.
                 int inside = InAmbushTrigger(room);
                 if (inside == 0) return;
                 ambush.Party = inside;
@@ -1103,7 +984,6 @@ namespace Deepbound.World
                 return;
             }
 
-            // All of those shut in are down: lift the gates so the rest of the party can reach them. The dead fight on.
             if (!ambush.Opened && !AnyoneStandingIn(room))
             {
                 ambush.Opened = true;
@@ -1112,11 +992,9 @@ namespace Deepbound.World
                 TitleCardRpc("THE GATES LIFT", "Go to them");
             }
 
-            // The dead that leave the room (or never got into it) do not hold the gates shut (2026-10-27: the autoplay
-            // Knight stood locked in an ambush room with nothing left to fight).
             float waveAge = Time.time - ambush.WaveAt;
             ambush.Alive.RemoveAll(e => e == null || e.IsDead);
-            // Only a settled wave: in its first seconds the dead are still climbing out and finding their feet.
+
             if (waveAge > 8f)
                 ambush.Alive.RemoveAll(e =>
                 {
@@ -1134,7 +1012,6 @@ namespace Deepbound.World
                 return;
             }
 
-            // Broken: open up and reward.
             ambush.Wave = 3;
             SetGates(ambush.Gates, false);
             if (chestPrefab != null)
@@ -1153,7 +1030,7 @@ namespace Deepbound.World
             int players = Mathf.Clamp(ambush.Party, 1, Mathf.Max(1, NetworkManager.ConnectedClientsIds.Count));
             int count = Mathf.RoundToInt((wave == 1 ? 5 : 3) * Difficulty.SpawnCount(players) * Difficulty.Level.SpawnMultiplier);
             var theme = DungeonTheme.ForDepth(Layout.Depth);
-            bool brute = false, necro = true; // no necromancers in ambushes: they would raise more
+            bool brute = false, necro = true;
             var points = new Vector3[count];
 
             for (int i = 0; i < count; i++)
@@ -1162,12 +1039,12 @@ namespace Deepbound.World
                 points[i] = p;
 
                 var prefab = PickEnemy(Layout.Depth, theme, ref brute, ref necro, out int _);
-                // They come out of the walls (most), up through the floor or through rifts (2026-11-12).
+
                 var obj = SpawnEntering(prefab, p, Quaternion.Euler(0f, Random.Range(0f, 360f), 0f), 0.6f, 0.15f);
                 points[i] = obj.transform.position;
                 var brain = obj.GetComponent<EnemyBrain>();
                 brain.ServerScale(players, Layout.Depth);
-                // The second wave is led by an elite.
+
                 if (wave == 2 && i == 0) brain.ServerMakeElite();
                 brain.ServerAggroNearest();
                 ambush.Alive.Add(brain);
@@ -1188,10 +1065,6 @@ namespace Deepbound.World
             return standing > 0;
         }
 
-        // ------------------------------------------------------------------
-        // Presentation
-        // ------------------------------------------------------------------
-
         [Rpc(SendTo.ClientsAndHost)]
         private void TitleCardRpc(string title, string subtitle)
         {
@@ -1199,7 +1072,6 @@ namespace Deepbound.World
             Art.Sfx.Play2D(Art.Sound.Summon, 0.8f);
         }
 
-        /// <summary>Server: a line in everyone's event feed.</summary>
         public void ServerFeedAll(string text, Color color) => FeedAllRpc(text, color);
 
         [Rpc(SendTo.ClientsAndHost)]
@@ -1213,13 +1085,11 @@ namespace Deepbound.World
             Art.Sfx.Play2D(Art.Sound.Summon, 0.7f);
         }
 
-        /// <summary>The dead climbing out of the floor: a dark circle and a spray of bone at each spot.</summary>
         [Rpc(SendTo.ClientsAndHost)]
         private void RiseFxRpc(Vector3[] points)
         {
             foreach (var p in points)
             {
-                // A warning ring where each will stand; the way in itself (wall, floor, rift) is EnemyEntrance's.
                 Telegraph.Show(p, 1.1f, 0.4f, null, new Color(0.15f, 0.05f, 0.2f, 0.6f));
             }
             if (points.Length > 0) Art.Sfx.Play(Art.Sound.BoneBreak, points[0], 1f, 0.7f);

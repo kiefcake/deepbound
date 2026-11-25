@@ -4,7 +4,6 @@ using Deepbound.World;
 
 namespace Deepbound.UI
 {
-    /// <summary>What the camp folk say in conversation (<see cref="Dialogue"/>): their trade, their work, themselves.</summary>
     public static class DialogueLines
     {
         public static string TradeLabel(FolkId who) => who switch
@@ -20,7 +19,6 @@ namespace Deepbound.UI
             _ => "Trade.",
         };
 
-        /// <summary>A line about what came home or what hangs in camp now (null if nothing for them).</summary>
         public static string Remembered(FolkId who)
         {
             uint b = CampMemory.Now;
@@ -43,7 +41,6 @@ namespace Deepbound.UI
             return null;
         }
 
-        /// <summary>Who they are, a line at a time; more opens up with favour (1, 3, 5).</summary>
         public static string[] About(FolkId who, int favour)
         {
             string[] b, f;
@@ -94,7 +91,6 @@ namespace Deepbound.UI
             return all;
         }
 
-        /// <summary>How they ask for the job.</summary>
         public static string Pitch(FolkId who, Contract c, bool special)
         {
             if (special) return who switch
@@ -154,10 +150,6 @@ namespace Deepbound.UI
                 default: return "There's work, if you want it.";
             }
         }
-
-        // ---- Their craft (2026-11-08, the user: "be more creative with dialogue, the characters should feel grounded towards
-        // the environment and their profession"). Each person has one question only they would answer, and the answer reads
-        // YOU: your blade, your cloak, your runes, your drills, your pouch, the floor ahead. ----
 
         public static string CraftLabel(FolkId who) => who switch
         {

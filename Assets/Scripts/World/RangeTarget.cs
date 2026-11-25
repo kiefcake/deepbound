@@ -7,16 +7,9 @@ using UnityEngine;
 
 namespace Deepbound.World
 {
-    /// <summary>
-    /// The archery range at camp: painted targets sliding back and forth on rails. Their
-    /// motion is a function of server time, so every peer agrees where they are without
-    /// syncing a transform. Hit one with anything and you score; the range keeps a tally per
-    /// player for the session. Never breaks.
-    /// </summary>
     [RequireComponent(typeof(Health))]
     public class RangeTarget : NetworkBehaviour
     {
-        /// <summary>Hits per player name, this session (survives camp rebuilds).</summary>
         public static readonly Dictionary<string, int> Tally = new Dictionary<string, int>();
 
         public readonly NetworkVariable<float> Phase = new NetworkVariable<float>();
@@ -71,7 +64,7 @@ namespace Deepbound.World
             var net = NetworkManager;
             if (net == null || !IsSpawned) return;
             float t = (float)net.ServerTime.Time * Speed.Value + Phase.Value;
-            // Slide along the rail (local right), easing at the ends like a hauled sledge.
+
             transform.position = home + transform.right * Mathf.Sin(t) * Travel;
             flash = Mathf.MoveTowards(flash, 0f, Time.deltaTime * 3f);
             if (face != null) face.localRotation = Quaternion.Euler(-flash * 25f, 0f, 0f);
@@ -79,7 +72,6 @@ namespace Deepbound.World
 
         private void BuildVisual()
         {
-            // A straw butt on a little sledge, with a painted bullseye.
             MeshKit.Part(transform, "Sledge", MeshKit.Box(new Vector3(1f, 0.15f, 0.6f)), Mat.Wood, Vector3.up * 0.08f);
             MeshKit.Part(transform, "Post", MeshKit.Box(new Vector3(0.1f, 1f, 0.1f)), Mat.Wood, new Vector3(0f, 0.6f, 0f));
             face = MeshKit.Pivot(transform, "Face", new Vector3(0f, 1.1f, 0f));

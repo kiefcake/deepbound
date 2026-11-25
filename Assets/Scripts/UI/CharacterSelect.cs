@@ -10,17 +10,6 @@ using UnityEngine.Rendering.Universal;
 
 namespace Deepbound.UI
 {
-    /// <summary>
-    /// The character select screen: one card per class with a live 3D model turning on a
-    /// plinth, the class's role and difficulty, its base stats, and its full kit.
-    ///
-    /// <para>
-    /// Opens by itself the first time you arrive at camp, and again with B while at camp.
-    /// The models are real class rigs on a small lit stage far below the world, each
-    /// rendered by its own camera into a texture the card draws — the same art the
-    /// game uses, not a separate portrait.
-    /// </para>
-    /// </summary>
     public class CharacterSelect : MonoBehaviour
     {
         public static bool Open { get; private set; }
@@ -63,18 +52,16 @@ namespace Deepbound.UI
             }
 
             var keyboard = Keyboard.current;
-            // Class is chosen for a whole run: only at camp, and not between floors.
+
             if (keyboard != null && Binds.Down(Bind.Class) && inLobby && canChange) SetOpen(!Open);
             if (Open && (!inLobby || !canChange || (keyboard != null && keyboard.escapeKey.wasPressedThisFrame))) SetOpen(false);
 
             if (Open && turntables != null)
             {
-                // Sways around the front: a full turn showed the class's back half the time on the screen where you choose it.
                 foreach (var t in turntables) t.rotation = Quaternion.Euler(0f, 200f + 35f * Mathf.Sin(Time.unscaledTime * 0.6f), 0f);
             }
         }
 
-        /// <summary>Close the screen (the smoke test uses this after capturing it).</summary>
         public void Close() => SetOpen(false);
 
         private void SetOpen(bool open)
@@ -82,19 +69,13 @@ namespace Deepbound.UI
             Open = open;
             if (open && stage == null) BuildStage();
             if (stage != null) stage.SetActive(open);
-            // The previews render to textures; at a render scale below 1 (Low/Medium graphics) URP's
-            // Forward+ light tiles no longer line up with them and the portraits come out in dark
-            // blocks. Full scale while the screen is open, the preset back when it closes.
+
             if (UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline is UnityEngine.Rendering.Universal.UniversalRenderPipelineAsset urp)
             {
                 if (open) urp.renderScale = 1f;
                 else Settings.ApplyGraphics();
             }
         }
-
-        // ------------------------------------------------------------------
-        // Preview stage
-        // ------------------------------------------------------------------
 
         private void BuildStage()
         {
@@ -126,10 +107,9 @@ namespace Deepbound.UI
                     : (ClassId)i == ClassId.Flagellant ? CharacterArt.BuildFlagellant(table, color)
                     : (ClassId)i == ClassId.PlagueDoctor ? CharacterArt.BuildPlagueDoctor(table, color)
                     : CharacterArt.BuildKnight(table, color);
-                rig.LowGuard = (ClassId)i == ClassId.Knight; // was Blocking: the raised shield hid him (the user, 2026-11-07)
+                rig.LowGuard = (ClassId)i == ClassId.Knight;
                 turntables[i] = table;
 
-                // Warm key light and a cool rim, like the dungeon itself.
                 AddLight(spot + new Vector3(-2f, 3f, -2.5f), new Color(1f, 0.7f, 0.45f), 9f);
                 AddLight(spot + new Vector3(2.2f, 2.5f, 1.5f), new Color(0.45f, 0.6f, 1f), 6f);
                 AddLight(spot + new Vector3(1.5f, 1.4f, -2.2f), new Color(1f, 0.85f, 0.7f), 3f);
@@ -158,14 +138,8 @@ namespace Deepbound.UI
             l.intensity = intensity;
         }
 
-        // ------------------------------------------------------------------
-        // Drawing
-        // ------------------------------------------------------------------
-
         private int viewing = -1;
 
-        /// <summary>Screenshots only: show one class, turned to a given yaw (200 = front, 20 = back).</summary>
-        /// <summary>Shots: every preview figure holds its guard up (the Knight's shield, HumanoidRig.GuardShield).</summary>
         public void DebugBlock(bool up)
         {
             if (turntables == null) return;
@@ -182,7 +156,7 @@ namespace Deepbound.UI
 
         private void OnGUI()
         {
-            useGUILayout = false; // no GUILayout here: skip the layout pass (perf)
+            useGUILayout = false;
             UiSkin.Apply();
             if (!Open || progress == null) return;
             float w = UiScale.W, h = UiScale.H;
@@ -190,23 +164,19 @@ namespace Deepbound.UI
             int n = ClassDefinition.ById.Length;
             if (viewing < 0 || viewing >= n) viewing = (int)progress.ClassId.Value;
 
-            // Only the class being looked at renders its preview.
             if (previewCams != null)
                 for (int i = 0; i < previewCams.Length; i++) previewCams[i].enabled = i == viewing;
 
             UiSkin.Rect(new Rect(0, 0, w, h), new Color(0f, 0f, 0f, 0.82f));
-            UiSkin.Shadowed(new Rect(0, h * 0.03f, w, 50), "CHOOSE YOUR CLASS", new GUIStyle(UiSkin.Title) { fontSize = 40 });
+            UiSkin.Shadowed(new Rect(0, h * 0.03f, w, 50), "CHOOSE YOUR CLASS", UiSkin.Derive(UiSkin.Title, UiSkin.Title.normal.textColor, fontSize: 40));
             GUI.Label(new Rect(0, h * 0.03f + 48, w, 24), "Your choice lasts the run. Change it at camp with B before the next one.",
-                new GUIStyle(UiSkin.Small) { alignment = TextAnchor.MiddleCenter, fontSize = 14 });
+                UiSkin.Derive(UiSkin.Small, UiSkin.Small.normal.textColor, fontSize: 14, align: TextAnchor.MiddleCenter));
 
             float top = h * 0.14f, bottom = h * 0.95f;
             float listW = Mathf.Min(300f, w * 0.26f);
             float total = Mathf.Min(1180f, w - 60f);
             float left = w / 2f - total / 2f;
 
-            // --- Class cards (2026-11-22, the user: "please work on character select cards"): each class has its own
-            // colour (the colour of its ability effects), a stripe and a sigil letter in it, its role, difficulty pips,
-            // and a CHOSEN badge; the one you are looking at lifts out of the column. ---
             float rowH = Mathf.Min(72f, (bottom - top - (n - 1) * 8f) / n);
             for (int i = 0; i < n; i++)
             {
@@ -219,31 +189,29 @@ namespace Deepbound.UI
                 if (view) UiSkin.Rect(new Rect(r.x - 2, r.y - 2, r.width + 4, r.height + 4), new Color(acc.r, acc.g, acc.b, 0.75f));
                 UiSkin.Rect(r, view ? new Color(0.13f, 0.11f, 0.09f, 0.98f) : new Color(0.06f, 0.055f, 0.05f, 0.92f));
                 UiSkin.Rect(new Rect(r.x, r.y, 6, r.height), new Color(acc.r, acc.g, acc.b, view ? 1f : 0.65f));
-                // A sigil disc with the class's initial.
+
                 var disc = new Rect(r.x + 16, r.y + r.height / 2f - 20, 40, 40);
                 UiSkin.Rect(disc, new Color(acc.r * 0.35f, acc.g * 0.35f, acc.b * 0.35f, 0.95f));
                 UiSkin.Rect(new Rect(disc.x, disc.yMax - 3, disc.width, 3), acc);
-                GUI.Label(disc, def.Name.Substring(0, 1), new GUIStyle(UiSkin.Heading) { fontSize = 22, alignment = TextAnchor.MiddleCenter, normal = { textColor = Color.Lerp(acc, Color.white, 0.4f) } });
+                GUI.Label(disc, def.Name.Substring(0, 1), UiSkin.Derive(UiSkin.Heading, Color.Lerp(acc, Color.white, 0.4f), fontSize: 22, align: TextAnchor.MiddleCenter));
                 float tx = disc.xMax + 12, tw = r.xMax - tx - 10;
-                GUI.Label(new Rect(tx, r.y + 7, tw, 26), def.Name.ToUpperInvariant(), new GUIStyle(UiSkin.Heading) { fontSize = 19, normal = { textColor = view ? Color.white : new Color(0.88f, 0.85f, 0.8f) } });
-                GUI.Label(new Rect(tx, r.y + 33, tw - 60, 18), def.Role, new GUIStyle(UiSkin.Small) { fontSize = 12, wordWrap = false });
+                GUI.Label(new Rect(tx, r.y + 7, tw, 26), def.Name.ToUpperInvariant(), UiSkin.Derive(UiSkin.Heading, view ? Color.white : new Color(0.88f, 0.85f, 0.8f), fontSize: 19));
+                GUI.Label(new Rect(tx, r.y + 33, tw - 60, 18), def.Role, UiSkin.Derive(UiSkin.Small, UiSkin.Small.normal.textColor, fontSize: 12, wrap: false));
                 Pips(new Rect(tx, r.yMax - 15, 60, 8), DifficultyLevel(id), acc);
                 if (selected)
                 {
                     var badge = new Rect(r.xMax - 74, r.y + 8, 64, 18);
                     UiSkin.Rect(badge, new Color(UiSkin.Gold.r, UiSkin.Gold.g, UiSkin.Gold.b, 0.9f));
-                    GUI.Label(badge, "CHOSEN", new GUIStyle(UiSkin.Small) { fontSize = 11, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter, normal = { textColor = new Color(0.1f, 0.08f, 0.05f) } });
+                    GUI.Label(badge, "CHOSEN", UiSkin.Derive(UiSkin.Small, new Color(0.1f, 0.08f, 0.05f), fontSize: 11, fontStyle: FontStyle.Bold, align: TextAnchor.MiddleCenter));
                 }
                 if (r.Contains(Event.current.mousePosition)) viewing = i;
                 if (GUI.Button(r, GUIContent.none, GUIStyle.none)) Choose(id);
             }
 
-            // --- Detail panel for the class being viewed ---
             var panel = new Rect(left + listW + 34f, top, total - listW - 34f, bottom - top);
             DrawDetail(panel, (ClassId)viewing);
         }
 
-        /// <summary>Each class's colour: the hue its ability effects wear in battle (ClassFx).</summary>
         public static Color Accent(ClassId id) => id switch
         {
             ClassId.Knight => new Color(0.72f, 0.78f, 0.88f),
@@ -288,19 +256,18 @@ namespace Deepbound.UI
             UiSkin.Panel(r, 0.95f);
             UiSkin.Rect(new Rect(r.x, r.y, r.width, 4), acc);
 
-            // The preview, framed in the class colour, the name over a shade at its foot.
             float previewW = r.width * 0.4f;
             var previewRect = new Rect(r.x + 14, r.y + 18, previewW, r.height - 32 - 60);
             UiSkin.Rect(new Rect(previewRect.x - 2, previewRect.y - 2, previewRect.width + 4, previewRect.height + 4), new Color(acc.r, acc.g, acc.b, 0.5f));
             if (previews != null && previews[(int)id] != null) GUI.DrawTexture(previewRect, previews[(int)id], ScaleMode.ScaleAndCrop);
             for (int k = 0; k < 8; k++)
                 UiSkin.Rect(new Rect(previewRect.x, previewRect.yMax - 70 + k * 8.75f, previewRect.width, 8.75f), new Color(0f, 0f, 0f, 0.08f + k * 0.07f));
-            GUI.Label(new Rect(previewRect.x + 14, previewRect.yMax - 44, previewRect.width - 28, 20), def.Role.ToUpperInvariant(), new GUIStyle(UiSkin.Small) { fontSize = 13, fontStyle = FontStyle.Bold, normal = { textColor = acc } });
+            GUI.Label(new Rect(previewRect.x + 14, previewRect.yMax - 44, previewRect.width - 28, 20), def.Role.ToUpperInvariant(), UiSkin.Derive(UiSkin.Small, acc, fontSize: 13, fontStyle: FontStyle.Bold));
             Pips(new Rect(previewRect.x + 14, previewRect.yMax - 20, 60, 8), DifficultyLevel(id), acc);
 
             float x = previewRect.xMax + 22, cw = r.xMax - x - 18, y = r.y + 16;
-            GUI.Label(new Rect(x, y, cw, 40), def.Name.ToUpperInvariant(), new GUIStyle(UiSkin.Heading) { fontSize = 34, normal = { textColor = Color.Lerp(acc, Color.white, 0.55f) } });
-            GUI.Label(new Rect(x, y + 42, cw, 20), ClassDefinition.Difficulty(id), new GUIStyle(UiSkin.Small) { fontStyle = FontStyle.Italic, fontSize = 13 });
+            GUI.Label(new Rect(x, y, cw, 40), def.Name.ToUpperInvariant(), UiSkin.Derive(UiSkin.Heading, Color.Lerp(acc, Color.white, 0.55f), fontSize: 34));
+            GUI.Label(new Rect(x, y + 42, cw, 20), ClassDefinition.Difficulty(id), UiSkin.Derive(UiSkin.Small, UiSkin.Small.normal.textColor, fontSize: 13, fontStyle: FontStyle.Italic));
             var pitchSt = new GUIStyle(UiSkin.Body) { fontSize = 14, wordWrap = true };
             float pitchH = pitchSt.CalcHeight(new GUIContent(ClassDefinition.Pitch(id)), cw);
             GUI.Label(new Rect(x, y + 66, cw, pitchH), ClassDefinition.Pitch(id), pitchSt);
@@ -321,8 +288,6 @@ namespace Deepbound.UI
             }
             y += 4 * 20 + 12;
 
-            // The kit: keycaps and every line in full. Rows take the height their text needs; if the panel is short the
-            // text steps down a size rather than being cut off (the old fixed rows clipped long kits).
             var kit = new System.Collections.Generic.List<(string, string, string)>(ClassDefinition.Kit(id)) { ("R", Ultimates.Name(id), Ultimates.Describe(id)), ("WITH", "Plays well with", ClassDefinition.ComboLine(id)) };
             float avail = r.yMax - 76 - y, keyW = 62f;
             int size = 14;
@@ -343,7 +308,7 @@ namespace Deepbound.UI
                 var cap = new Rect(x, y + 1, keyW - 10, 20);
                 UiSkin.Rect(cap, new Color(kc.r, kc.g, kc.b, 0.16f));
                 UiSkin.Rect(new Rect(cap.x, cap.yMax - 2, cap.width, 2), new Color(kc.r, kc.g, kc.b, 0.8f));
-                GUI.Label(cap, key, new GUIStyle(UiSkin.Small) { fontSize = key.Length > 3 ? 10 : 12, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter, normal = { textColor = kc } });
+                GUI.Label(cap, key, UiSkin.Derive(UiSkin.Small, kc, fontSize: key.Length > 3 ? 10 : 12, fontStyle: FontStyle.Bold, align: TextAnchor.MiddleCenter));
                 GUI.Label(new Rect(x + keyW, y, cw - keyW, rh), text, st);
                 y += rh + 6f;
             }

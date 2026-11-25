@@ -2,29 +2,19 @@ using Deepbound.Art;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using Deepbound.UI;
 
 namespace Deepbound.Player
 {
-    /// <summary>
-    /// H: raise a hand. On its own it is a wave; two players doing it near each other within
-    /// a couple of seconds is a HIGH FIVE, and both fight a little harder for a while
-    /// (Brothers in Arms: +10% damage for 20 s).
-    /// <para>
-    /// HOLD H for the EMOTE WHEEL (2026-11-01, the user: "please add an emote wheel"), like the ping wheel: push the
-    /// mouse toward a gesture and let go - cheer, bow, laugh, dance, point, beckon, sit. Everyone near sees your body do
-    /// it and a line over your head; let go in the middle to cancel. The wave on the wheel is the same as a tap.
-    /// </para>
-    /// </summary>
     [DefaultExecutionOrder(10001)]
     public class Emotes : NetworkBehaviour
     {
         public const float Window = 2f, Reach = 3.5f, BuffSeconds = 20f;
         private const float HoldForWheel = 0.22f;
 
-        /// <summary>The wheel, clockwise from the top.</summary>
         public static readonly Emote[] Wheel = { Emote.Wave, Emote.Cheer, Emote.Salute, Emote.Bow, Emote.Laugh, Emote.Clap, Emote.Dance, Emote.Shrug, Emote.Point, Emote.Beckon, Emote.Kneel, Emote.Sit };
         public static string Name(Emote e) => e == Emote.Wave ? "WAVE / HIGH FIVE" : e.ToString().ToUpperInvariant();
-        /// <summary>How long each gesture plays (sitting lasts until you move).</summary>
+
         public static float Seconds(Emote e) => e == Emote.Sit || e == Emote.Kneel ? 600f : e == Emote.Dance ? 6f : e == Emote.Clap ? 2.6f : e == Emote.Shrug ? 1.5f : e == Emote.Bow ? 1.8f : e == Emote.Laugh ? 2.4f : 2.2f;
         private static string Line(Emote e) => e switch
         {
@@ -47,18 +37,14 @@ namespace Deepbound.Player
         private PlayerLife life;
         private NetworkPlayer player;
 
-        /// <summary>Server clock time the buff runs out (synced so the HUD can show it).</summary>
         public readonly NetworkVariable<double> BrothersUntil = new NetworkVariable<double>();
 
         public bool Brothers => NetworkManager != null && NetworkManager.IsListening && NetworkManager.ServerTime.Time < BrothersUntil.Value;
 
-        // ---- See yourself emote (2026-11-20, the user: "players see their model ... when they emote") ----
-        /// <summary>Owner: the camera has swung out to show you your own emote.</summary>
         public static bool LocalShowing { get; private set; }
         public const float ShowDistance = 2.7f;
         private float showK;
 
-        /// <summary>Owner: while an emote plays the camera eases out in front of you (a little to the side) and looks back at you.</summary>
         private void LateUpdate()
         {
             if (!IsOwner) return;
@@ -102,7 +88,7 @@ namespace Deepbound.Player
                 if (wheelOpen && mouse != null) wheelAim = Vector2.ClampMagnitude(wheelAim + mouse.delta.ReadValue(), 120f);
                 return;
             }
-            // Let go: a tap waves (and high-fives), the wheel plays what it points at.
+
             bool fromWheel = wheelOpen;
             var choice = WheelChoice();
             heldSince = -1f;
@@ -125,19 +111,16 @@ namespace Deepbound.Player
         private Emote WheelChoice()
         {
             if (wheelAim.magnitude < 30f) return Emote.None;
-            float ang = Mathf.Atan2(wheelAim.x, wheelAim.y) * Mathf.Rad2Deg; // 0 = up, 90 = right
+            float ang = Mathf.Atan2(wheelAim.x, wheelAim.y) * Mathf.Rad2Deg;
             float step = 360f / Wheel.Length;
             int slice = Mathf.RoundToInt(Mathf.Repeat(ang, 360f) / step) % Wheel.Length;
             return Wheel[slice];
         }
 
-        /// <summary>Screenshots and tests: show the wheel pushed toward <paramref name="aim"/>.</summary>
         public void DebugShowWheel(bool on, Vector2 aim) { wheelOpen = on; WheelOpenLocal = on; wheelAim = aim; }
 
-        /// <summary>Owner (tests): play a gesture as if chosen on the wheel.</summary>
         public void DebugEmote(Emote e) { if (IsOwner) EmoteRpc(e); }
 
-        /// <summary>Owner: sit (a log by the fire, <see cref="CampSeat"/>), and stand back up.</summary>
         public void SitDown() { if (IsOwner) EmoteRpc(Emote.Sit); }
         public void StandUp() { if (IsOwner) StopEmoteRpc(); }
 
@@ -187,17 +170,15 @@ namespace Deepbound.Player
                 UI.UiSkin.Rect(new Rect(pos.x - 72, pos.y - 18, 144, 36), new Color(0f, 0f, 0f, on ? 0.9f : 0.72f));
                 if (on) UI.UiSkin.Rect(new Rect(pos.x - 72, pos.y + 16, 144, 3), gold);
                 GUI.Label(new Rect(pos.x - 72, pos.y - 18, 144, 36), Name(e),
-                    new GUIStyle(UI.UiSkin.Body) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold, normal = { textColor = on ? gold : new Color(0.85f, 0.82f, 0.75f, 0.85f) } });
+                    UiSkin.Derive(UI.UiSkin.Body, on ? gold : new Color(0.85f, 0.82f, 0.75f, 0.85f), fontStyle: FontStyle.Bold, align: TextAnchor.MiddleCenter));
             }
-            GUI.Label(new Rect(c.x - 120, c.y - 12, 240, 24), "EMOTE", new GUIStyle(UI.UiSkin.Small) { alignment = TextAnchor.MiddleCenter, normal = { textColor = new Color(1f, 1f, 1f, 0.6f) } });
+            GUI.Label(new Rect(c.x - 120, c.y - 12, 240, 24), "EMOTE", UiSkin.Derive(UI.UiSkin.Small, new Color(1f, 1f, 1f, 0.6f), align: TextAnchor.MiddleCenter));
             var dot = c + new Vector2(wheelAim.x, -wheelAim.y) * 0.8f;
             UI.UiSkin.Rect(new Rect(dot.x - 4, dot.y - 4, 8, 8), Color.white);
         }
 
-        /// <summary>Server: play a gesture (the give wheel's salute and bow).</summary>
         public void ServerPlay(Emote e) { if (IsServer && e != Emote.None && !life.Downed.Value) EmoteFxRpc(e); }
 
-        /// <summary>Server: a high five with a chosen ally (the give wheel), no need for both to press.</summary>
         public void ServerHighFiveWith(Emotes other)
         {
             if (!IsServer || other == null || other == this) return;
@@ -232,7 +213,7 @@ namespace Deepbound.Player
         {
             player.Rig?.PlayEmote(Emote.Wave, Seconds(Emote.Wave));
             Sfx.Play(Sound.WarCry, transform.position + Vector3.up * 1.6f, 0.35f, 1.6f);
-            // No ally to slap? The camp folk answer a raised hand in their own ways.
+
             if (World.DungeonDirector.InLobby)
             {
                 float best = 3.2f * 3.2f; int who = -1;

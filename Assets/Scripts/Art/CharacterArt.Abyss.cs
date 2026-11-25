@@ -2,16 +2,10 @@ using UnityEngine;
 
 namespace Deepbound.Art
 {
-    /// <summary>The Abyss's own dead (2026-10-20).</summary>
     public static partial class CharacterArt
     {
         private static readonly Color AbyssViolet = new Color(0.62f, 0.35f, 1f);
 
-        /// <summary>
-        /// The Abyssal Eye: a great bloodshot eye the size of a barrel, hanging in the air with heavy lids,
-        /// a violet iris that brightens when it locks on, and a fringe of dangling tendrils. The eye is the
-        /// head (a headshot), and the iris is a weak point.
-        /// </summary>
         private static HumanoidRig BuildAbyssEye(Transform root)
         {
             var visual = MeshKit.Pivot(root, "EyeVisual", Vector3.zero);
@@ -19,7 +13,7 @@ namespace Deepbound.Art
             rig.GlowColor = AbyssViolet;
             rig.Hips = MeshKit.Pivot(visual, "Hips", new Vector3(0f, 1.75f, 0f));
             rig.Torso = MeshKit.Pivot(rig.Hips, "Torso", Vector3.zero);
-            // Legs and arms exist for the animator: the tendrils hang from them and sway as it drifts.
+
             rig.LegL = MeshKit.Pivot(rig.Hips, "LegL", new Vector3(-0.15f, -0.35f, 0f));
             rig.LegR = MeshKit.Pivot(rig.Hips, "LegR", new Vector3(0.15f, -0.35f, 0f));
             rig.ArmL = MeshKit.Pivot(rig.Torso, "ArmL", new Vector3(-0.42f, -0.1f, 0f));
@@ -35,10 +29,10 @@ namespace Deepbound.Art
                 }
 
             rig.Head = MeshKit.Pivot(rig.Torso, "Eye", Vector3.zero);
-            // Faintly self-lit: a sick pale glow, so it reads in the Abyss's dark.
+
             var ball = MeshKit.Part(rig.Head, "Ball", MeshKit.Ball(0.45f, 14, 10), Mat.Glow, Vector3.zero);
             ArtLibrary.SetGlow(ball.GetComponent<Renderer>(), new Color(0.82f, 0.74f, 0.72f) * 0.38f);
-            // Bloodshot veins across the white.
+
             for (int v = 0; v < 6; v++)
             {
                 float a = v * 60f + 20f;
@@ -49,10 +43,9 @@ namespace Deepbound.Art
             var iris = MeshKit.Part(rig.Head, "Iris", MeshKit.Cylinder(0.2f, 0.2f, 0.03f, 18), Mat.Glow, new Vector3(0f, 0f, 0.42f), new Vector3(90f, 0f, 0f));
             ArtLibrary.SetGlow(iris.GetComponent<Renderer>(), AbyssViolet * 1.1f);
             var pupil = MeshKit.Part(rig.Head, "Pupil", MeshKit.Cylinder(0.08f, 0.08f, 0.035f, 12), Mat.Dark, new Vector3(0f, 0f, 0.44f), new Vector3(90f, 0f, 0f), new Vector3(0.55f, 1f, 1f));
-            // Heavy lids, half closed over the top and bottom.
+
             foreach (float s in new[] { 1f, -1f })
             {
-                // A heavy cap over the top and the bottom third, tipped back a little: the bloodshot white shows between.
                 var lid = MeshKit.Part(rig.Head, s > 0 ? "LidTop" : "LidBottom", MeshKit.Lathe("eyeLidCap", new[] { new Vector2(0.41f, 0.25f), new Vector2(0.44f, 0.29f), new Vector2(0.34f, 0.39f), new Vector2(0.18f, 0.46f), new Vector2(0f, 0.49f) }, 16),
                     Mat.Leather, Vector3.zero, new Vector3(s > 0 ? -18f : 162f, 0f, 0f));
                 ArtLibrary.Tint(lid.GetComponent<Renderer>(), flesh * 0.85f);

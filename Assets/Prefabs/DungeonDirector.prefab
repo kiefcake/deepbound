@@ -175,7 +175,6 @@ MonoBehaviour:
   - {fileID: 8287679039109031053, guid: 6f219e4d6a82dc44c8504d814c0daf0a, type: 3}
   - {fileID: 366185698614671944, guid: 9b784d5a1ab092a43a6b21d50b689810, type: 3}
   dummyPrefab: {fileID: 1671632005222932136, guid: 8ae0bd93a6b1b75429f4fc585838b6b7, type: 3}
-  diceTablePrefab: {fileID: 4048924686839327431, guid: 35d4a5a729e53884eb500810e6f40042, type: 3}
   catPrefab: {fileID: 8688019866811902009, guid: a328bf0c5617260438a433756e6a25bb, type: 3}
   slotMachinePrefab: {fileID: 8912430892319929899, guid: 5bff212b8109e7848b0071bc18340a96, type: 3}
   blackjackPrefab: {fileID: 4364429901473664670, guid: 68b604e9ad0ad6544816a744b4cbba44, type: 3}

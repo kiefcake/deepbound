@@ -4,7 +4,6 @@ using UnityEngine;
 
 namespace Deepbound.Player
 {
-    /// <summary>A thrown flask as you see it: a spinning bottle on an arc, then the splash. Visual only.</summary>
     public class FlaskFlight : MonoBehaviour
     {
         private Vector3 from, to;

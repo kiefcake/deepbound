@@ -5,11 +5,6 @@ using UnityEngine;
 
 namespace Deepbound.Art
 {
-    /// <summary>
-    /// What the Panoply's armour looks like on whoever wears it, on every peer: Rimecloak frost motes and a pale ring,
-    /// the Sunward Plate's gold motes, and the Wraithstep Cuirass's ghost trail while it runs. Local and cheap: only
-    /// players within 40 m of the camera, a few motes a second.
-    /// </summary>
     public class ArmourAuraFx : MonoBehaviour
     {
         private static readonly Color Rime = new Color(0.6f, 0.85f, 1f), Sun = new Color(1f, 0.85f, 0.45f), Ghost = new Color(0.75f, 0.7f, 1f);
@@ -37,7 +32,7 @@ namespace Deepbound.Art
                 var feet = life.transform.position;
                 if ((feet - cam.transform.position).sqrMagnitude > 40f * 40f) continue;
                 bool mine = life.IsOwner;
-                // Others' speed, from how far they moved since the last look (0.18 s ago).
+
                 float speed = lastPos.TryGetValue(life, out var was) ? Vector3.Distance(was, feet) / 0.18f : 0f;
                 lastPos[life] = feet;
                 if (p.Wears(GearId.Rimecloak))

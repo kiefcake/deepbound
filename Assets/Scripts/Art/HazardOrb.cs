@@ -4,11 +4,6 @@ using UnityEngine;
 
 namespace Deepbound.Art
 {
-    /// <summary>
-    /// An Orbweaver's orb, as drawn on every peer: a burning amber core in two turning rings, with a
-    /// small light, following <see cref="Enemies.OrbweaverBrain.OrbPosition"/> on the server clock.
-    /// The rings show which pattern it fires (spiral: one tilted ring; rings: two flat; aimed: an eye).
-    /// </summary>
     public class HazardOrb : MonoBehaviour
     {
         private static readonly Dictionary<(Object, int), HazardOrb> live = new Dictionary<(Object, int), HazardOrb>();

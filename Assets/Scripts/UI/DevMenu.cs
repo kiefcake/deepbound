@@ -13,13 +13,6 @@ using UnityEngine.InputSystem;
 
 namespace Deepbound.UI
 {
-    /// <summary>
-    /// The developer menu (F1, or the ` key): buttons for the common tools and a command line
-    /// (type "help"). Host only: every tool acts on the server directly, which the host is.
-    /// Tools: god mode, heal, gold/embers/sigils, runes and relics, temper and ability ranks,
-    /// jump to any floor or back to camp, teleport to the boss or the exit, kill everything,
-    /// spawn any enemy (optionally elite), reveal the map, slow or speed time.
-    /// </summary>
     public class DevMenu : MonoBehaviour
     {
         public static bool Open { get; private set; }
@@ -66,7 +59,7 @@ namespace Deepbound.UI
             GUI.depth = -40;
             float pw = 720f, ph = 560f, x = UiScale.W - pw - 20f, y = 40f;
             UiSkin.Panel(new Rect(x - 8, y - 8, pw + 16, ph + 16), 0.97f);
-            GUI.Label(new Rect(x, y, pw, 26), "DEVELOPER MENU" + (IsHost ? "" : "   (host only: you are a client)"), new GUIStyle(UiSkin.Heading) { fontSize = 20 });
+            GUI.Label(new Rect(x, y, pw, 26), "DEVELOPER MENU" + (IsHost ? "" : "   (host only: you are a client)"), UiSkin.Derive(UiSkin.Heading, UiSkin.Heading.normal.textColor, fontSize: 20));
             if (!IsHost) { GUI.Label(new Rect(x, y + 34, pw, 40), "Only the host can use developer tools.", UiSkin.Body); return; }
             var p = player.GetComponent<PlayerProgress>();
             var dir = DungeonDirector.Instance;
@@ -80,7 +73,7 @@ namespace Deepbound.UI
                 return r;
             }
             void Row() { if (bx != x) { bx = x; by += 30f; } }
-            void Head(string t) { Row(); GUI.Label(new Rect(x, by, pw, 20), t, new GUIStyle(UiSkin.Small) { fontStyle = FontStyle.Bold, normal = { textColor = UiSkin.Gold } }); by += 20f; }
+            void Head(string t) { Row(); GUI.Label(new Rect(x, by, pw, 20), t, UiSkin.Derive(UiSkin.Small, UiSkin.Gold, fontStyle: FontStyle.Bold)); by += 20f; }
 
             Head("PLAYER");
             if (B(God ? "God: ON" : "God: off")) Run("god");
@@ -107,24 +100,23 @@ namespace Deepbound.UI
             GUI.Label(new Rect(bx, by + 4, 60, 20), "Floor", UiSkin.Small);
             bx += 50f;
             if (GUI.Button(new Rect(bx, by, 26, 26), "<", UiSkin.Button)) floorPick = Mathf.Max(0, floorPick - 1);
-            GUI.Label(new Rect(bx + 30, by + 2, 50, 22), (floorPick + 1).ToString(), new GUIStyle(UiSkin.Body) { alignment = TextAnchor.MiddleCenter });
+            GUI.Label(new Rect(bx + 30, by + 2, 50, 22), (floorPick + 1).ToString(), UiSkin.Derive(UiSkin.Body, UiSkin.Body.normal.textColor, align: TextAnchor.MiddleCenter));
             if (GUI.Button(new Rect(bx + 82, by, 26, 26), ">", UiSkin.Button)) floorPick = Mathf.Min(DungeonDirector.FinalDepth, floorPick + 1);
             if (GUI.Button(new Rect(bx + 114, by, 90, 26), "Go", UiSkin.Button)) Run("floor " + (floorPick + 1));
             bx = x; by += 32f;
             Head("SPAWN (in front of you)");
             if (GUI.Button(new Rect(bx, by, 26, 26), "<", UiSkin.Button)) spawnPick = (spawnPick + DungeonDirector.DebugSpawnKinds.Length - 1) % DungeonDirector.DebugSpawnKinds.Length;
-            GUI.Label(new Rect(bx + 30, by + 2, 130, 22), DungeonDirector.DebugSpawnKinds[spawnPick], new GUIStyle(UiSkin.Body) { alignment = TextAnchor.MiddleCenter });
+            GUI.Label(new Rect(bx + 30, by + 2, 130, 22), DungeonDirector.DebugSpawnKinds[spawnPick], UiSkin.Derive(UiSkin.Body, UiSkin.Body.normal.textColor, align: TextAnchor.MiddleCenter));
             if (GUI.Button(new Rect(bx + 164, by, 26, 26), ">", UiSkin.Button)) spawnPick = (spawnPick + 1) % DungeonDirector.DebugSpawnKinds.Length;
             spawnElite = GUI.Toggle(new Rect(bx + 200, by + 4, 80, 20), spawnElite, " elite");
             if (GUI.Button(new Rect(bx + 284, by, 100, 26), "Spawn", UiSkin.Button)) Run("spawn " + DungeonDirector.DebugSpawnKinds[spawnPick] + (spawnElite ? " elite" : ""));
             by += 34f;
 
-            // The console.
             var logRect = new Rect(x, by, pw, y + ph - by - 40f);
             UiSkin.Rect(logRect, new Color(0f, 0f, 0f, 0.5f));
             GUILayout.BeginArea(new Rect(logRect.x + 6, logRect.y + 4, logRect.width - 12, logRect.height - 8));
             scroll = GUILayout.BeginScrollView(scroll);
-            foreach (var l in log) GUILayout.Label(l, new GUIStyle(UiSkin.Small) { wordWrap = true });
+            foreach (var l in log) GUILayout.Label(l, UiSkin.Derive(UiSkin.Small, UiSkin.Small.normal.textColor, wrap: true));
             GUILayout.EndScrollView();
             GUILayout.EndArea();
             var e = Event.current;
@@ -135,7 +127,7 @@ namespace Deepbound.UI
                 e.Use();
             }
             GUI.SetNextControlName("DevCommand");
-            command = GUI.TextField(new Rect(x, y + ph - 30f, pw, 26f), command, new GUIStyle(GUI.skin.textField) { fontSize = 14 });
+            command = GUI.TextField(new Rect(x, y + ph - 30f, pw, 26f), command, UiSkin.Derive(GUI.skin.textField, GUI.skin.textField.normal.textColor, fontSize: 14));
             if (focus) { GUI.FocusControl("DevCommand"); focus = false; }
         }
 

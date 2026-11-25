@@ -7,31 +7,20 @@ using UnityEngine;
 
 namespace Deepbound.Enemies
 {
-    /// <summary>
-    /// LAIRS (2026-11-14, the user: "create 5 new mini bosses and make them all have unique fight sequences"): a mini boss
-    /// asleep in a sealed side lair mid-floor, one per act (<see cref="World.DungeonDirector"/> Lair). Whoever walks in is shut
-    /// in with it and it wakes scaled to them - so it is a fight for one or for four (the user: "doable solo and in a team").
-    /// It takes the boss bar only while it is fought (<see cref="Engaged"/>), and leaves a lair hoard when it dies.
-    /// Echoes (a shadow twin, mirror copies) are spawned from the same prefab with a <see cref="Role"/>: they never die
-    /// as a boss (no bar, no last words, no loot) - they shatter and despawn.
-    /// </summary>
     public abstract class LairBrain : BossBrain
     {
-        /// <summary>Any peer: true while the lair is sealed and this is fought.</summary>
         public readonly NetworkVariable<bool> Engaged = new NetworkVariable<bool>();
-        /// <summary>0 the boss itself, 1 a shadow twin, 2 a mirror copy.</summary>
+
         public readonly NetworkVariable<byte> Role = new NetworkVariable<byte>();
         public bool IsEcho => Role.Value != 0;
 
         protected override bool ClaimsActiveOnSpawn => false;
         public override Progression.Deeds.Deed Deed => Progression.Deeds.Deed.LairCleared;
 
-        /// <summary>Server: the lair (set by the director).</summary>
         public Vector3 RoomCenter { get; set; }
         public Vector2 RoomSize { get; set; } = new Vector2(16f, 16f);
         protected float RoomRadius => Mathf.Max(4f, Mathf.Min(RoomSize.x, RoomSize.y) / 2f - 2f);
 
-        /// <summary>The boss this echo belongs to (server).</summary>
         protected LairBrain Master;
 
         public override void OnNetworkSpawn()
@@ -50,7 +39,6 @@ namespace Deepbound.Enemies
                 });
         }
 
-        /// <summary>Server: the lair is sealed on whoever came in; wake, scaled to them.</summary>
         public void ServerEngage(int inside, int depth)
         {
             ServerScaleBoss(Mathf.Max(1, inside), depth);
@@ -63,7 +51,6 @@ namespace Deepbound.Enemies
 
         protected virtual void OnEngaged() { }
 
-        /// <summary>It chases only within its own walls: a keeper that followed you into the doorway was shut out by its own gates.</summary>
         protected override Vector3 ChaseDestination(float distanceToTarget)
         {
             var p = base.ChaseDestination(distanceToTarget);
@@ -73,7 +60,6 @@ namespace Deepbound.Enemies
             return p;
         }
 
-        /// <summary>Any peer: the boss bar is ours only while we are fought and alive - otherwise hand it back.</summary>
         protected override void LateUpdate()
         {
             base.LateUpdate();
@@ -90,11 +76,8 @@ namespace Deepbound.Enemies
             echoes.Clear();
         }
 
-        // ---- Echoes ----
-
         protected readonly List<LairBrain> echoes = new List<LairBrain>();
 
-        /// <summary>Server: an echo of this boss (its own prefab, given by the director as the minion prefab).</summary>
         public int EchoCount => echoes.Count;
         protected LairBrain SpawnEcho(byte role, Vector3 at)
         {
@@ -114,15 +97,12 @@ namespace Deepbound.Enemies
             return echo;
         }
 
-        /// <summary>Server: an echo was struck (it takes no damage itself).</summary>
         protected virtual void EchoHit(float dmg, Vector3 from) { }
 
-        /// <summary>Server: an echo breaks apart and is gone.</summary>
         private bool shattered;
 
         public void Shatter(bool backlash)
         {
-            // Once only: the backlash can set off a thorns relic that strikes this same glass again (a stack overflow, 2026-11-14).
             if (!IsServer || !IsSpawned || shattered) return;
             shattered = true;
             ShatterFxRpc(transform.position + Vector3.up * 1.2f, backlash);
@@ -141,7 +121,6 @@ namespace Deepbound.Enemies
             if (backlash) Vfx.Ring(at - Vector3.up * 1.15f, 3.2f, new Color(0.85f, 0.75f, 1f), 0.4f);
         }
 
-        /// <summary>Any peer: an echo's look (darker, no shadow for a copy).</summary>
         protected virtual void OnRoleChanged() { }
 
         protected Vector3 RandomInRoom(float margin)
@@ -151,7 +130,6 @@ namespace Deepbound.Enemies
             return UnityEngine.AI.NavMesh.SamplePosition(p, out var h, 3f, UnityEngine.AI.NavMesh.AllAreas) ? h.position : RoomCenter;
         }
 
-        /// <summary>Server: hit every player along a lane (the body's edge counts).</summary>
         protected int LaneHit(Vector3 from, Vector3 to, float width, float dmg)
         {
             int n = 0;

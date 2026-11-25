@@ -3,31 +3,13 @@ using UnityEngine;
 
 namespace Deepbound.UI
 {
-    /// <summary>
-    /// Afflictions you see rather than read (2026-10-28, the user: "instead of 'you have been rooted' wrap vines
-    /// around the player's vision"). Each one creeps in from the edges of the screen as its own picture, grows in
-    /// as it takes hold and withers away as it lets go:
-    /// <list type="bullet">
-    /// <item>Entangled - thorned vines climb up from the bottom of your view.</item>
-    /// <item>Rooted (ice) and Frostbitten - frost rime spreads in from the corners.</item>
-    /// <item>Poisoned - green veins and sickly haze.</item>
-    /// <item>Cursed - violet smoke curls at the edges; Mania - magenta smoke that churns fast.</item>
-    /// <item>Silenced - grey-violet haze, and the world goes muffled (a low-pass on the listener).</item>
-    /// <item>Dazed - little stars circle over the crosshair and your ears ring.</item>
-    /// </list>
-    /// Potions too (2026-10-28, "do potion effects also"): a health potion warms the edges red-gold with sparks rising
-    /// while it mends; the class draught surges in its bar's colour; Holy Water's cleanse washes the view white-gold
-    /// and wipes every affliction picture at once; Ironbark grows bark plates at the edges, Bloodfury beats blood-red,
-    /// Grave Stillness cracks the view to stone, a Sanctuary circle glows gold.
-    /// Every texture is generated here at startup (no art files). Drawn behind the HUD; faded under Reduce Flashing.
-    /// </summary>
     public partial class AfflictionOverlay : MonoBehaviour
     {
         private const int Size = 512;
         private static Texture2D vines, frost, veins, smoke, star, ink;
         private float vineK, frostK, poisonK, curseK, maniaK, silenceK, dazeK, blindK, hexK;
         private float mendK, surgeK, barkK, furyK, stoneK, sanctK, lastStandK;
-        // Buffs you see, not read (2026-11-14, show don't tell): blessed, inspired, zeal/martyr, the plague ward, brothers.
+
         private float blessK, inspireK, zealK, martyrK, wardK, brotherK, shieldK;
         private float nextGold;
         private static float gulpAt = -10f, cleanseAt = -10f;
@@ -38,10 +20,8 @@ namespace Deepbound.UI
         private readonly System.Collections.Generic.List<Spark> sparks = new System.Collections.Generic.List<Spark>();
         private static AfflictionOverlay instance;
 
-        /// <summary>Owner, a potion drunk: 0 health, 1 the class draught.</summary>
         public static void Drank(int kind, Color c) { gulpAt = Time.time; gulpColor = c; }
 
-        /// <summary>Owner: Holy Water (or anything) cleansed you: a white-gold wash, and the pictures go at once.</summary>
         public static void Cleansed()
         {
             cleanseAt = Time.time;
@@ -62,7 +42,6 @@ namespace Deepbound.UI
             go.AddComponent<AfflictionOverlay>();
         }
 
-        /// <summary>For tests: how far each picture has grown in (0..1).</summary>
         public static float VineLevel, FrostLevel, SmokeLevel, DazeLevel;
 
         private void Update()
@@ -100,7 +79,7 @@ namespace Deepbound.UI
             Approach(ref wardK, on && deb.Warded, dt, 3f, 1.2f);
             Approach(ref brotherK, em != null && em.Brothers, dt, 4f, 1f);
             Approach(ref shieldK, (hp != null && hp.Shield.Value > 0.5f) || Art.PlayerStatusFx.Forced("shield"), dt, 5f, 2.5f);
-            // Gold motes drifting up from the bottom of your view while you stand blessed (the same gold as your halo, seen by others).
+
             if ((blessK > 0.3f || inspireK > 0.3f) && Time.time >= nextGold)
             {
                 nextGold = Time.time + (inspireK > 0.3f ? 0.06f : 0.11f);
@@ -108,7 +87,7 @@ namespace Deepbound.UI
                 sparks.Add(new Spark { P = new Vector2(Random.Range(w * 0.05f, w * 0.95f), h + 4f), V = new Vector2(Random.Range(-12f, 12f), -Random.Range(h * 0.12f, h * 0.25f)), Born = Time.time, Life = Random.Range(1.2f, 2f), Size = h * Random.Range(0.004f, 0.009f), C = new Color(1f, 0.85f, 0.45f) });
             }
             if (pon && pouch.Surging) surgeColor = Player.Flasks.DraughtColor(Player.Flasks.LocalClass);
-            // Sparks rising up the edges while a potion works.
+
             if ((mendK > 0.3f || surgeK > 0.3f) && Time.time >= nextSpark)
             {
                 nextSpark = Time.time + 0.05f;
@@ -120,18 +99,16 @@ namespace Deepbound.UI
             for (int i = sparks.Count - 1; i >= 0; i--) if (Time.time - sparks[i].Born > sparks[i].Life) sparks.RemoveAt(i);
             VineLevel = vineK; FrostLevel = frostK; SmokeLevel = Mathf.Max(curseK, maniaK, silenceK, poisonK); DazeLevel = dazeK;
 
-            // Dazed: a ringing in the ears as it lands.
             bool dazed = on && deb.Dazed;
             if (dazed && !wasDazed && ViewCamera.Current != null) Sfx.Play(Sound.Toll, ViewCamera.Current.transform.position, 0.22f, 2.7f);
             wasDazed = dazed;
 
-            // Silenced (and, less, dazed): the world goes muffled.
             if (Time.time >= nextListenerCheck)
             {
                 nextListenerCheck = Time.time + 1f;
                 var listener = FindFirstObjectByType<AudioListener>();
                 if (listener != null && (muffle == null || muffle.gameObject != listener.gameObject))
-                    muffle = listener.GetComponent<AudioLowPassFilter>() ?? listener.gameObject.AddComponent<AudioLowPassFilter>();
+                    muffle = listener.TryGetComponent<AudioLowPassFilter>(out var lp) ? lp : listener.gameObject.AddComponent<AudioLowPassFilter>();
             }
             if (muffle != null)
             {
@@ -147,10 +124,6 @@ namespace Deepbound.UI
 
         private static int paintedFrame = -1;
 
-        /// <summary>
-        /// Called at the top of the HUD's and the minimap's OnGUI: the first caller each frame paints the overlay, so it
-        /// lies under both (they skip the layout pass, and then IMGUI keeps no depth order between scripts).
-        /// </summary>
         public static void PaintOnce()
         {
             if (instance == null || Event.current.type != EventType.Repaint || paintedFrame == Time.frameCount) return;
@@ -176,19 +149,16 @@ namespace Deepbound.UI
             float calm = Settings.ReduceFlashing ? 0.6f : 1f;
             var old = GUI.color;
 
-            // The potions' own glows, under everything else.
             if (sanctK > 0f) DrawColumn(sanctK, t, calm);
-            if (mendK > 0f) DrawRising(mendK, t, calm, new Color(1f, 0.5f, 0.3f), 101, 36, 0.6f, 1.6f); // bigger, more (2026-11-25 -shots: barely seen)
+            if (mendK > 0f) DrawRising(mendK, t, calm, new Color(1f, 0.5f, 0.3f), 101, 36, 0.6f, 1.6f);
             if (surgeK > 0f) DrawSurge(surgeK, t, calm, surgeColor);
             if (furyK > 0f) DrawFuryBeat(furyK, t, calm);
             if (lastStandK > 0f)
             {
-                // Last stand: a slow, heavy red pulse at the edges.
                 DrawLastStand(lastStandK, t, calm);
             }
             if (blessK > 0f)
             {
-                // Consecrated ground: warm gold light welling up from below, the floor's glow on your view.
                 float rows = 10;
                 for (int i = 0; i < rows; i++)
                 {
@@ -202,16 +172,15 @@ namespace Deepbound.UI
             if (zealK > 0f) DrawLashes(zealK, t, calm);
             if (martyrK > 0f) DrawThorns(martyrK, t, calm);
             if (wardK > 0f) DrawWard(wardK, t, calm);
-            // A shield on you: a pale glassy rime at the corners, like looking out through the bubble the others see.
+
             if (shieldK > 0f) DrawShieldRim(shieldK, t, calm);
             if (brotherK > 0f) DrawRising(brotherK, t, calm, new Color(1f, 0.55f, 0.2f), 303, 10, 0.25f);
             float gulp = Mathf.Clamp01(1f - (t - gulpAt) / 0.9f);
             if (gulp > 0f) Corners(smoke, h * (0.45f + 0.35f * (1f - gulp)), gulp, new Color(gulpColor.r, gulpColor.g, gulpColor.b, 0.6f * gulp * calm), 0f, 0f);
 
-            // Smoke and haze first (the soft layers), then the sharp pictures over them.
             if (poisonK > 0f) Corners(smoke, h * 0.5f, poisonK, new Color(0.35f, 0.75f, 0.15f, 0.3f * calm), t * 0.6f, 1.5f);
             if (curseK > 0f) DrawCurseRunes(curseK, t, calm);
-            // The hag's curse: a sickly green-black rot creeping in, on a slow throb.
+
             if (hexK > 0f) DrawHexLids(hexK, t, calm);
             if (maniaK > 0f) DrawManiaSpiral(maniaK, t, calm);
             if (silenceK > 0f) DrawSilence(silenceK, t, calm);
@@ -222,7 +191,6 @@ namespace Deepbound.UI
             if (frostK > 0f) Corners(frost, h * 0.5f, frostK, new Color(0.8f, 0.9f, 1f, 0.6f * calm), 0f, 0f);
             if (vineK > 0f)
             {
-                // The vines climb from the bottom corners and creep along the floor of your view.
                 float s = h * 0.62f * Ease(vineK);
                 float sway = Mathf.Sin(t * 1.3f) * 1.6f;
                 GUI.color = new Color(1f, 1f, 1f, Mathf.Clamp01(vineK * 1.6f) * 0.92f);
@@ -252,7 +220,6 @@ namespace Deepbound.UI
             }
             if (dazeK > 0f)
             {
-                // Stars circling where your head rings, just over the crosshair.
                 GUI.color = new Color(1f, 0.92f, 0.6f, dazeK * calm);
                 var c = new Vector2(w * 0.5f, h * 0.5f - h * 0.17f);
                 for (int i = 0; i < 5; i++)
@@ -272,7 +239,6 @@ namespace Deepbound.UI
 
         private static float Ease(float k) => 1f - (1f - k) * (1f - k) * (1f - k);
 
-        /// <summary>One picture, mirrored into all four corners, growing out of each as <paramref name="k"/> rises.</summary>
         private static void Corners(Texture2D tex, float size, float k, Color tint, float spin, float swayDeg, bool topOnly = false)
         {
             float w = UiScale.W, h = UiScale.H;
@@ -293,14 +259,6 @@ namespace Deepbound.UI
             GUI.matrix = keep;
         }
 
-        // ------------------------------------------------------------------
-        // The pictures, painted once in code
-        // ------------------------------------------------------------------
-
-        /// <summary>
-        /// BLINDED (the Ink Lamprey, 2026-11-13): ink over the eyes to a small clear hole round the crosshair. Drawn over
-        /// the other pictures; it closes in as it lands and drifts a little.
-        /// </summary>
         private void PaintBlind(float w, float h, float t)
         {
             if (blindK <= 0f) return;
@@ -325,8 +283,7 @@ namespace Deepbound.UI
                     float dx = (x - half) / Size, dy = (y - half) / Size;
                     float d = Mathf.Sqrt(dx * dx + dy * dy);
                     float n = Fbm(x / 40f, y / 40f, 37);
-                    // Ink runs in tendrils toward the middle: the edge of the hole is ragged.
-                    // (First seen 2026-11-13: a hole of 0.15-0.35 left most of the screen clear. Now clear to ~0.08, black by ~0.2.)
+
                     float edge = 0.075f + (n - 0.5f) * 0.06f;
                     float a = Mathf.Clamp01((d - edge) / 0.12f);
                     cv.Px[y * Size + x] = new Color(1f, 1f, 1f, a * a * (3f - 2f * a));
@@ -344,7 +301,6 @@ namespace Deepbound.UI
             star = PaintStar();
         }
 
-        /// <summary>A premultiplied-free RGBA float canvas with soft strokes and blobs ("over" blending).</summary>
         private class Canvas
         {
             public readonly int N;
@@ -361,7 +317,6 @@ namespace Deepbound.UI
                 Px[i] = new Color((c.r * c.a + d.r * d.a * (1f - c.a)) / a, (c.g * c.a + d.g * d.a * (1f - c.a)) / a, (c.b * c.a + d.b * d.a * (1f - c.a)) / a, a);
             }
 
-            /// <summary>A round-capped line, soft at its edge.</summary>
             public void Stroke(Vector2 a, Vector2 b, float r, Color c)
             {
                 int x0 = Mathf.FloorToInt(Mathf.Min(a.x, b.x) - r - 2), x1 = Mathf.CeilToInt(Mathf.Max(a.x, b.x) + r + 2);
@@ -379,7 +334,6 @@ namespace Deepbound.UI
                     }
             }
 
-            /// <summary>A leaf: an ellipse along <paramref name="dir"/>.</summary>
             public void Leaf(Vector2 at, Vector2 dir, float len, float wid, Color c)
             {
                 dir.Normalize();
@@ -429,8 +383,6 @@ namespace Deepbound.UI
             var leaf = new Color(0.24f, 0.42f, 0.13f, 1f);
             var thorn = new Color(0.55f, 0.5f, 0.32f, 1f);
 
-            // Stems are gathered first and drawn in passes (all outlines, then all bark), so a stem reads as one
-            // smooth cord rather than a string of beads; thorns and leaves go on top.
             var stems = new System.Collections.Generic.List<(Vector2 a, Vector2 b, float w)>();
             var thorns = new System.Collections.Generic.List<(Vector2 a, Vector2 b)>();
             var leaves = new System.Collections.Generic.List<(Vector2 at, Vector2 dir, float len, float wid)>();
@@ -462,12 +414,11 @@ namespace Deepbound.UI
                 }
             }
 
-            // Up from the bottom edge and in from the side, leaning toward the middle of the view.
             for (int k = 0; k < 5; k++) Grow(new Vector2(R() * Size * 0.85f, -4f), Mathf.Deg2Rad * (55f + R() * 35f), 11f + R() * 4f, 34 + rng.Next(18), 0);
             for (int k = 0; k < 3; k++) Grow(new Vector2(-4f, R() * Size * 0.6f), Mathf.Deg2Rad * (10f + R() * 40f), 9f + R() * 3f, 26 + rng.Next(14), 0);
             foreach (var st in stems) cv.Stroke(st.a, st.b, st.w + 1.8f, dark);
             foreach (var st in stems) cv.Stroke(st.a, st.b, st.w, bark);
-            // A lighter ridge down each stem, so they look round.
+
             foreach (var st in stems) if (st.w > 3f) cv.Stroke(st.a, st.b, st.w * 0.3f, new Color(0.34f, 0.42f, 0.18f, 0.7f));
             foreach (var th in thorns) cv.Stroke(th.a, th.b, 1.2f, thorn);
             foreach (var lf in leaves) cv.Leaf(lf.at, lf.dir, lf.len, lf.wid, leaf);
@@ -479,7 +430,7 @@ namespace Deepbound.UI
             var cv = new Canvas(Size);
             var rng = new System.Random(911);
             float R() => (float)rng.NextDouble();
-            // A pale rime fading out from the corner, broken up by noise.
+
             for (int y = 0; y < Size; y++)
                 for (int x = 0; x < Size; x++)
                 {
@@ -530,7 +481,7 @@ namespace Deepbound.UI
                 }
             }
             for (int k = 0; k < 6; k++) Vein(new Vector2(-2f, R() * Size * 0.3f), Mathf.Deg2Rad * (R() * 80f), 3f, 30 + rng.Next(15), 0);
-            // Drips gathering on the edge.
+
             for (int k = 0; k < 10; k++)
             {
                 var at = new Vector2(R() * Size * 0.6f, 4f);

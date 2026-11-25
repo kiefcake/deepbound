@@ -6,14 +6,6 @@ using UnityEngine;
 
 namespace Deepbound.Enemies
 {
-    /// <summary>
-    /// The Rime Magus (2026-11-13, the user: "a mage enemy type, that casts an aoe blizzard spell that slowly follows a
-    /// player for time, slowing them and dealing small amount of damage"). A frost-robed caster of the Drowned Vaults and
-    /// below. It hangs back and calls a BLIZZARD: a storm of <see cref="StormRadius"/> opens where its target stands and
-    /// drifts after them at <see cref="StormSpeed"/> (a little slower than a walk) for <see cref="StormSeconds"/>. Inside
-    /// it you are FROSTBITTEN (slowed) and take a little damage every half second. Outwalk it - sprint or dodge clear,
-    /// never stand and fight in it - or kill the Magus: the storm dies with it. A stun scatters the storm.
-    /// </summary>
     public class RimeMagusBrain : EnemyBrain
     {
         [SerializeField] private float preferredRange = 11f, stormCooldown = 12f, stormWindup = 1.1f;
@@ -22,7 +14,7 @@ namespace Deepbound.Enemies
         private float nextStorm, castAt = -1f, stormUntil = -1f, nextTick, nextFx;
         private Vector3 stormPos;
         private ulong stormTarget = ulong.MaxValue;
-        /// <summary>For tests: storms called, and ticks that caught a player.</summary>
+
         public int Storms { get; private set; }
         public int Caught { get; private set; }
         public bool StormUp => Time.time < stormUntil;
@@ -63,7 +55,6 @@ namespace Deepbound.Enemies
             CallRpc(stormPos, windup);
         }
 
-        /// <summary>For tests: call a blizzard on <paramref name="who"/> now.</summary>
         public void ServerDebugStorm(Health who, float windup) => BeginStorm(who, windup);
 
         protected override void Update()
@@ -81,7 +72,6 @@ namespace Deepbound.Enemies
             base.Update();
         }
 
-        /// <summary>Every peer drifts the storm after its quarry the same way; the server also bites.</summary>
         private void TickStorm()
         {
             if (!StormUp) return;

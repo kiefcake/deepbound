@@ -2,10 +2,6 @@ using UnityEngine;
 
 namespace Deepbound.Art
 {
-    /// <summary>
-    /// A billow of dark smoke: a handful of grey balls that swell, drift up and shrink away.
-    /// Used by the Rogue's Shadowstep and Smoke Bomb.
-    /// </summary>
     public class SmokePuff : MonoBehaviour
     {
         private Transform[] puffs;

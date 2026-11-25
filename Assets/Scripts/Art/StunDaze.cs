@@ -2,11 +2,6 @@ using UnityEngine;
 
 namespace Deepbound.Art
 {
-    /// <summary>
-    /// A stunned creature, on every peer (2026-10-20): three little stars wheel round its head, it sags
-    /// and sways on its feet, and a dull ring pulses on the floor under it, so "it can't act right now"
-    /// reads at a glance. Driven by the synced <see cref="Enemies.EnemyBrain.Status"/> bit 1.
-    /// </summary>
     public class StunDaze : MonoBehaviour
     {
         private Enemies.EnemyBrain brain;
@@ -68,7 +63,7 @@ namespace Deepbound.Art
             stars.localScale = Vector3.one * scale * Mathf.Clamp01(t * 6f);
             for (int i = 0; i < starRenderers.Length; i++)
                 starRenderers[i].transform.parent.localRotation = Quaternion.Euler(0f, 0f, t * 400f + i * 40f);
-            // Sag and sway: a slow drunken circle, the body tipped forward.
+
             if (rig != null && haveBase)
                 rig.transform.localRotation = baseRot * Quaternion.Euler(6f + Mathf.Sin(t * 3.1f) * 5f, 0f, Mathf.Cos(t * 2.3f) * 7f);
         }

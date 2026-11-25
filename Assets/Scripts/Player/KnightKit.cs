@@ -11,36 +11,13 @@ using UnityEngine.InputSystem;
 
 namespace Deepbound.Player
 {
-    /// <summary>
-    /// The Knight's kit. League-style: one passive, a basic attack, a defensive button and
-    /// two abilities, each with one clear job.
-    ///
-    /// <list type="bullet">
-    /// <item><b>Passive — Bulwark.</b> Blocking stops 80% of damage from the front. Every
-    ///   blocked hit costs stamina; run out and the guard breaks.</item>
-    /// <item><b>LMB — Sword swing.</b> Wind-up, then a 110° arc. Alternates sides.</item>
-    /// <item><b>RMB — Block.</b> Hold. Halves movement speed.</item>
-    /// <item><b>Q — Shield Bash.</b> Lunge forward; stuns and knocks back what you hit.
-    ///   Interrupts wind-ups, including the boss's.</item>
-    /// <item><b>E — War Cry.</b> Taunts every enemy nearby onto you and halves the damage you
-    ///   take for a few seconds. The tank button.</item>
-    /// </list>
-    ///
-    /// <para>
-    /// Split by authority. The owner reads input, runs timers and stamina, and animates its
-    /// own view model immediately (no input lag). The server resolves every hit and owns
-    /// all damage; other peers just play the animation they are told to.
-    /// </para>
-    /// </summary>
     [RequireComponent(typeof(Health))]
     public class KnightKit : NetworkBehaviour, IClassKit
     {
-        // Timings in seconds. Wind-ups are short — the Knight is meant to feel responsive.
         public const float SwingWindup = 0.16f, SwingStrike = 0.14f, SwingRecovery = 0.3f;
-        /// <summary>Rebalanced 2026-10-17: the tank no longer out-damages the damage classes (34 -> 29); it holds rage instead.</summary>
+
         public const float SwingRange = 2.7f, SwingArc = 110f, SwingDamage = 35f;
-        /// <summary>Alone, the tank has nobody to hold the line for: swings hit harder (2026-11-15; solo bot Knights took 3-6 minutes a
-        /// guardian and 40-50 near-downs on the worst floors, every other class 1-2 minutes). Like the lone Cleric's smite.</summary>
+
         public const float LoneSwingBonus = 1.25f;
         private static float LoneSwing => PlayerLife.All.Count <= 1 ? LoneSwingBonus : 1f;
         public float AttackRange => SwingRange * (progress != null ? progress.ReachMultiplier : 1f);
@@ -48,14 +25,12 @@ namespace Deepbound.Player
         public const float BashCooldown = 7f, BashRange = 2.4f, BashDamage = 24f, BashStun = 1.6f;
         public const float WarCryCooldown = 16f, WarCryRadius = 12f, WarCryDuration = 5f;
         public const float StaminaMax = 100f;
-        // Swings are free (2026-11-01, the user: left click spends nothing); stamina is for blocking, sprinting and dodging.
+
         private const float HeldSwingReserve = 0f;
         private const float SwingStamina = 0f, SprintStaminaPerSec = 12f, BlockedHitStamina = 11f;
-        /// <summary>Stamina back per second (2026-11-12, the user: lower from the start, trainable with Brann): 12 + VIT/4,
-        /// 22/s at base VIT 40 (was a flat 28); Roadwork drills (+5 VIT) bring it back up.</summary>
+
         private float StaminaRegen => 12f + (progress != null ? progress.Value(StatType.VIT) : 40f) * 0.25f;
 
-        /// <summary>Synced so other peers can draw the shield raised and the server can apply it.</summary>
         public readonly NetworkVariable<bool> Blocking = new NetworkVariable<bool>(false,
             NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
 
@@ -65,7 +40,6 @@ namespace Deepbound.Player
         private NetworkPlayer player;
         private PlayerProgress progress;
 
-        // Owner-side state.
         public float Stamina { get; private set; } = StaminaMax;
         public float BashReadyAt { get; private set; }
         public float WarCryReadyAt { get; private set; }
@@ -74,11 +48,9 @@ namespace Deepbound.Player
         private float swingStrikeAt;
         private float side = 1f;
 
-        // Server-side state.
         private float warCryUntil;
         private float lastServerSwing;
 
-        /// <summary>Time the War Cry buff ends, for the HUD. Synced as a timestamp on the server clock.</summary>
         public readonly NetworkVariable<double> WarCryEnds = new NetworkVariable<double>();
 
         private void Awake()
@@ -96,22 +68,16 @@ namespace Deepbound.Player
             {
                 health.IncomingModifiers.Add(ModifyIncoming);
             }
-            // The raised shield's ward of light, for everyone else (your own view has the shield itself).
+
             if (!Application.isBatchMode) ward = ClassFx.KnightWard(transform, () => this != null && ShieldRaised, () => IsOwner && !NetworkPlayer.DebugShowSelf);
         }
 
         private ClassFx.Ward ward;
 
-        /// <summary>
-        /// Sheltered (2026-10-20, co-op glue): an ally within <see cref="ShelterRange"/> behind a Knight who is
-        /// blocking takes <see cref="ShelterScale"/> from blows that come at the Knight's front. Stand behind
-        /// the shield.
-        /// </summary>
         public const float ShelterRange = 3.2f, ShelterScale = 0.5f;
 
         public bool ShieldRaised => Active && Blocking.Value && life != null && !life.Downed.Value;
 
-        /// <summary>Server: is this player sheltered from a blow from <paramref name="attacker"/>?</summary>
         public static bool ShelterFor(PlayerLife who, Vector3 attacker)
         {
             foreach (var p in PlayerLife.All)
@@ -121,7 +87,7 @@ namespace Deepbound.Player
                 var toMe = who.transform.position - kp; toMe.y = 0f;
                 if (toMe.magnitude > ShelterRange) continue;
                 var toFoe = attacker - kp; toFoe.y = 0f;
-                // The blow comes at the shield's face, and I am on the other side of it.
+
                 if (Vector3.Angle(k.transform.forward, toFoe) < 75f && Vector3.Dot(k.transform.forward, toMe) < 0.2f)
                 {
                     k.ShelterFxRpc(who.transform.position + Vector3.up * 2f);
@@ -143,21 +109,18 @@ namespace Deepbound.Player
 
         private float AttackMultiplier => progress.AttackMultiplier;
         private float riposteUntil = -10f;
-        /// <summary>COUNTER (2026-11-08, every Knight): a swing within <see cref="CounterWindow"/> s of turning a blow aside hits x<see cref="CounterDamage"/>; the Riposte path makes it x2.2 (and its mastery stuns).</summary>
+
         public const float CounterWindow = 1.6f, CounterDamage = 1.4f, RiposteDamage = 2.2f;
-        /// <summary>The Spiked Shield path: a blocked blow from within reach comes back at x this (of the blow before the block).</summary>
+
         public const float SpikeReach = 3.5f, SpikeShare = 0.6f;
-        /// <summary>Server: a counter is ready now.</summary>
+
         public bool CounterReady => Time.time < riposteUntil;
-        /// <summary>Tests: hold the shield up as if RMB were down.</summary>
+
         public bool DebugHoldBlock { get; set; }
-        /// <summary>Tests (server): a swing as if the owner had sent it.</summary>
+
         public void ServerDebugSwing(Vector3 origin, Vector3 forward) => SwingRpc(origin, forward, 1f);
 
-        /// <summary>True when the player's chosen class is the Knight. Otherwise this kit sleeps.</summary>
         private bool Active => progress.ClassId.Value == ClassId.Knight;
-
-        // ---- IClassKit ----
 
         public ClassId Class => ClassId.Knight;
         public string ResourceName => "Stamina";
@@ -177,10 +140,6 @@ namespace Deepbound.Player
             into.Add(new AbilityView { Key = "E", Name = "War Cry", Remaining = WarCryReadyAt - Time.time, Cooldown = WarCryCooldown * progress.CooldownFor(AbilitySlot.E), Active = warCryLeft > 0 });
         }
 
-        // ==================================================================
-        // Owner: input, timers, local animation
-        // ==================================================================
-
         private void Update()
         {
             if (!IsOwner) return;
@@ -194,11 +153,9 @@ namespace Deepbound.Player
             var mouse = Mouse.current;
             var keyboard = Keyboard.current;
 
-            // --- Block (hold RMB) ---
             bool wantBlock = (canAct && UI.Binds.SecondaryHeld && Stamina > 0f && !swingPending) || DebugHoldBlock;
             if (Blocking.Value != wantBlock) Blocking.Value = wantBlock;
 
-            // --- Stamina ---
             bool sprinting = motor.IsSprinting && motor.SpeedMultiplier > 0.9f;
             if (sprinting)
             {
@@ -212,10 +169,6 @@ namespace Deepbound.Player
             motor.CanSprint = Stamina > 5f && !wantBlock;
             motor.SpeedMultiplier = (wantBlock ? 0.5f : 1f) * progress.SpeedMultiplier;
 
-            // --- Swing (LMB) --- held, it keeps swinging (2026-10-21: every other class repeats on hold; the
-            // Knight alone needed a click per swing). Swings cost no stamina (2026-11-01).
-            // Holding keeps a reserve for the shield (a held button drained stamina as fast as it came back
-            // and left nothing to block with); a fresh click may spend the last of it.
             if (canAct && !wantBlock && UI.Binds.PrimaryHeld &&
                 Time.time >= swingBusyUntil && Stamina >= SwingStamina + (UI.Binds.PrimaryDown ? 0f : HeldSwingReserve))
             {
@@ -223,7 +176,7 @@ namespace Deepbound.Player
                 side = -side;
                 swingPending = true;
                 swingStrikeAt = Time.time + SwingWindup;
-                // DEX shortens the recovery, not the wind-up: faster follow-ups, same tell.
+
                 float recovery = SwingRecovery * progress.AttackTimeMultiplier;
                 swingBusyUntil = Time.time + SwingWindup + SwingStrike + recovery;
                 player.ViewModelSwing(SwingWindup, SwingStrike + recovery, side);
@@ -237,7 +190,6 @@ namespace Deepbound.Player
                 SwingRpc(player.AimOrigin, player.AimForward, side);
             }
 
-            // --- Q: Shield Bash ---
             if (canAct && UI.Binds.Down(UI.Bind.AbilityQ) && Time.time >= BashReadyAt)
             {
                 BashReadyAt = Time.time + BashCooldown * progress.CooldownFor(AbilitySlot.Q);
@@ -247,13 +199,11 @@ namespace Deepbound.Player
                 BashRpc(transform.position + Vector3.up, forward);
             }
 
-            // --- E: War Cry ---
             if (canAct && UI.Binds.Down(UI.Bind.AbilityE) && Time.time >= WarCryReadyAt)
             {
                 WarCryReadyAt = Time.time + WarCryCooldown * progress.CooldownFor(AbilitySlot.E);
                 WarCryRpc();
             }
-
         }
 
         [Rpc(SendTo.ClientsAndHost)]
@@ -265,26 +215,20 @@ namespace Deepbound.Player
             UI.GameHud.ShowCombo(transform.position + Vector3.up * 2.2f, "BULWARK!", new Color(1f, 0.85f, 0.45f));
         }
 
-        /// <summary>Called on the owner when the server reports a blocked hit.</summary>
         [Rpc(SendTo.Owner)]
         private void BlockedHitRpc()
         {
             UI.Tips.OfferNow("counter", "COUNTER: you turned a blow on your shield. Swing within " + CounterWindow + " s of a block and the swing hits x" + CounterDamage + " (x" + RiposteDamage + " on the Riposte path).");
-            // Unbreakable (War Cry, rank 3 B): while the cry lasts, blocks cost nothing.
+
             bool unbreakable = progress != null && progress.B(AbilitySlot.E, 2) && WarCryEnds.Value > NetworkManager.ServerTime.Time;
             if (!unbreakable) Stamina = Mathf.Max(0f, Stamina - BlockedHitStamina * (progress != null ? progress.BuildBlockCostScale : 1f));
             staminaRegenAt = Time.time + 0.8f;
             if (Stamina <= 0f)
             {
-                // Guard broken: you cannot block again until stamina recovers a little.
                 Blocking.Value = false;
                 motor.AddImpulse(-transform.forward * 6f);
             }
         }
-
-        // ==================================================================
-        // Server: hit resolution
-        // ==================================================================
 
         private int chainSwings;
         private float lastChainSwing = -10f;
@@ -307,17 +251,12 @@ namespace Deepbound.Player
         {
             if (!life.CanAct) return;
 
-            // Loose rate limit: refuse swings faster than the animation allows. Generous,
-            // because latency jitter can bunch two legitimate swings together.
             float minInterval = (SwingWindup + SwingStrike + SwingRecovery * progress.AttackTimeMultiplier) * 0.7f;
             if (Time.time - lastServerSwing < minInterval) return;
             lastServerSwing = Time.time;
 
-            // Trust the client's aim origin only if it is near where the server thinks the
-            // player is — otherwise someone could swing from across the room.
             if (Vector3.Distance(origin, transform.position + Vector3.up * 1.5f) > 2f) origin = transform.position + Vector3.up * 1.5f;
 
-            // Cleave: a wider, longer arc (mastery chills). Riposte: a blocked hit empowers this swing.
             bool cleave = progress.OnPath(1);
             bool counter = Time.time < riposteUntil;
             bool riposte = counter && progress.OnPath(2);
@@ -326,14 +265,14 @@ namespace Deepbound.Player
             float damage = SwingDamage * AttackMultiplier * (riposte ? RiposteDamage : counter ? CounterDamage : 1f) * LoneSwing;
 
             bool hitAny = false;
-            // The chain: forehand, backhand, OVERHEAD (the owner's view model plays the same order).
+
             chainSwings = Time.time - lastChainSwing < SwingWindup + SwingStrike + SwingRecovery * progress.AttackTimeMultiplier + 0.6f ? chainSwings + 1 : 1;
             lastChainSwing = Time.time;
             bool overhead = chainSwings % 3 == 0;
             foreach (var target in CombatQuery.Arc(origin, forward, range, arc, Team.Enemies))
             {
                 var zone = HitZones.Aimed(target, origin, forward, range, out var zonePoint);
-                // Hilt Strike (Bash, rank 3 B): the first swing on a bashed foe is a hilt-blow.
+
                 bool hilt = hiltUntil.TryGetValue(target, out var hu) && Time.time < hu;
                 if (hilt) hiltUntil.Remove(target);
                 target.Tag(hilt ? "Hilt Strike" : "Swing").ServerDamage(damage * (hilt ? HiltDamage : 1f) * HitZones.Multiplier(target, zone, false), transform.position, NetworkObjectId);
@@ -348,7 +287,7 @@ namespace Deepbound.Player
                 hitAny = true;
             }
             if (counter && hitAny) Sfx2Rpc(riposte);
-            // Greatblade: the overhead sends a slash wave rolling ahead.
+
             if (cleave && overhead)
             {
                 var dir = Flat(forward);
@@ -370,7 +309,7 @@ namespace Deepbound.Player
         private void SwingFxRpc(float swingSide, bool hit)
         {
             SwingTrail.Spawn(transform, SwingRange * 0.85f, progress.OnPath(1) ? 160f : SwingArc, swingSide, player.TrailColor(new Color(1f, 0.85f, 0.6f) * 1.1f));
-            // Others see the cut as a broad steel crescent (your own view has the blade and its trail).
+
             if (!IsOwner || NetworkPlayer.DebugShowSelf) ClassFx.KnightCut(transform, swingSide, SwingRange * ReachMul, progress.OnPath(1) ? 160f : SwingArc, player.TrailColor(new Color(1f, 0.9f, 0.7f)));
             if (hit) ClassFx.SteelBite(transform.position + transform.forward * 1.5f + Vector3.up * 1.1f, transform.position + Vector3.up * 1.2f);
             if (!IsOwner)
@@ -385,7 +324,6 @@ namespace Deepbound.Player
             }
         }
 
-        // ---- Ysolde's options for Shield Bash (2026-11-20) ----
         public const float RicochetRange = 6f, AftershockRadius = 3.5f, AftershockDelay = 0.7f, HiltDamage = 3f, HiltWindow = 2.5f;
         public const float DominoRadius = 2f, BracedSeconds = 2f, ThrowLength = 12f, SplitLength = 8f, SplitDelay = 0.5f;
         private readonly Dictionary<Health, float> hiltUntil = new Dictionary<Health, float>();
@@ -396,11 +334,10 @@ namespace Deepbound.Player
         [Rpc(SendTo.Server)]
         private void BashRpc(Vector3 origin, Vector3 forward) => ServerBash(origin, forward);
 
-        /// <summary>Server: the bash and every option taken for it. Public for the smoke test.</summary>
         public void ServerBash(Vector3 origin, Vector3 forward)
         {
             if (!life.CanAct) return;
-            // The lunge carries the Knight ~1.5 m, so the hit reaches a little further than the shield itself.
+
             float potency = progress.Potency(AbilitySlot.Q);
             bool rush = progress.B(AbilitySlot.Q, 1);
             float reach = (BashRange + 1.5f + (rush ? 1.5f : 0f)) * ReachMul;
@@ -413,7 +350,6 @@ namespace Deepbound.Player
             }
             foreach (var target in hits) BashHit(target, forward, potency, rush && target == first, struck);
 
-            // Ricochet (rank 2 A): the force leaps on to the nearest other enemy.
             if (progress.A(AbilitySlot.Q, 1) && first != null)
             {
                 var next = AbilityKit.Nearest(first.transform.position, RicochetRange, struck);
@@ -427,7 +363,7 @@ namespace Deepbound.Player
             }
 
             var front = transform.position + Flat(forward) * 1.8f;
-            // Aftershock (rank 3 A): the ground heaves a moment later.
+
             if (progress.A(AbilitySlot.Q, 2))
             {
                 var at = Vfx.Floor(front);
@@ -440,9 +376,9 @@ namespace Deepbound.Player
                     progress.AbilityBurstRpc(at, AftershockRadius, PlayerProgress.FxKind.Earth);
                 });
             }
-            // Braced (rank 4 B): the shield guards every side for a moment.
+
             if (progress.B(AbilitySlot.Q, 3)) { bracedUntil = Time.time + BracedSeconds; progress.AbilityTextRpc(transform.position + Vector3.up * 2.3f, "BRACED", PlayerProgress.FxKind.Steel); }
-            // Shield Throw (rank 5 A): a ghostly shield out along the aim and back.
+
             if (progress.A(AbilitySlot.Q, 4))
             {
                 var dir = Flat(forward);
@@ -459,7 +395,7 @@ namespace Deepbound.Player
                     foreach (var h in AbilityKit.Lane(from, dir, len, 0.9f)) h.Tag("Shield Throw").ServerDamage(dmg * 0.6f, from, me);
                 });
             }
-            // Earthsplitter (rank 5 B): a fissure runs ahead and bursts.
+
             if (progress.B(AbilitySlot.Q, 4))
             {
                 var dir = Flat(forward);
@@ -477,22 +413,21 @@ namespace Deepbound.Player
             BashFxRpc();
         }
 
-        /// <summary>Server: one enemy takes the bash.</summary>
         private void BashHit(Health target, Vector3 forward, float potency, bool rushed, HashSet<Health> struck)
         {
             if (target == null || !target.IsAlive) return;
             target.Tag("Bash").ServerDamage(BashDamage * AttackMultiplier * potency * Combos.TryShatter(target, progress), transform.position, NetworkObjectId);
-            if (target.TryGetComponent<Enemies.EnemyBrain>(out var bashed)) bashed.ServerAddThreat(NetworkObjectId, 80f * potency); // a shield in the face
+            if (target.TryGetComponent<Enemies.EnemyBrain>(out var bashed)) bashed.ServerAddThreat(NetworkObjectId, 80f * potency);
             if (progress.B(AbilitySlot.Q, 2)) hiltUntil[target] = Time.time + HiltWindow;
             if (!target.TryGetComponent<ICrowdControl>(out var cc)) return;
             cc.ServerStun(BashStun);
             if (target.TryGetComponent<Enemies.ShieldbearerBrain>(out var sb)) sb.ServerBreakGuard(3f);
             var push = Flat(target.transform.position - transform.position);
-            // Shield Rush (rank 2 B): the first foe is driven before you and hurled back.
+
             float force = rushed ? 18f : 8f;
             cc.ServerKnockback(push * force);
             World.DungeonDirector.Instance?.ServerCheckShove(target, push * (rushed ? 16f : 10f), NetworkObjectId);
-            // Domino (rank 4 A): hurled into the ones behind it.
+
             if (progress.A(AbilitySlot.Q, 3))
             {
                 var landing = target.transform.position + push * (force * 0.22f);
@@ -513,7 +448,6 @@ namespace Deepbound.Player
             }
         }
 
-        /// <summary>The riposte's ring of steel.</summary>
         [Rpc(SendTo.ClientsAndHost)]
         private void Sfx2Rpc(bool riposte)
         {
@@ -526,11 +460,11 @@ namespace Deepbound.Player
         {
             if (!IsOwner) player.Rig?.Play(RigAction.Bash, 0.4f);
             Sfx.Play(Sound.Bash, transform.position + transform.forward + Vector3.up);
-            // A shove of force off the shield face: ring and grit, wider when ranked.
+
             var front = transform.position + transform.forward * 1.6f;
             Vfx.Ring(front, 2.2f, new Color(1f, 0.9f, 0.7f), 0.3f);
             Vfx.Smoke(front, 2, 0.6f, 1f);
-            // 2026-11-21 (distinct abilities): the kite of the shield itself, hurled forward in light, shattering at its reach.
+
             ClassFx.KnightBash(transform, BashRange + 1.5f);
         }
 
@@ -539,7 +473,6 @@ namespace Deepbound.Player
         [Rpc(SendTo.Server)]
         private void WarCryRpc() => ServerWarCry();
 
-        /// <summary>Server: the cry and every option taken for it. Public for the smoke test.</summary>
         public void ServerWarCry()
         {
             if (!life.CanAct) return;
@@ -548,14 +481,14 @@ namespace Deepbound.Player
             WarCryEnds.Value = NetworkManager.ServerTime.Time + duration;
             lastOathSpent = false;
             Cry(duration);
-            // Rally (rank 2 B): the party runs faster and hits harder while it lasts.
+
             if (progress.B(AbilitySlot.E, 1))
                 foreach (var p in PlayerLife.All)
                     if (p != null && !p.Downed.Value && Vector3.Distance(p.transform.position, transform.position) <= WarCryRadius && p.TryGetComponent<PlayerProgress>(out var pp))
                         pp.ServerRally(duration, 1f);
-            // Bastion (rank 4 B): allies near you take a quarter less.
+
             if (progress.B(AbilitySlot.E, 3)) AbilityKit.ServerDamageZone(transform.position, BastionRadius, duration, BastionScale, health, "Bastion");
-            // Echo (rank 5 A): the cry again, three seconds on.
+
             if (progress.A(AbilitySlot.E, 4))
                 AbilityKit.Later(this, EchoDelay, () =>
                 {
@@ -566,7 +499,6 @@ namespace Deepbound.Player
                 });
         }
 
-        /// <summary>Server: one shout: taunt, Challenge, Dread.</summary>
         private void Cry(float duration)
         {
             Health toughest = null;
@@ -574,10 +506,10 @@ namespace Deepbound.Player
             {
                 if (target.TryGetComponent<ICrowdControl>(out var cc)) cc.ServerTaunt(health, duration);
                 if (toughest == null || target.Current.Value > toughest.Current.Value) toughest = target;
-                // Dread (rank 4 A): the rank and file cower before they come.
+
                 if (progress.A(AbilitySlot.E, 3) && !AbilityKit.IsBoss(target)) AbilityKit.Stun(target, DreadSeconds);
             }
-            // Challenge (rank 2 A): the toughest is marked for the party.
+
             if (progress.A(AbilitySlot.E, 1) && toughest != null)
             {
                 toughest.ServerMark(duration + 3f);
@@ -593,13 +525,12 @@ namespace Deepbound.Player
         {
             player.Rig?.Play(RigAction.Roar, 0.8f);
             Sfx.Play(Sound.WarCry, transform.position + Vector3.up * 1.6f);
-            // The cry as a pressure wave: two rings racing out to the taunt radius.
+
             float r = WarCryRadius;
             Vfx.Ring(transform.position, r, new Color(1f, 0.45f, 0.2f), 0.55f);
             Vfx.Ring(transform.position, r * 0.6f, new Color(1f, 0.8f, 0.4f), 0.35f);
             Vfx.AbilityFlash(transform.position + Vector3.up * 1.6f, new Color(1f, 0.55f, 0.25f), 5f, 8f, 0.4f);
-            // 2026-11-21 (distinct abilities): walls of sound and a roar out of the mouth; a burning chevron over every foe
-            // it pulls (the taunt you can see), snapped back to the Knight by a tether.
+
             ClassFx.KnightWarCry(transform, r);
             int marks = 0;
             foreach (var h in Health.All)
@@ -612,14 +543,12 @@ namespace Deepbound.Player
             }
         }
 
-        /// <summary>Bulwark and War Cry. Runs inside Health.ServerDamage, after DEF.</summary>
         private float ModifyIncoming(float damage, Vector3 attackerPosition)
         {
             if (!Active) return damage;
             bool crying = Time.time < warCryUntil;
             if (crying)
             {
-                // Iron Thorns (War Cry, rank 3 A): whatever strikes you takes half the blow back.
                 if (progress.A(AbilitySlot.E, 2)) AbilityKit.Thorn(health, damage * 0.5f);
                 damage *= 0.5f;
             }
@@ -631,11 +560,10 @@ namespace Deepbound.Player
                 to.y = 0f;
                 if (braced || Vector3.Angle(transform.forward, to) < 75f)
                 {
-                    // Turning a blow aside infuriates whoever threw it.
                     if (NetworkManager.SpawnManager.SpawnedObjects.TryGetValue(health.LastHitFrom, out var foe) && foe.TryGetComponent<Enemies.EnemyBrain>(out var angry))
                         angry.ServerAddThreat(NetworkObjectId, damage * 3f + 15f);
                     if (Classes.PathTriads.OnKnightBlock(progress, damage, SwingDamage)) BulwarkFxRpc();
-                    // Spiked Shield: a melee blow on the spikes hurts the one who struck (and stuns, mastered).
+
                     if (progress.OnPath(2) && to.magnitude < SpikeReach)
                     {
                         AbilityKit.Thorn(health, damage * SpikeShare * AttackMultiplier);
@@ -647,7 +575,7 @@ namespace Deepbound.Player
                     BlockFxRpc();
                 }
             }
-            // Last Oath (War Cry, rank 5 B): a downing blow leaves 1 health and ends the cry instead.
+
             if (crying && !lastOathSpent && progress.B(AbilitySlot.E, 4) && damage >= health.Current.Value && health.Current.Value > 1f)
             {
                 lastOathSpent = true;
@@ -664,7 +592,7 @@ namespace Deepbound.Player
         private void BlockFxRpc()
         {
             Sfx.Play(Sound.Block, transform.position + transform.forward * 0.6f + Vector3.up * 1.2f);
-            // Sparks off the shield face, thrown back toward the attacker (seen by everyone, owner included).
+
             var face = transform.position + transform.forward * 0.75f + Vector3.up * 1.25f;
             Vfx.HitImpact(face, face + transform.forward, 0.8f, new Color(1f, 0.8f, 0.45f), Mat.Steel);
             ward?.Hit();

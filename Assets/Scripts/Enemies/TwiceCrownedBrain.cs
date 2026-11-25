@@ -7,20 +7,6 @@ using UnityEngine;
 
 namespace Deepbound.Enemies
 {
-    // =====================================================================================================================
-    // THE HOLLOW THRONE - THE TWICE-CROWNED
-    // =====================================================================================================================
-
-    /// <summary>
-    /// The Twice-Crowned: a king and the shadow of a king, and one crown between them. Only the one wearing it bleeds -
-    /// the crown leaps between them (you see it go), and both swing at you all the while.
-    /// <list type="number">
-    /// <item><b>The Court</b>: the crown passes every few seconds; follow it.</item>
-    /// <item><b>The Exchange</b> (66%): they trade places in a flash of gold, and the crown moves faster.</item>
-    /// <item><b>Twin Charge</b> (33%): both charge down red lanes at once, from either side.</item>
-    /// </list>
-    /// A strike on the bare head of either is wasted (IMMUNE). Solo, the shadow fights at half pace.
-    /// </summary>
     public class TwiceCrownedBrain : LairBrain
     {
         public override string DisplayName => "The Twice-Crowned";
@@ -32,12 +18,11 @@ namespace Deepbound.Enemies
         protected override Color ShockwaveColor => new Color(1f, 0.82f, 0.4f);
         public static readonly Color CrownGold = new Color(1f, 0.82f, 0.35f);
 
-        /// <summary>Any peer: this body wears the crown now.</summary>
         public readonly NetworkVariable<bool> Crowned = new NetworkVariable<bool>(true);
 
         private float nextPass, nextCharge;
         private int movement;
-        /// <summary>For tests.</summary>
+
         public int Passes { get; private set; }
         private TwiceCrownedBrain Shadow => echoes.Count > 0 ? echoes[0] as TwiceCrownedBrain : null;
 
@@ -58,7 +43,6 @@ namespace Deepbound.Enemies
 
         protected override void EchoHit(float dmg, Vector3 from)
         {
-            // The shadow bleeds into the king, but only while it wears the crown.
             var m = Master as TwiceCrownedBrain;
             if (m == null || m.IsDead) return;
             if (!Crowned.Value) { BareFxRpc(transform.position + Vector3.up * 2.4f); return; }
@@ -167,7 +151,6 @@ namespace Deepbound.Enemies
             for (int i = 0; i <= 10; i++) Vfx.Smoke(Vector3.Lerp(from, to, i / 10f), 1, 0.4f, 0.8f);
         }
 
-        // Any peer: the crown sits on whoever wears it; the shadow is a king in black.
         private Transform crown;
         private void UpdateCrown()
         {
@@ -187,7 +170,7 @@ namespace Deepbound.Enemies
         protected override void OnRoleChanged()
         {
             if (Rig == null || Role.Value != 1) return;
-            // The shadow: the same king, cut from the dark.
+
             foreach (var r in Rig.GetComponentsInChildren<Renderer>())
                 if (r.sharedMaterial != null && !r.sharedMaterial.name.Contains("Glow")) ArtLibrary.Tint(r, new Color(0.12f, 0.1f, 0.18f));
             Rig.GlowColor = new Color(0.6f, 0.4f, 1f);
@@ -195,17 +178,16 @@ namespace Deepbound.Enemies
 
         protected override void BeginAttack()
         {
-            if (IsEcho && StandingParty <= 1) busyUntil = Time.time + 0.6f; // alone, the shadow swings at half pace
+            if (IsEcho && StandingParty <= 1) busyUntil = Time.time + 0.6f;
             base.BeginAttack();
         }
 
         protected override void DressRig(HumanoidRig rig)
         {
             if (rig.Torso == null || rig.Head == null) return;
-            // A torn royal cloak behind blackened war plate (2026-11-19, the user: "chunky and bigger... not just like a
-            // skeleton"): horned open helm, burning eyes, a wound of gold light in the chest, and a heavier greatsword.
+
             TintPart(MeshKit.Part(rig.Torso, "Cloak", MeshKit.Box(new Vector3(0.62f, 1.0f, 0.04f)), Mat.Cloth, new Vector3(0f, 0.02f, -0.25f), new Vector3(8f, 0f, 0f)), new Color(0.35f, 0.08f, 0.12f));
-            // The king's own crown goes: the only crown is the one that leaps between them (LairCrown).
+
             var drop = new List<GameObject>();
             foreach (Transform c in rig.Head)
                 if (c.name == "Crown" || c.name == "CrownBand" || c.name.StartsWith("CrownPoint") || c.name.StartsWith("Gem") || c.name.StartsWith("Tine")) drop.Add(c.gameObject);

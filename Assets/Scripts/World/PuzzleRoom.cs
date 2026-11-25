@@ -7,23 +7,6 @@ using UnityEngine;
 
 namespace Deepbound.World
 {
-    /// <summary>
-    /// A PUZZLE ROOM (2026-11-08, the user's list: "puzzle rooms (statues, plate sequences)"). Two special side rooms share
-    /// this object, which stands at the sealed coffer by the back wall:
-    /// <list type="bullet">
-    /// <item>THE WATCHERS' ROOM (<see cref="Kind.Watchers"/>): four stone watchers (<see cref="PuzzleStatue"/>) stand round a
-    /// sigil in the floor, each looking the wrong way. F turns one a quarter round; when all four look at the sigil the
-    /// coffer opens. The grinding sometimes raises one of the dead.</item>
-    /// <item>THE CHIME ROOM (<see cref="Kind.Chimes"/>): four coloured plates round the middle, each with its own bell. The
-    /// first time someone walks in, the bells ring a tune (4-6 notes, longer deeper down); step on the plates in the same
-    /// order. A wrong plate buzzes, wakes a skeleton and the tune plays again from the start. F at the coffer replays it.</item>
-    /// <item>THE SCALES (<see cref="Kind.Scales"/>, 2026-11-08): a great balance in the middle, a stone counterweight
-    /// (<see cref="Target"/>, studs on it) on one pan. Five urns (<see cref="ScaleWeight"/>) lie about; set them down by the
-    /// empty pan and they go on it (<see cref="Load"/>). The beam tilts by the difference; held exactly level for
-    /// <see cref="BalanceHold"/> s, the coffer opens.</item>
-    /// </list>
-    /// Solved: a chest, a Sigil and gold, like the Oath Room (<see cref="DungeonDirector.ServerPuzzleSolved"/>).
-    /// </summary>
     public class PuzzleRoom : Interactable
     {
         public enum Kind : byte { Watchers = 0, Chimes = 1, Mirrors = 2, Scales = 3 }
@@ -38,16 +21,16 @@ namespace Deepbound.World
         public readonly NetworkVariable<Vector3> Centre = new NetworkVariable<Vector3>();
         public readonly NetworkVariable<int> RoomId = new NetworkVariable<int>(-1);
         public readonly NetworkVariable<bool> Solved = new NetworkVariable<bool>();
-        /// <summary>Chimes: the tune, two bits a note (plate 0-3), first note lowest.</summary>
+
         public readonly NetworkVariable<uint> Sequence = new NetworkVariable<uint>();
         public readonly NetworkVariable<byte> Length = new NetworkVariable<byte>();
         public readonly NetworkVariable<byte> Step = new NetworkVariable<byte>();
-        /// <summary>Chimes: server time the tune last began playing (-1: never).</summary>
+
         public readonly NetworkVariable<double> ShowAt = new NetworkVariable<double>(-1);
-        /// <summary>Mirrors: the lens's row on the -A edge and the crystal's row on the +A edge.</summary>
+
         public readonly NetworkVariable<sbyte> SourceRow = new NetworkVariable<sbyte>();
         public readonly NetworkVariable<sbyte> CrystalRow = new NetworkVariable<sbyte>();
-        /// <summary>Scales: the counterweight, and what stands on the other pan now (server-written).</summary>
+
         public readonly NetworkVariable<byte> Target = new NetworkVariable<byte>();
         public readonly NetworkVariable<byte> Load = new NetworkVariable<byte>();
         public const int ScaleWeights = 5;
@@ -57,12 +40,10 @@ namespace Deepbound.World
 
         private static double Now => NetworkManager.Singleton != null ? NetworkManager.Singleton.ServerTime.Time : Time.timeAsDouble;
 
-        // Server.
         private byte lastWeighed;
         private float balancedFor;
         public int Wrongs { get; private set; }
 
-        // Local.
         private bool built;
         private Transform coffer;
         private Renderer cofferLock;
@@ -78,7 +59,7 @@ namespace Deepbound.World
         public static Vector3 Axis(int i) => Quaternion.Euler(0f, i * 90f, 0f) * Vector3.forward;
         public Vector3 PlateAt(int i) => Centre.Value + Axis(i) * PlateRing;
         public int NoteAt(int i) => (int)((Sequence.Value >> (i * 2)) & 3u);
-        /// <summary>When the tune finishes playing (server time); before then the plates do not listen.</summary>
+
         public double ListenFrom => ShowAt.Value + Lead + Length.Value * NoteGap;
         public bool Listening => Type.Value == Kind.Chimes && ShowAt.Value >= 0 && Now >= ListenFrom;
 
@@ -97,7 +78,6 @@ namespace Deepbound.World
             if (Type.Value == Kind.Chimes && !Solved.Value) ServerReplay(0.2);
         }
 
-        /// <summary>Server: set it up (after spawn).</summary>
         public void ServerSetup(Kind kind, Vector3 centre, int roomId, int depth, int seed)
         {
             Type.Value = kind;
@@ -111,7 +91,7 @@ namespace Deepbound.World
             for (int i = 0; i < len; i++)
             {
                 int n = rng.Next(4);
-                if (n == prev) n = (n + 1 + rng.Next(3)) % 4; // never the same plate twice running
+                if (n == prev) n = (n + 1 + rng.Next(3)) % 4;
                 seq |= (uint)n << (i * 2);
                 prev = n;
             }
@@ -167,7 +147,6 @@ namespace Deepbound.World
             for (int i = 0; i < 4; i++) if ((rising & (1 << i)) != 0) { ServerStep(i); if (Solved.Value || Step.Value == 0) break; }
         }
 
-        /// <summary>Server: a plate goes down. Public for tests (plays as if the tune had finished).</summary>
         public bool ServerStep(int plate)
         {
             if (Solved.Value || Type.Value != Kind.Chimes) return false;
@@ -186,18 +165,14 @@ namespace Deepbound.World
             return false;
         }
 
-        // ---------------------------------------------------------------- the scales
-
-        /// <summary>The middle of the load pan (+A) and the counterweight's pan (-A), on the floor.</summary>
         public Vector3 LoadPan => Centre.Value + AxisA * PanOffset;
         public Vector3 WeightPan => Centre.Value - AxisA * PanOffset;
-        /// <summary>The beam's tilt in degrees for a load: positive = the load pan hangs low.</summary>
+
         public float TiltFor(int load) => Mathf.Clamp((load - Target.Value) * TiltPerUnit, -MaxTilt, MaxTilt);
-        /// <summary>Height of a pan's top over the floor at a tilt (side +1 = the load pan).</summary>
+
         public static float PanTop(float side, float tilt) => PanY - side * PanOffset * Mathf.Sin(tilt * Mathf.Deg2Rad);
         private static readonly Vector2[] Slots = { Vector2.zero, new Vector2(0.27f, 0.1f), new Vector2(-0.27f, 0.1f), new Vector2(0.1f, -0.27f), new Vector2(-0.12f, 0.29f), new Vector2(0f, 0f) };
 
-        /// <summary>Server: what is on the load pan; settle each weight onto it; level long enough = solved.</summary>
         private void ServerWeigh()
         {
             float tilt = TiltFor(Load.Value);
@@ -229,9 +204,6 @@ namespace Deepbound.World
             if (level) Sfx.Play(Sound.Chain, Centre.Value + Vector3.up * PivotY, 0.5f, 1.2f);
         }
 
-        // ---------------------------------------------------------------- the light-beam room
-
-        /// <summary>The grid's axes: B points from the middle to the coffer (snapped to the world axes), A across it.</summary>
         public Vector3 AxisB
         {
             get
@@ -243,11 +215,6 @@ namespace Deepbound.World
         public Vector3 AxisA => Vector3.Cross(Vector3.up, AxisB);
         public Vector3 GridPos(float x, float r) => Centre.Value + AxisA * (x * MirrorCell) + AxisB * (r * MirrorCell);
 
-        /// <summary>
-        /// The beam on the grid: from the lens at (-GridEdge, sourceRow) heading +A, one cell at a time; a mirror '/' (state 0)
-        /// turns (dx, dr) into (dr, dx), '\' (1) into (-dr, -dx). True when it reaches the crystal at (GridEdge, crystalRow).
-        /// <paramref name="path"/> gets the corners (grid units), ending at the crystal or where the beam leaves the grid.
-        /// </summary>
         public static bool TraceGrid(int sourceRow, int crystalRow, Dictionary<int, byte> mirrors, List<Vector2> path)
         {
             int x = -GridEdge, r = sourceRow, dx = 1, dr = 0;
@@ -272,7 +239,6 @@ namespace Deepbound.World
         private readonly Dictionary<int, byte> mirrorStates = new Dictionary<int, byte>();
         private readonly List<Vector2> beamPath = new List<Vector2>();
 
-        /// <summary>The room's mirrors as the trace wants them; true if the beam reaches the crystal now.</summary>
         public bool BeamHits(List<Vector2> path = null)
         {
             mirrorStates.Clear();
@@ -280,13 +246,11 @@ namespace Deepbound.World
             return TraceGrid(SourceRow.Value, CrystalRow.Value, mirrorStates, path);
         }
 
-        /// <summary>Server: after a mirror turns.</summary>
         public void ServerCheckBeam()
         {
             if (Type.Value == Kind.Mirrors && !Solved.Value && BeamHits()) ServerSolve();
         }
 
-        /// <summary>Server: the puzzle is done (both kinds).</summary>
         public void ServerSolve()
         {
             if (Solved.Value) return;
@@ -330,8 +294,6 @@ namespace Deepbound.World
                 for (int i = 0; i < 4; i++) { flash[i] = 1.4f; Sfx.Play(Sound.Toll, PlateAt(i) + Vector3.up, 0.4f, NotePitch[i] * 1.5f); }
         }
 
-        // ------------------------------------------------------------------ visuals
-
         private void Draw()
         {
             if (Centre.Value == Vector3.zero) return;
@@ -349,7 +311,7 @@ namespace Deepbound.World
                 if (cofferLock != null) ArtLibrary.SetGlow(cofferLock, Gold * (0.8f + seeing * 0.35f) * pulse);
                 return;
             }
-            // The tune: each note lights its plate for a beat and rings its bell (every peer plays it from the clock).
+
             double show = ShowAt.Value;
             if (show != lastShow) { lastShow = show; lastNote = -1; }
             if (show >= 0 && !Solved.Value)
@@ -368,7 +330,7 @@ namespace Deepbound.World
             for (int i = 0; i < 4; i++)
             {
                 flash[i] = Mathf.Max(0f, flash[i] - Time.deltaTime * 1.6f);
-                if (plateGlow[i] != null) ArtLibrary.SetGlow(plateGlow[i], NoteColour[i] * (Solved.Value ? 0.45f : 0.2f + Mathf.Min(1f, flash[i]) * 0.9f)); // glow over ~1.2 blooms the plate to white
+                if (plateGlow[i] != null) ArtLibrary.SetGlow(plateGlow[i], NoteColour[i] * (Solved.Value ? 0.45f : 0.2f + Mathf.Min(1f, flash[i]) * 0.9f));
                 if (plateTop[i] != null)
                 {
                     bool down = false;
@@ -384,8 +346,7 @@ namespace Deepbound.World
             built = true;
             var vis = new GameObject("PuzzleVis").transform;
             vis.SetParent(transform, false);
-            // Every part below is laid out in WORLD coordinates (the sigil, plates, lens, scale...): the root sits at the
-            // world origin. It sat at the coffer, which put the sigil stone and chime rings a whole room-offset away.
+
             vis.SetPositionAndRotation(Vector3.zero, Quaternion.identity);
             BuildCoffer(vis);
             if (Type.Value == Kind.Mirrors) BuildLens(vis);
@@ -394,7 +355,6 @@ namespace Deepbound.World
             else for (int i = 0; i < 4; i++) BuildPlate(vis, i);
         }
 
-        // ---- the scales, drawn
         private Transform scaleBeam, loadPan, weightPan;
         private float shownTilt;
         private byte builtTarget;
@@ -403,7 +363,7 @@ namespace Deepbound.World
         private void BuildScale(Transform vis)
         {
             var c = Centre.Value;
-            var rot = Quaternion.LookRotation(AxisB); // local x = A (the beam), local z = B (toward the coffer)
+            var rot = Quaternion.LookRotation(AxisB);
             var stand = MeshKit.Pivot(vis, "Scale", Vector3.zero);
             stand.SetPositionAndRotation(c, rot);
             MeshKit.Part(stand, "Base", MeshKit.Box(new Vector3(0.95f, 0.22f, 0.95f)), Mat.StoneWall, Vector3.up * 0.11f);
@@ -412,8 +372,7 @@ namespace Deepbound.World
             ArtLibrary.Tint(post.GetComponent<Renderer>(), Bronze * 0.8f);
             var crown = MeshKit.Part(stand, "Crown", MeshKit.Ball(0.11f, 10, 8), Mat.Gold, Vector3.up * (PivotY + 0.05f));
             ArtLibrary.Tint(crown.GetComponent<Renderer>(), Bronze * 1.2f);
-            // The pointer: a needle up from the beam's middle that stands straight when the scale is level, against a
-            // little dial on the post.
+
             var dial = MeshKit.Part(stand, "Dial", MeshKit.Box(new Vector3(0.5f, 0.05f, 0.03f)), Mat.Gold, new Vector3(0f, PivotY + 0.42f, 0.05f));
             ArtLibrary.Tint(dial.GetComponent<Renderer>(), Bronze);
             var mark = MeshKit.Part(stand, "LevelMark", MeshKit.Box(new Vector3(0.03f, 0.08f, 0.035f)), Mat.Glow, new Vector3(0f, PivotY + 0.48f, 0.05f));
@@ -427,7 +386,7 @@ namespace Deepbound.World
                 MeshKit.Part(scaleBeam, "Hook", MeshKit.Ball(0.06f, 8, 6), Mat.Steel, new Vector3(s * PanOffset, -0.04f, 0f));
             loadPan = BuildPan(vis, "LoadPan");
             weightPan = BuildPan(vis, "WeightPan");
-            // The counterweight: a dark stone block with the target in gold studs on both faces.
+
             builtTarget = Target.Value;
             var block = MeshKit.Pivot(weightPan, "Counterweight", Vector3.zero);
             block.localRotation = Quaternion.identity;
@@ -449,7 +408,6 @@ namespace Deepbound.World
             PlaceScale(shownTilt);
         }
 
-        /// <summary>A bronze pan (its origin on the pan's top face) and three chains up to the beam's hook.</summary>
         private Transform BuildPan(Transform vis, string name)
         {
             var pan = MeshKit.Pivot(vis, name, Vector3.zero);
@@ -491,7 +449,6 @@ namespace Deepbound.World
 
         private static GUIStyle scaleStyle;
 
-        /// <summary>Close to the scale: the load against the counterweight over the beam (gold level, red over).</summary>
         private void OnGUI()
         {
             useGUILayout = false;
@@ -517,13 +474,11 @@ namespace Deepbound.World
         private Transform beamRoot;
         private const float BeamY = 1.12f;
 
-        /// <summary>The lens on its pedestal (the light), the crystal on its plinth (where the light must go).</summary>
         private void BuildLens(Transform vis)
         {
             var floorY = Centre.Value.y;
             var src = GridPos(-GridEdge, SourceRow.Value);
-            // Pivot takes a LOCAL position and vis stands at the coffer: place these in world space (they sat a whole
-            // room-offset away, out past the walls, until 2026-11-08).
+
             var lens = MeshKit.Pivot(vis, "Lens", Vector3.zero);
             lens.position = new Vector3(src.x, floorY, src.z);
             lens.rotation = Quaternion.LookRotation(AxisA);
@@ -550,7 +505,6 @@ namespace Deepbound.World
             beamRoot = MeshKit.Pivot(vis, "Beam", Vector3.zero);
         }
 
-        /// <summary>The beam: one glowing bar per straight run, from the lens to each mirror and on.</summary>
         private void DrawBeam(float pulse)
         {
             if (beamRoot == null) return;
@@ -581,7 +535,6 @@ namespace Deepbound.World
             if (cofferLock != null) ArtLibrary.SetGlow(cofferLock, Gold * (hit ? 2f : 0.8f) * pulse);
         }
 
-        /// <summary>The sigil the watchers must look at: a gold ring cut into the floor with four rays.</summary>
         private void BuildSigil(Transform vis)
         {
             var c = Centre.Value;
@@ -604,7 +557,6 @@ namespace Deepbound.World
             sigil.Add(eye.GetComponent<Renderer>());
         }
 
-        /// <summary>A chime plate: a stone ring, a coloured glass face, and a small bell on a post at its outer edge.</summary>
         private void BuildPlate(Transform vis, int i)
         {
             var at = PlateAt(i);
@@ -614,7 +566,7 @@ namespace Deepbound.World
             face.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             plateGlow[i] = face.GetComponent<Renderer>();
             ArtLibrary.SetGlow(plateGlow[i], NoteColour[i] * 0.28f);
-            // The bell post, outside the plate (away from the middle) so nobody walks into it.
+
             var post = at + Axis(i) * (PlateRadius + 0.55f);
             MeshKit.Part(vis, "BellPost", MeshKit.Box(new Vector3(0.09f, 1.5f, 0.09f)), Mat.Wood, post + Vector3.up * 0.75f);
             MeshKit.Part(vis, "BellArm", MeshKit.Box(new Vector3(0.06f, 0.06f, 0.4f)), Mat.Wood, post + Vector3.up * 1.45f - Axis(i) * 0.18f, new Vector3(0f, i * 90f, 0f));
@@ -623,7 +575,6 @@ namespace Deepbound.World
             ArtLibrary.Tint(bell.GetComponent<Renderer>(), Color.Lerp(new Color(0.85f, 0.7f, 0.4f), NoteColour[i], 0.35f));
         }
 
-        /// <summary>The sealed coffer at the back (the real chest takes its place when it opens). Same hand as the Oath's.</summary>
         private void BuildCoffer(Transform vis)
         {
             coffer = new GameObject("PuzzleCoffer").transform;
@@ -644,7 +595,6 @@ namespace Deepbound.World
             ArtLibrary.SetGlow(cofferLock, Gold);
             if (Type.Value == Kind.Chimes)
             {
-                // The coffer's own bell, the one F rings.
                 var bell = MeshKit.Part(coffer, "CofferBell", MeshKit.Lathe("chimeBell", new[] { new Vector2(0.16f, 0f), new Vector2(0.13f, 0.06f), new Vector2(0.09f, 0.2f), new Vector2(0.04f, 0.26f), new Vector2(0f, 0.27f) }, 12),
                     Mat.Gold, new Vector3(0.48f, 1.01f, 0.2f));
                 ArtLibrary.Tint(bell.GetComponent<Renderer>(), new Color(0.85f, 0.7f, 0.4f));

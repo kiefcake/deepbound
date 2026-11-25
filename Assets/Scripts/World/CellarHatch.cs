@@ -7,23 +7,12 @@ using UnityEngine;
 
 namespace Deepbound.World
 {
-    /// <summary>
-    /// CELLAR VAULTS (2026-11-13, the user: "Vault rooms behind breakable floors. Smash a cracked floor tile to drop into a
-    /// small cellar room, with a rope to climb back out."). One prefab, two jobs:
-    /// <list type="bullet">
-    /// <item><see cref="Mode.Hatch"/>: a cracked flagstone in a side room (it has a <see cref="Health"/>, Team.Props: any blow
-    /// that lands breaks it). Broken, it is a dark hole; F drops you into the cellar below
-    /// (<see cref="DungeonLayout.Room.CellarCenter"/>), unhurt.</item>
-    /// <item><see cref="Mode.Rope"/>: the rope hanging under the hole; F climbs back up beside it.</item>
-    /// </list>
-    /// The cellar itself is built by <see cref="DungeonBuilder"/>; what is in it, by <see cref="DungeonDirector"/>.SpawnCellars.
-    /// </summary>
     public class CellarHatch : Interactable
     {
         public enum Mode : byte { Hatch = 0, Rope = 1 }
         public readonly NetworkVariable<byte> Kind = new NetworkVariable<byte>();
         public readonly NetworkVariable<bool> Broken = new NetworkVariable<bool>();
-        /// <summary>Where using it puts you (the cellar floor for a hatch, beside the hole for the rope).</summary>
+
         public readonly NetworkVariable<Vector3> Leads = new NetworkVariable<Vector3>();
 
         private Transform tile, hole;
@@ -52,7 +41,6 @@ namespace Deepbound.World
             UsedRpc(What == Mode.Hatch, transform.position);
         }
 
-        /// <summary>Server: break the tile (a blow, or a test).</summary>
         public void ServerBreak()
         {
             if (Broken.Value || What != Mode.Hatch) return;
@@ -88,10 +76,8 @@ namespace Deepbound.World
             }
             if (!Broken.Value)
             {
-                // A paler flagstone, split across with dark cracks, a hair proud of the floor.
                 var t = MeshKit.Part(transform, "Tile", MeshKit.Box(new Vector3(1.3f, 0.05f, 1.3f)), Mat.Flagstone, Vector3.up * 0.025f);
-                // 2026-11-13 shots: it read as a plain dark square. Paler stone, a pale chipped edge, and the cracks breathe a
-                // faint cold light from the vault below (with dust drifting up through them, Update).
+
                 ArtLibrary.Tint(t.GetComponent<Renderer>(), new Color(0.7f, 0.66f, 0.6f));
                 foreach (var (ex, ez, sx, sz) in new[] { (0f, 0.66f, 1.34f, 0.05f), (0f, -0.66f, 1.34f, 0.05f), (0.66f, 0f, 0.05f, 1.34f), (-0.66f, 0f, 0.05f, 1.34f) })
                 {
@@ -107,7 +93,7 @@ namespace Deepbound.World
                 tile = t.transform;
                 return;
             }
-            // The hole: a black square with broken edges, the rope's top tied off on a stake.
+
             var holeGo = MeshKit.Part(transform, "Hole", MeshKit.Box(new Vector3(1.1f, 0.02f, 1.1f)), Mat.Dark, Vector3.up * 0.012f);
             ArtLibrary.Tint(holeGo.GetComponent<Renderer>(), new Color(0.01f, 0.01f, 0.01f));
             hole = holeGo.transform;

@@ -5,14 +5,6 @@ using UnityEngine;
 
 namespace Deepbound.Enemies
 {
-    /// <summary>
-    /// The Choir Acolyte (2026-10-20, the Black Cathedral's own dead): a pale chorister with a censer that
-    /// hangs back behind the others and sings. Every so often it stands still and raises a HYMN (a golden
-    /// circle fills under it for <see cref="HymnSeconds"/>); if the hymn finishes, every one of the dead in
-    /// the circle is SHIELDED for a quarter of a quarter of its health. Stun it, or hit it hard
-    /// (<see cref="BreakFraction"/> of its health) while it sings, and the hymn breaks. It throws a feeble
-    /// spark when it has nothing to sing for.
-    /// </summary>
     public class ChoirAcolyteBrain : EnemyBrain
     {
         public const float HymnSeconds = 2.6f, HymnRadius = 9f, HymnCooldown = 11f, WardFraction = 0.25f, WardSeconds = 14f, BreakFraction = 0.12f;
@@ -20,7 +12,6 @@ namespace Deepbound.Enemies
 
         private float nextHymn, hymnEnds = -1f, hymnHealth;
 
-        /// <summary>Server, for tests.</summary>
         public bool Singing => hymnEnds > 0f;
         public int HymnsSung { get; private set; }
         public int HymnsBroken { get; private set; }
@@ -56,10 +47,8 @@ namespace Deepbound.Enemies
             return true;
         }
 
-        /// <summary>Server, for tests: let it sing again at once.</summary>
         public void ServerDebugResetHymn() { nextHymn = 0f; hymnEnds = -1f; }
 
-        /// <summary>Server: start singing (tests call it directly).</summary>
         public void ServerBeginHymn()
         {
             if (!IsServer || IsDead || Singing) return;
@@ -86,7 +75,7 @@ namespace Deepbound.Enemies
             if (IsServer && !IsDead && Singing)
             {
                 if (agent.enabled && agent.isOnNavMesh) agent.isStopped = true;
-                // A hard blow breaks the song.
+
                 if (hymnHealth - health.Current.Value >= health.Max.Value * BreakFraction) { ServerBreakHymn(); return; }
                 if (Time.time >= hymnEnds)
                 {
@@ -95,7 +84,6 @@ namespace Deepbound.Enemies
                     var warded = new System.Collections.Generic.List<Vector3>();
                     foreach (var e in All)
                     {
-                        // Never itself: breaking the singer has to stay possible.
                         if (e == null || e == this || e.IsDead || e is BossBrain || (e.transform.position - transform.position).sqrMagnitude > HymnRadius * HymnRadius) continue;
                         var h = e.GetComponent<Health>();
                         h.ServerShield(h.Max.Value * WardFraction, WardSeconds);
@@ -127,7 +115,7 @@ namespace Deepbound.Enemies
         private void HymnBeginRpc(Vector3 at)
         {
             Telegraph.Show(at, HymnRadius, HymnSeconds, this, Gilt);
-            Sfx.Play(Sound.Toll, at + Vector3.up * 1.6f, 0.7f, 0.7f); // not the revive chime: this is the enemy's hymn
+            Sfx.Play(Sound.Toll, at + Vector3.up * 1.6f, 0.7f, 0.7f);
             Sfx.Play(Sound.Whisper, at + Vector3.up * 1.6f, 0.8f, 1.3f);
         }
 

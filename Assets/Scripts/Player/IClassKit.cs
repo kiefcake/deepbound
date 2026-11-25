@@ -4,26 +4,19 @@ using UnityEngine;
 
 namespace Deepbound.Player
 {
-    /// <summary>One ability slot as the HUD draws it.</summary>
     public struct AbilityView
     {
         public string Key;
         public string Name;
-        /// <summary>Seconds until ready; 0 or less when ready.</summary>
+
         public float Remaining;
         public float Cooldown;
-        /// <summary>Highlighted: held (block) or a buff running (War Cry).</summary>
+
         public bool Active;
-        /// <summary>Cannot afford it right now (resource), drawn dimmed.</summary>
+
         public bool Unaffordable;
     }
 
-    /// <summary>
-    /// What every class kit exposes to the rest of the game. Every kit component lives on
-    /// the player prefab; only the one matching the player's chosen class acts. Keeping
-    /// them all present (rather than adding and removing NetworkBehaviours) keeps the
-    /// prefab's network identity fixed, which NGO requires.
-    /// </summary>
     public interface IClassKit
     {
         ClassId Class { get; }
@@ -33,20 +26,14 @@ namespace Deepbound.Player
         float ResourceMax { get; }
         void FillAbilities(List<AbilityView> into);
 
-        /// <summary>What the resource is doing for you right now, in a few words, drawn inside its bar (2026-11-22, the
-        /// user: "plague doctors reagents doesn't seem to have any purpose", "explain flagellant bar also"). "" for none.</summary>
         string ResourceHint => "";
 
-        /// <summary>0-1 while charging something (the Ranger's bow draw); the HUD shows a meter.</summary>
         float Charge => 0f;
 
-        /// <summary>How far the primary attack reaches right now (metres), for the HUD.</summary>
         float AttackRange => 0f;
 
-        /// <summary>Owner: a mana potion. Refill this fraction of the resource.</summary>
         void RestoreResource(float fraction);
 
-        /// <summary>Owner: take this many seconds off Q and E (the Cracked Hourglass, on a kill).</summary>
         void ShaveCooldowns(float seconds) { }
     }
 }

@@ -2,21 +2,11 @@ using UnityEngine;
 
 namespace Deepbound.Art
 {
-    /// <summary>The Flagellant and the Plague Doctor (2026-10-20): bodies and first-person hands.</summary>
     public static partial class CharacterArt
     {
         private static readonly Color PaleSkin = new Color(0.78f, 0.66f, 0.58f);
         private static readonly Color PlagueGreen = new Color(0.55f, 1f, 0.35f);
 
-        // ------------------------------------------------------------------
-        // Flagellant: a penitent zealot, scarred and bare to the waist
-        // ------------------------------------------------------------------
-
-        /// <summary>
-        /// The Flagellant: bare scarred torso crossed by chains and a rope, a sackcloth skirt in the
-        /// party colour, an iron crown of thorns on a shaved head, a spiked flail in the right hand
-        /// and a knotted scourge in the left. Broad and hunched: a brawler, not a knight.
-        /// </summary>
         public static HumanoidRig BuildFlagellant(Transform root, Color teamColor)
         {
             var visual = MeshKit.Pivot(root, "FlagellantVisual", Vector3.zero);
@@ -33,7 +23,6 @@ namespace Deepbound.Art
             ArtLibrary.Tint(skirt.GetComponent<Renderer>(), sack);
             for (int i = 0; i < 7; i++)
             {
-                // Torn strips hanging from the hem.
                 float a = (i * 51f + 10f) * Mathf.Deg2Rad;
                 var strip = MeshKit.Part(rig.Hips, "Tatter" + i, MeshKit.Box(new Vector3(0.08f, 0.16f, 0.015f)), Mat.Cloth, new Vector3(Mathf.Sin(a) * 0.29f, -0.66f, Mathf.Cos(a) * 0.29f), new Vector3(0f, i * 51f + 10f, 0f));
                 ArtLibrary.Tint(strip.GetComponent<Renderer>(), sack * 0.8f);
@@ -43,7 +32,7 @@ namespace Deepbound.Art
             MeshKit.Part(rig.Hips, "RopeEnd", MeshKit.Box(new Vector3(0.025f, 0.3f, 0.025f)), Mat.Wood, new Vector3(0.11f, -0.16f, 0.19f));
 
             rig.Torso = MeshKit.Pivot(rig.Hips, "Torso", Vector3.zero);
-            // A broad bare chest, leaning forward; welts across the back, chains crossing the front.
+
             var chest = MeshKit.Part(rig.Torso, "Chest", MeshKit.Lathe("flagChest", new[]
             {
                 new Vector2(0.2f, 0f), new Vector2(0.23f, 0.18f), new Vector2(0.27f, 0.4f), new Vector2(0.25f, 0.54f), new Vector2(0.1f, 0.62f),
@@ -62,7 +51,7 @@ namespace Deepbound.Art
             ArtLibrary.Tint(tabard.GetComponent<Renderer>(), teamColor);
             MeshKit.Part(rig.Torso, "PenanceMark", MeshKit.Box(new Vector3(0.025f, 0.14f, 0.015f)), Mat.Gold, new Vector3(0f, 0.29f, 0.222f));
             MeshKit.Part(rig.Torso, "PenanceMarkH", MeshKit.Box(new Vector3(0.09f, 0.025f, 0.015f)), Mat.Gold, new Vector3(0f, 0.33f, 0.222f));
-            // A ragged sackcloth cape off the shoulders (and so a cloak the tailor's dyes can colour).
+
             var cape = sack * 0.7f;
             cape.a = 1f;
             GothicKit.Cloak(rig.Torso, cape, 0.95f, 0.14f, teamColor * 0.6f, tattered: true);
@@ -76,7 +65,7 @@ namespace Deepbound.Art
             var eyeR = MeshKit.Part(rig.Head, "EyeR", MeshKit.Ball(0.014f, 6, 4), Mat.Glow, new Vector3(0.04f, 0.14f, 0.12f));
             var beard = MeshKit.Part(rig.Head, "Beard", MeshKit.Lathe("flagBeard", new[] { new Vector2(0.09f, 0f), new Vector2(0.07f, -0.08f), new Vector2(0f, -0.14f) }, 7), Mat.Cloth, new Vector3(0f, 0.07f, 0.05f), Vector3.zero, new Vector3(1f, 1f, 0.7f));
             ArtLibrary.Tint(beard.GetComponent<Renderer>(), new Color(0.2f, 0.16f, 0.13f));
-            // The crown of thorns: an iron band with spikes.
+
             MeshKit.Part(rig.Head, "Crown", MeshKit.Cylinder(0.13f, 0.13f, 0.035f, 12), Mat.Steel, new Vector3(0f, 0.2f, 0f));
             for (int i = 0; i < 10; i++)
             {
@@ -97,7 +86,6 @@ namespace Deepbound.Art
             return rig;
         }
 
-        /// <summary>A bare, scarred arm with a leather wrap at the wrist.</summary>
         private static Transform BuildBareArm(Transform torso, string name, float side)
         {
             var shoulder = MeshKit.Pivot(torso, name, new Vector3(0.29f * side, 0.5f, 0f));
@@ -112,7 +100,6 @@ namespace Deepbound.Art
             return shoulder;
         }
 
-        /// <summary>A haft, a short chain and a spiked iron ball. The ball hangs along local +Y from the head of the haft.</summary>
         public static void BuildFlail(Transform grip, float scale, out Transform ball, out Transform tip)
         {
             MeshKit.Part(grip, "Haft", MeshKit.Cylinder(0.022f * scale, 0.026f * scale, 0.46f * scale, 8), Mat.Wood, new Vector3(0f, 0.12f * scale, 0f));
@@ -130,7 +117,6 @@ namespace Deepbound.Art
             tip = MeshKit.Pivot(ball, "TipMark", Vector3.zero);
         }
 
-        /// <summary>A short knotted scourge: a handle and five cords with lead tips.</summary>
         private static void BuildScourge(Transform grip, float scale)
         {
             MeshKit.Part(grip, "Handle", MeshKit.Cylinder(0.018f * scale, 0.02f * scale, 0.16f * scale, 6), Mat.Leather, Vector3.zero);
@@ -143,7 +129,6 @@ namespace Deepbound.Art
             }
         }
 
-        /// <summary>First-person Flagellant: the flail in the right fist, the scourge in the left, bare scarred forearms.</summary>
         public static ViewModel BuildFlagellantViewModel(Transform camera, Color teamColor)
         {
             var root = MeshKit.Pivot(camera, "ViewModel", Vector3.zero);
@@ -173,15 +158,6 @@ namespace Deepbound.Art
             return new ViewModel { Root = root, SwordPivot = right, ShieldPivot = left, TipR = tip, EdgeR = edge };
         }
 
-        // ------------------------------------------------------------------
-        // Plague Doctor: beaked mask, wide hat, long waxed coat
-        // ------------------------------------------------------------------
-
-        /// <summary>
-        /// The Plague Doctor: a wide-brimmed hat over a long beaked mask with round glass eyes that
-        /// glow green, a waxed leather greatcoat to the ankles, a bandolier of glowing vials, a cane
-        /// with a skull head in the right hand. Tall, narrow, the beak is the silhouette.
-        /// </summary>
         public static HumanoidRig BuildPlagueDoctor(Transform root, Color teamColor)
         {
             var visual = MeshKit.Pivot(root, "PlagueDoctorVisual", Vector3.zero);
@@ -204,7 +180,7 @@ namespace Deepbound.Art
             ArtLibrary.Tint(body.GetComponent<Renderer>(), coat);
             for (int i = 0; i < 5; i++)
                 MeshKit.Part(rig.Torso, "Button" + i, MeshKit.Ball(0.016f, 5, 3), Mat.Gold, new Vector3(0.04f, 0.1f + i * 0.1f, 0.19f));
-            // A bandolier of glowing vials, a belt with a satchel.
+
             MeshKit.Part(rig.Torso, "Bandolier", MeshKit.Box(new Vector3(0.06f, 0.62f, 0.4f)), Mat.Leather, new Vector3(0f, 0.3f, 0f), new Vector3(0f, 0f, 34f));
             var vials = new System.Collections.Generic.List<Renderer>();
             for (int i = 0; i < 4; i++)
@@ -226,7 +202,7 @@ namespace Deepbound.Art
             rig.Head = MeshKit.Pivot(rig.Torso, "Head", new Vector3(0f, 0.62f, 0f));
             var hood = MeshKit.Part(rig.Head, "Coif", MeshKit.Ball(0.135f, 9, 7), Mat.Leather, new Vector3(0f, 0.14f, -0.01f));
             ArtLibrary.Tint(hood.GetComponent<Renderer>(), coat * 1.2f);
-            // The mask: a pale leather face, two round glass eyes, and the long curved beak.
+
             var face = MeshKit.Part(rig.Head, "MaskFace", MeshKit.Ball(0.12f, 9, 7), Mat.Leather, new Vector3(0f, 0.14f, 0.04f), Vector3.zero, new Vector3(1f, 1f, 0.7f));
             ArtLibrary.Tint(face.GetComponent<Renderer>(), new Color(0.75f, 0.68f, 0.55f));
             var beak = MeshKit.Part(rig.Head, "Beak", MeshKit.Lathe("pdBeak", new[]
@@ -239,7 +215,7 @@ namespace Deepbound.Art
             var lensR = MeshKit.Part(rig.Head, "LensR", MeshKit.Cylinder(0.032f, 0.032f, 0.02f, 10), Mat.Glow, new Vector3(0.05f, 0.17f, 0.115f), new Vector3(90f, 0f, 0f));
             foreach (float x in new[] { -0.05f, 0.05f })
                 MeshKit.Part(rig.Head, "Rim", MeshKit.Cylinder(0.038f, 0.038f, 0.012f, 10), Mat.Gold, new Vector3(x, 0.17f, 0.11f), new Vector3(90f, 0f, 0f));
-            // The hat: a flat crown and a wide brim, a band in the party colour.
+
             MeshKit.Part(rig.Head, "Brim", MeshKit.Cylinder(0.3f, 0.3f, 0.02f, 16), Mat.Leather, new Vector3(0f, 0.25f, 0f), new Vector3(-4f, 0f, 0f));
             MeshKit.Part(rig.Head, "Crown", MeshKit.Cylinder(0.14f, 0.15f, 0.16f, 12), Mat.Leather, new Vector3(0f, 0.33f, -0.01f));
             var band = MeshKit.Part(rig.Head, "Band", MeshKit.Cylinder(0.152f, 0.152f, 0.035f, 12), Mat.Cloth, new Vector3(0f, 0.28f, -0.01f));
@@ -262,7 +238,6 @@ namespace Deepbound.Art
             return rig;
         }
 
-        /// <summary>First-person Plague Doctor: the skull cane in the right hand, a glowing vial in the left.</summary>
         public static ViewModel BuildPlagueDoctorViewModel(Transform camera, Color teamColor)
         {
             var root = MeshKit.Pivot(camera, "ViewModel", Vector3.zero);

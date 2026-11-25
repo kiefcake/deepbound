@@ -7,23 +7,6 @@ using UnityEngine.AI;
 
 namespace Deepbound.Enemies
 {
-    /// <summary>
-    /// The Gravewarden: floor 1's boss, and the fight that teaches positioning.
-    ///
-    /// <list type="bullet">
-    /// <item><b>Tower Shield</b> (passive) — hits from the front deal a quarter damage (two
-    ///   fifths when you fight it alone), with a loud clang so you know. Answer: the tank holds
-    ///   its attention while everyone else works its back and flanks — and right after each
-    ///   Mace Sweep the shield is wide open (OPENING) for a moment, from any side.</item>
-    /// <item><b>Mace Sweep</b> — a wide, slow melee arc. Answer: block, or step back.</item>
-    /// <item><b>Gaoler's Charge</b> — a red lane fills from its feet toward a player; then it
-    ///   charges down the lane, trampling and flinging everyone in it. Answer: step out of
-    ///   the lane — and if it slams into a wall or pillar, it is <b>dazed</b>: shield down,
-    ///   taking extra damage from every side. Baiting the charge into stone is the fight.
-    ///   A Shield Bash during the wind-up cancels it.</item>
-    /// </list>
-    /// Below 30% it enrages and charges twice as often.
-    /// </summary>
     public class GravewardenBrain : BossBrain
     {
         protected override DashStyle Dash => DashStyle.ShieldCharge;
@@ -34,16 +17,14 @@ namespace Deepbound.Enemies
         [SerializeField] private float chargeMaxLength = 20f;
         [SerializeField] private float dazeSeconds = 2.8f;
         [SerializeField] private float frontalDamageTaken = 0.25f;
-        // Solo there is nobody to flank with: the shield turns less aside.
+
         [SerializeField] private float frontalDamageTakenSolo = 0.55f;
-        // After every Mace Sweep the shield swings wide for a moment: hit it then.
+
         [SerializeField] private float openingSeconds = 1.2f;
         private float openUntil;
 
-        /// <summary>For the balance report: how the shield treats a solo player.</summary>
         public const float SoloFrontal = 0.4f, Opening = 1.2f, SweepCycle = 0.9f + 1.1f;
 
-        /// <summary>The shield is wide after a sweep (anyone can read it from the animation).</summary>
         public bool Opened => Time.time < openUntil;
         [SerializeField] private float dazedDamageTaken = 1.5f;
 
@@ -74,9 +55,8 @@ namespace Deepbound.Enemies
             }
         }
 
-        private bool Enraged => health.Fraction < 0.3f;
+        private bool Desperate => health.Fraction < 0.3f;
 
-        // ---- Phases ----
         protected override float[] PhaseGates => new[] { 0.5f, 0.2f };
         private bool lastStand;
         private float nextExhale;
@@ -89,7 +69,6 @@ namespace Deepbound.Enemies
             else
                 Transition("Last Stand", "No more walls between us. Only the grave.", 2.4f, () =>
                 {
-                    // The tower shield is thrown down: no more frontal guard, but every blow comes faster.
                     lastStand = true;
                     nextExhale = Time.time + 4f;
                     moveSpeed *= 1.12f;
@@ -114,7 +93,7 @@ namespace Deepbound.Enemies
 
             var to = attackerPosition - transform.position;
             to.y = 0f;
-            // A hit with no direction (a burn, a proc at its own feet) is not a blow at the shield: it used to always clang.
+
             if (to.sqrMagnitude < 0.25f) return damage;
             if (!lastStand && charge != ChargeState.Charging && !Opened && Vector3.Angle(transform.forward, to) < 55f)
             {
@@ -124,7 +103,6 @@ namespace Deepbound.Enemies
             return damage;
         }
 
-        // ---- Grave Rend (below half health): a line of bone spikes rips toward every player. ----
         private float nextRend = -1f;
         private struct Rend { public Vector3 From, Dir; public float When; }
         private readonly System.Collections.Generic.List<Rend> rends = new System.Collections.Generic.List<Rend>();
@@ -196,8 +174,7 @@ namespace Deepbound.Enemies
         {
             if (HeldByStun()) return;
             if (IsServer && !IsDead) ResolveRends();
-            // Last Stand (2026-10-23, the first act boss had no bullet pattern): every 11 s the grave exhales two
-            // slow pinwheels of souls that circle it, the game's first taste of what the deeper bosses throw.
+
             if (IsServer && !IsDead && lastStand && charge == ChargeState.None && !Dazed && Time.time >= nextExhale && !PatternRunning)
             {
                 nextExhale = Time.time + 11f;
@@ -232,7 +209,6 @@ namespace Deepbound.Enemies
             base.Update();
         }
 
-        // Shield Quake: the Warden slams its shield and the floor ripples out.
         protected override float ShockwaveCooldown => 13f;
         protected override Color ShockwaveColor => new Color(1f, 0.55f, 0.2f);
 
@@ -257,7 +233,7 @@ namespace Deepbound.Enemies
         protected override void Strike()
         {
             base.Strike();
-            // The sweep carries the shield arm round with it: an opening.
+
             openUntil = Time.time + openingSeconds;
             OpeningRpc();
         }
@@ -271,19 +247,17 @@ namespace Deepbound.Enemies
 
         private void BeginChargeWindup()
         {
-            // Aimed where its quarry is going, not where it stands.
             chargeDir = (target.TryGetComponent<Player.PlayerLife>(out var quarry) ? PredictedFeet(quarry, Tell(chargeWindup)) : target.transform.position) - transform.position;
             chargeDir.y = 0f;
             chargeDir.Normalize();
 
-            // The lane runs until it meets the navmesh edge — a wall, or a pillar's footprint.
             var from = transform.position;
             chargeLength = chargeMaxLength;
             if (NavMesh.Raycast(from, from + chargeDir * chargeMaxLength, out var hit, NavMesh.AllAreas)) chargeLength = hit.distance;
 
             charge = ChargeState.Windup;
             chargeAt = Time.time + Tell(chargeWindup);
-            nextCharge = Time.time + (Enraged ? chargeCooldown * 0.5f : chargeCooldown);
+            nextCharge = Time.time + (Desperate ? chargeCooldown * 0.5f : chargeCooldown);
             trampled.Clear();
 
             Debug.Log("[Boss] Gravewarden charge wind-up, lane " + chargeLength.ToString("F1") + "m");
@@ -310,14 +284,12 @@ namespace Deepbound.Enemies
             {
                 if (!trampled.Add(victim)) continue;
                 victim.ServerDamage(Signature(chargeDamage), transform.position - chargeDir, NetworkObjectId);
-                // Flung aside and back, out of the lane.
+
                 var side = Vector3.Cross(Vector3.up, chargeDir);
                 if (Vector3.Dot(victim.transform.position - transform.position, side) < 0f) side = -side;
                 KnockPlayer(victim, (side * 1.2f + chargeDir).normalized * 13f + Vector3.up * 4f);
             }
 
-            // Stopped short of a full step: it ran into something solid. The lane was
-            // measured to the navmesh edge, so reaching its end against a wall counts too.
             bool blocked = moved < step * 0.4f;
             if (blocked)
             {
@@ -354,13 +326,12 @@ namespace Deepbound.Enemies
 
         public override void ServerStun(float seconds)
         {
-            // A bash during the wind-up stops the charge before it starts.
             if (charge == ChargeState.Windup)
             {
                 charge = ChargeState.None;
                 CancelTelegraphRpc();
             }
-            if (charge == ChargeState.Charging) return; // you cannot bash a charging bull
+            if (charge == ChargeState.Charging) return;
             base.ServerStun(Mathf.Min(seconds, 0.5f));
         }
 

@@ -5,11 +5,6 @@ using UnityEngine;
 
 namespace Deepbound.World
 {
-    /// <summary>
-    /// The Omen Stone by the carriage: before a run sets out, anyone can turn it to choose
-    /// the run's omen — a twist that makes the descent harder in one particular way, and
-    /// pays it back (a perk, and more Renown at the end).
-    /// </summary>
     public class OmenStone : Interactable
     {
         private Renderer rune;

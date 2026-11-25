@@ -6,13 +6,6 @@ using UnityEngine;
 
 namespace Deepbound.Enemies
 {
-    /// <summary>
-    /// The Tongueless Cantor (2026-10-27, RESEARCH.md's Silence afflicter): a gagged chorister of the Throne
-    /// and the Cathedral, ringing a bell with no clapper. It hangs back and casts the HUSH: a pale circle opens
-    /// under someone (where they are heading), and whoever is inside when it closes is SILENCED - no Q, E or
-    /// ultimate for a few seconds (attacks, blocks, dodges and potions still work). Step out of the circle;
-    /// Holy Water or a Cleric's cleanse lifts it; a stun snuffs the cast. Frail: reach it.
-    /// </summary>
     public class CantorBrain : EnemyBrain
     {
         [SerializeField] private float preferredRange = 10f, hushCooldown = 9f, hushWindup = 1.4f;
@@ -20,7 +13,7 @@ namespace Deepbound.Enemies
         public static readonly Color HushColor = new Color(0.78f, 0.78f, 1f);
         private float nextHush, hushAt = -1f;
         private Vector3 hushSpot;
-        /// <summary>For tests: hushes that closed, and players they silenced.</summary>
+
         public int Hushes { get; private set; }
         public int Silenced { get; private set; }
 
@@ -66,7 +59,6 @@ namespace Deepbound.Enemies
             HushWarnRpc(at, HushRadius, windup);
         }
 
-        /// <summary>For tests: hush the floor at <paramref name="at"/> now.</summary>
         public void ServerDebugHush(Vector3 at, float windup) => BeginHush(at, windup);
 
         protected override void Update()
@@ -103,7 +95,7 @@ namespace Deepbound.Enemies
         private void HushWarnRpc(Vector3 at, float radius, float seconds)
         {
             Telegraph.Show(at, radius, seconds, this, new Color(HushColor.r, HushColor.g, HushColor.b, 0.22f));
-            // A bell with no clapper: you hear the swing, never the note.
+
             Sfx.Play(Sound.Toll, transform.position + Vector3.up * 1.6f, 0.35f, 1.9f);
         }
 

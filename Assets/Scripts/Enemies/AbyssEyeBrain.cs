@@ -5,13 +5,6 @@ using UnityEngine;
 
 namespace Deepbound.Enemies
 {
-    /// <summary>
-    /// The Abyssal Eye (2026-10-20, the Abyss's own dead): a floating eye that keeps its distance and stares.
-    /// Every so often it LOCKS ON: a beam line is drawn on the floor toward where you are going and its iris
-    /// flares for <see cref="LockSeconds"/>, then a beam lances down that line (to the first wall) and hurts
-    /// everyone in it. Step off the line. Between beams it spits small motes. The eye itself is its head and
-    /// its iris a weak point.
-    /// </summary>
     public class AbyssEyeBrain : EnemyBrain
     {
         public const float LockSeconds = 1.1f, BeamCooldown = 6.5f, BeamLength = 22f, BeamWidth = 0.55f, BeamMultiplier = 2.4f;
@@ -20,10 +13,9 @@ namespace Deepbound.Enemies
         private float nextBeam, fireAt = -1f;
         private Vector3 beamFrom, beamDir;
 
-        /// <summary>Server, for tests.</summary>
         public int BeamsFired { get; private set; }
         public float LastBeamDealt { get; private set; }
-        /// <summary>Server, for tests: the last beam's reach and what stopped it.</summary>
+
         public float LastBeamLength { get; private set; }
         public static string LastBlocker { get; private set; } = "";
 
@@ -52,7 +44,6 @@ namespace Deepbound.Enemies
             return true;
         }
 
-        /// <summary>Server: lock on to a target (tests call it directly).</summary>
         public void ServerLockOn(Health who)
         {
             if (!IsServer || IsDead || who == null) return;
@@ -60,9 +51,7 @@ namespace Deepbound.Enemies
             fireAt = Time.time + LockSeconds * Difficulty.Tell(World.DungeonDirector.Instance != null ? World.DungeonDirector.Instance.Floor.Value.y : 0);
             busyUntil = fireAt + 0.4f;
             beamFrom = EyeAt;
-            // Aim where they are going (at their chest, up or down a ramp too); the floor line shows its path,
-            // so a sidestep is the answer.
-            // Locks onto the one it was told to (AimDir leads its current target, which can be someone else).
+
             target = who;
             var aim = AimDir(beamFrom, 40f);
             beamDir = aim.sqrMagnitude > 0.01f ? aim.normalized : transform.forward;
@@ -74,7 +63,6 @@ namespace Deepbound.Enemies
 
         private static float BeamReach(Vector3 from, Vector3 dir)
         {
-            // To the first wall or prop (bodies do not stop it).
             float best = BeamLength;
             LastBlocker = "nothing";
             foreach (var hit in Physics.RaycastAll(from, dir, BeamLength, ~0, QueryTriggerInteraction.Ignore))
@@ -94,13 +82,13 @@ namespace Deepbound.Enemies
                 BeamsFired++;
                 float len = BeamReach(beamFrom, beamDir);
                 LastBeamLength = len;
-                // The beam slopes from the eye down to chest height along its length.
+
                 var end = beamFrom + beamDir * len;
                 LastBeamDealt = 0f;
                 foreach (var p in Player.PlayerLife.All)
                 {
                     if (p == null || p.Downed.Value || p.Health == null || !p.Health.IsAlive) continue;
-                    // The beam and a band under it (a slide does not duck it).
+
                     if (!p.Health.SegmentTouchesBody(beamFrom, end, BeamWidth) && !p.Health.SegmentTouchesBody(beamFrom + Vector3.down * 0.7f, end + Vector3.down * 0.7f, BeamWidth)) continue;
                     LastBeamDealt += p.Health.ServerDamage(damage * BeamMultiplier, beamFrom, NetworkObjectId);
                 }

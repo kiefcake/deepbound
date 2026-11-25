@@ -4,11 +4,6 @@ using UnityEngine;
 
 namespace Deepbound.Art
 {
-    /// <summary>
-    /// Blood on the flagstones (2026-11-01, the retro gothic pass): a player who takes a real blow (3%+ of their health)
-    /// leaves a dark splat or two at their feet, sized by the blow, fading over <see cref="Life"/> seconds, so a hard
-    /// fight leaves its trail. Players only (the dead here are bone). Every peer, near the camera only; rate-limited.
-    /// </summary>
     public static class BloodSpatter
     {
         public const float Life = 25f, MinFraction = 0.03f, Earshot = 30f;
@@ -35,7 +30,6 @@ namespace Deepbound.Art
             Splash(who.transform.position, k);
         }
 
-        /// <summary>The splat itself (screenshots stage it in front of the camera).</summary>
         public static void Splash(Vector3 at, float k)
         {
             int drops = k > 0.12f ? 2 : 1;

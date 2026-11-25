@@ -2,11 +2,6 @@ using UnityEngine;
 
 namespace Deepbound.Art
 {
-    /// <summary>
-    /// The Ranger's Snare Shot net (2026-11-01, replacing the bear trap): a weighted rope net that flies open where the
-    /// arrow strikes, settles over the floor with stones on its rim, and lies there while what it caught is held, then
-    /// sinks away. Local only; the server decides who is caught.
-    /// </summary>
     public class SnareNet : MonoBehaviour
     {
         private const int Spokes = 16, Rings = 5;
@@ -32,7 +27,7 @@ namespace Deepbound.Art
         {
             var strand = MeshKit.Box(new Vector3(0.016f, 0.02f, 1f));
             var stone = MeshKit.Ball(0.03f, 6, 4);
-            // Spokes from the knot at the middle to the rim; rings of rope across them; a stone weight at each spoke's end.
+
             for (int s = 0; s < Spokes; s++)
             {
                 float a = s * 360f / Spokes;
@@ -61,7 +56,7 @@ namespace Deepbound.Art
         private void Update()
         {
             float age = Time.time - born;
-            // Flies open in a fifth of a second (overshooting a little), drapes, and at the end sinks into the floor.
+
             float open = age < 0.2f ? Mathf.SmoothStep(0.15f, 1.06f, age / 0.2f) : Mathf.Lerp(1.06f, 1f, Mathf.Clamp01((age - 0.2f) / 0.15f));
             float sink = age > seconds ? Mathf.Clamp01((age - seconds) / 0.5f) : 0f;
             transform.localScale = new Vector3(radius * open, 1f + 2f * Mathf.Max(0f, 0.2f - age), radius * open);

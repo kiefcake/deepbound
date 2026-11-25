@@ -2,12 +2,6 @@ using UnityEngine;
 
 namespace Deepbound.Art
 {
-    /// <summary>
-    /// The dead are never quite silent (2026-10-20, first-person tension): every so often a creature makes a
-    /// small sound of its own (bones knocking, a wraith's whisper, an acolyte humming, an eye's wet hiss),
-    /// quieter than combat and only within earshot, so you hear a room before you see it. Local to each
-    /// peer: nothing is sent.
-    /// </summary>
     public class EnemyMurmur : MonoBehaviour
     {
         public const float Earshot = 20f;
@@ -37,7 +31,7 @@ namespace Deepbound.Art
                 case "WitheringHagBrain": sound = Sound.Whisper; pitch = 1.3f; volume = 0.25f; height = 1.4f; break;
                 case "BonePiperBrain": sound = Sound.Pipe; pitch = 0.6f; volume = 0.2f; height = 1.3f; break;
                 case "PlaguebearerBrain": sound = Sound.Slime; pitch = 0.8f; volume = 0.35f; height = 1f; break;
-                case "MournerBrain": case "GargoyleBrain": case "MimicBrain": sound = Sound.Rattle; volume = 0f; break; // statues and chests keep their silence
+                case "MournerBrain": case "GargoyleBrain": case "MimicBrain": sound = Sound.Rattle; volume = 0f; break;
                 default: sound = Sound.Rattle; pitch = 0.85f; volume = 0.28f; height = 1.2f; break;
             }
         }
@@ -49,7 +43,7 @@ namespace Deepbound.Art
             if (brain.IsDead) return;
             var cam = ViewCamera.Current;
             if (cam == null || Vector3.Distance(cam.transform.position, transform.position) > Earshot) return;
-            // A crowded room murmurs, it does not chatter: one at a time across the whole level.
+
             if (Time.time < globalNext) return;
             globalNext = Time.time + 0.7f;
             Sfx.Play(sound, transform.position + Vector3.up * height, volume, pitch * Random.Range(0.92f, 1.08f));

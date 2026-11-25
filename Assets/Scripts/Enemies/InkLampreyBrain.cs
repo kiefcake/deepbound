@@ -7,24 +7,16 @@ using UnityEngine;
 
 namespace Deepbound.Enemies
 {
-    /// <summary>
-    /// The Ink Lamprey (2026-11-13, the user: "some kind of blindness effect"): a drowned thing from the cisterns with a
-    /// round mouth of hooked teeth where a face should be, wrapped in black weed. It spits a gout of ink in an arc at
-    /// where you are going (a dark circle shows where it lands): caught under it you are BLINDED - ink closes over your
-    /// eyes to a small clear hole, the map and the dead's health bars are gone - and the ink pools there a while,
-    /// blinding anyone who walks through. Sidestep the circle, keep out of the pools, Holy Water washes your eyes.
-    /// Up close it bites.
-    /// </summary>
     public class InkLampreyBrain : EnemyBrain
     {
         [SerializeField] private float preferredRange = 8f, spitCooldown = 8f, spitWindup = 1.0f;
-        public const float InkRadius = 2.3f, BlindSeconds = 4f, PoolSeconds = 6f, PoolBlind = 1.2f;
+        public const float InkRadius = 2.3f, InkBlindSeconds = 4f, PoolSeconds = 6f, PoolBlind = 1.2f;
         public static readonly Color InkColor = new Color(0.12f, 0.08f, 0.2f);
         private float nextSpit, spitAt = -1f, nextPoolTick;
         private Vector3 spitSpot;
         private struct Pool { public Vector3 At; public float Until; }
         private readonly List<Pool> pools = new List<Pool>();
-        /// <summary>For tests: gouts that landed, and players they blinded.</summary>
+
         public int Spits { get; private set; }
         public int Blinded { get; private set; }
 
@@ -63,7 +55,6 @@ namespace Deepbound.Enemies
             SpitWarnRpc(at, windup);
         }
 
-        /// <summary>For tests: spit at <paramref name="at"/> now.</summary>
         public void ServerDebugSpit(Vector3 at, float windup) => BeginSpit(at, windup);
 
         protected override void Update()
@@ -77,7 +68,7 @@ namespace Deepbound.Enemies
                 foreach (var v in CombatQuery.Circle(spitSpot, InkRadius, Team.Players))
                 {
                     v.Tag("Ink").ServerDamage(damage * 0.6f, spitSpot + Vector3.up, NetworkObjectId);
-                    if (v.TryGetComponent<PlayerDebuffs>(out var deb) && deb.ServerBlind(BlindSeconds)) Blinded++;
+                    if (v.TryGetComponent<PlayerDebuffs>(out var deb) && deb.ServerBlind(InkBlindSeconds)) Blinded++;
                 }
                 pools.Add(new Pool { At = spitSpot, Until = Time.time + PoolSeconds });
                 SplashRpc(transform.position + Vector3.up * 1.6f, spitSpot);

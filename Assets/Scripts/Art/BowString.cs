@@ -2,7 +2,6 @@ using UnityEngine;
 
 namespace Deepbound.Art
 {
-    /// <summary>A view-model bowstring: two thin segments laid from each limb tip to the nock on the draw hand, every frame.</summary>
     public class BowString : MonoBehaviour
     {
         public Transform TipTop, TipBottom, Nock, Upper, Lower;

@@ -8,15 +8,11 @@ using UnityEngine;
 
 namespace Deepbound.World
 {
-    /// <summary>
-    /// A treasure chest, one per side room: the reason to take the detour. F opens it; the
-    /// lid swings up and loot spills out. Opened once, for the whole party.
-    /// </summary>
     public class Chest : Interactable
     {
         [SerializeField] private NetworkObject lootPrefab;
         public readonly NetworkVariable<bool> Opened = new NetworkVariable<bool>();
-        /// <summary>Not a chest at all. Reaching for it springs the Mimic.</summary>
+
         public readonly NetworkVariable<bool> Mimic = new NetworkVariable<bool>();
         private float nextBreath;
 
@@ -58,7 +54,7 @@ namespace Deepbound.World
             Sfx.Play(Sound.Chest, transform.position + Vector3.up * 0.8f, 0.9f, 0.9f);
             Sfx.Play(Sound.Creak, transform.position + Vector3.up * 0.8f, 0.5f, 1.1f);
             Sfx.Play(Sound.Coins, transform.position + Vector3.up, 1f, 0.8f);
-            // A gust of gold light out of the opened lid.
+
             var gold = new Color(1f, 0.78f, 0.35f);
             var mouth = transform.position + Vector3.up * 0.7f;
             Vfx.Flash(mouth, gold, 4f, 5f, 0.5f);
@@ -69,7 +65,7 @@ namespace Deepbound.World
         private void Update()
         {
             if (lid == null) return;
-            // The tell: a mimic's lid lifts a crack now and then, and it breathes.
+
             float target = Opened.Value ? -110f : 0f;
             if (Mimic.Value && !Opened.Value)
             {
@@ -85,7 +81,6 @@ namespace Deepbound.World
             }
             if (Opened.Value)
             {
-                // Thrown open: a spring that overshoots and bounces against the hinge.
                 lidVel += ((target - lidAngle) * 140f - lidVel * 11f) * Time.deltaTime;
                 lidAngle += lidVel * Time.deltaTime;
                 if (lidAngle < -122f) { lidAngle = -122f; lidVel = Mathf.Abs(lidVel) * 0.35f; }
@@ -104,12 +99,12 @@ namespace Deepbound.World
         {
             var iron = Mat.Steel;
             MeshKit.Part(transform, "Body", MeshKit.Box(new Vector3(1.1f, 0.56f, 0.7f)), Mat.Wood, new Vector3(0f, 0.32f, 0f));
-            // Plinth and four squat feet.
+
             MeshKit.Part(transform, "Base", MeshKit.Box(new Vector3(1.16f, 0.06f, 0.76f)), Mat.Wood, new Vector3(0f, 0.07f, 0f));
             foreach (float x in new[] { -0.5f, 0.5f })
                 foreach (float z in new[] { -0.3f, 0.3f })
                     MeshKit.Part(transform, "Foot", MeshKit.Box(new Vector3(0.12f, 0.06f, 0.12f)), iron, new Vector3(x, 0.03f, z));
-            // Gold bands front to back, iron corner brackets, studs.
+
             for (int i = 0; i < 2; i++)
             {
                 float x = i == 0 ? -0.36f : 0.36f;
@@ -120,11 +115,10 @@ namespace Deepbound.World
             foreach (float x in new[] { -0.54f, 0.54f })
                 foreach (float z in new[] { -0.34f, 0.34f })
                     MeshKit.Part(transform, "Bracket", MeshKit.Box(new Vector3(0.05f, 0.58f, 0.05f)), iron, new Vector3(x, 0.33f, z));
-            // Ring handles on the sides.
+
             foreach (float x in new[] { -0.56f, 0.56f })
                 MeshKit.Part(transform, "Handle", MeshKit.Cylinder(0.07f, 0.07f, 0.02f, 10), iron, new Vector3(x, 0.4f, 0f), new Vector3(0f, 0f, 90f), new Vector3(1f, 1f, 0.35f));
 
-            // The lid hinges at the back top edge: a stepped dome, so it reads as curved.
             lid = MeshKit.Pivot(transform, "LidHinge", new Vector3(0f, 0.6f, -0.35f));
             MeshKit.Part(lid, "Lid", MeshKit.Box(new Vector3(1.12f, 0.12f, 0.72f)), Mat.Wood, new Vector3(0f, 0.06f, 0.35f));
             MeshKit.Part(lid, "LidMid", MeshKit.Box(new Vector3(1.1f, 0.08f, 0.58f)), Mat.Wood, new Vector3(0f, 0.15f, 0.35f));
@@ -143,7 +137,7 @@ namespace Deepbound.World
             var glow = MeshKit.Part(transform, "Gleam", MeshKit.Box(new Vector3(0.95f, 0.02f, 0.55f)), Mat.Glow, new Vector3(0f, 0.6f, 0f));
             ArtLibrary.SetGlow(glow.GetComponent<Renderer>(), new Color(1f, 0.75f, 0.3f) * 1.5f);
             gleam = glow.GetComponent<Renderer>();
-            // A heap of coins inside, seen when the lid is up.
+
             for (int i = 0; i < 9; i++)
                 MeshKit.Part(transform, "Coin", MeshKit.Cylinder(0.05f, 0.05f, 0.012f, 8), Mat.Gold,
                     new Vector3(-0.3f + (i % 5) * 0.15f, 0.6f + (i % 2) * 0.012f, -0.12f + (i / 5) * 0.2f), new Vector3(8f * (i % 3 - 1), i * 40f, 6f * (i % 2)));

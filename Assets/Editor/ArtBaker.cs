@@ -7,27 +7,6 @@ using UnityEngine.Rendering.Universal;
 
 namespace Deepbound.EditorTools
 {
-    /// <summary>
-    /// Generates every texture and material the game uses, from code.
-    ///
-    /// <para>
-    /// Deepbound's art is self-authored and procedural (design doc 2.1, revised
-    /// 2026-10-13): no downloaded packs. This baker writes tileable albedo and normal maps
-    /// to <c>Assets/Art/Generated</c> and URP materials to <c>Assets/Resources/Materials</c>,
-    /// where <see cref="Deepbound.Art.ArtLibrary"/> loads them by name at runtime.
-    /// </para>
-    ///
-    /// <para>
-    /// Baked to assets rather than generated at runtime for two reasons. First, URP strips
-    /// shader variants that no material asset uses, so a material built purely in code
-    /// that turns on normal mapping or emission can silently render wrong in a player
-    /// build. Materials saved here pin those variants. Second, it keeps startup instant and
-    /// lets the textures be looked at and judged as ordinary assets.
-    /// </para>
-    ///
-    /// Deterministic: a fixed seed per texture, so re-baking reproduces identical files and
-    /// git sees no churn.
-    /// </summary>
     public static class ArtBaker
     {
         private const string TextureDir = "Assets/Art/Generated";
@@ -43,12 +22,10 @@ namespace Deepbound.EditorTools
             var lit = Shader.Find("Universal Render Pipeline/Lit");
             var unlit = Shader.Find("Universal Render Pipeline/Unlit");
 
-            // Stone is damp down here: a gloss map makes torchlight catch on wet streaks and puddles.
-            // 2026-11-20 (the user: "make everything less reflective"): about half the gloss it had; damp streaks still catch a little.
             BakeSurface("StoneWall", lit, StoneBricks, 0.36f, 0f, 2.2f, StoneWallGloss);
             BakeSurface("Flagstone", lit, Flagstones, 0.45f, 0f, 2.6f, FlagstoneGloss);
             BakeSurface("Wood", lit, WoodPlanks, 0.2f, 0f, 1.6f);
-            // Steel: a little less metallic and a little smoother, so torchlight catches it instead of it reading as a dark plank.
+
             BakeSurface("Steel", lit, BrushedMetal, 0.48f, 0.6f, 0.6f);
             BakeSurface("Gold", lit, (x, y) => Tint(BrushedMetal(x, y), new Color(1f, 0.78f, 0.35f)), 0.45f, 0.9f, 0.5f);
             BakeSurface("Bone", lit, BoneSurface, 0.12f, 0f, 1.4f);
@@ -57,8 +34,6 @@ namespace Deepbound.EditorTools
             BakeSurface("Rubble", lit, Rubble, 0.08f, 0f, 3f);
             BakeSurface("Marble", lit, Marble, 0.1f, 0f, 0.5f);
 
-            // Fine grain on top (2026-10-24): a CC0 detail normal from Poly Haven tiled small over the baked surfaces, so
-            // stone and wood catch the light grain by grain. Colour and the brick layout stay ours (docs/CREDITS.md).
             ApplyDetail("StoneWall", "Assets/Textures/Detail/rock_grain_normal.jpg", 7f, 0.55f);
             ApplyDetail("Flagstone", "Assets/Textures/Detail/rock_grain_normal.jpg", 5f, 0.45f);
             ApplyDetail("Rubble", "Assets/Textures/Detail/rock_grain_normal.jpg", 4f, 0.7f);
@@ -69,14 +44,11 @@ namespace Deepbound.EditorTools
             ApplyDetail("Steel", "Assets/Textures/Detail/metal_wear_normal.jpg", 3f, 0.25f);
             ApplyDetail("Gold", "Assets/Textures/Detail/metal_wear_normal.jpg", 3f, 0.2f);
             ApplyDetail("Bone", "Assets/Textures/Detail/bone_pores_normal.jpg", 6f, 0.3f);
-            // Downloaded models (2026-11-20, Poly Haven CC0, docs/CREDITS.md): one URP Lit material per texture set.
+
             BakeModels(lit);
 
             BakeFlat("Dark", lit, new Color(0.05f, 0.05f, 0.06f), 0.2f, 0.2f);
 
-            // Emissive surfaces: torch flames, enemy eyes, the boss's crown gems. Colour is
-            // set per renderer at runtime through a property block, so one material serves
-            // every glow in the game.
             BakeEmissive("Glow", lit, Color.white, 3f);
 
             BakeUnlit("Flame", unlit, new Color(1f, 0.55f, 0.15f), transparent: false);
@@ -94,14 +66,8 @@ namespace Deepbound.EditorTools
             Debug.Log("[Art] Procedural art baked.");
         }
 
-        // ------------------------------------------------------------------
-        // Surfaces
-        // ------------------------------------------------------------------
-
-        /// <summary>Albedo at (u, v) in [0,1), with alpha carrying height for the normal map.</summary>
         private delegate Color Surface(float u, float v);
 
-        /// <param name="gloss">Optional smoothness per texel (0-1), stored in albedo alpha; <paramref name="smoothness"/> then scales it.</param>
         private static void BakeSurface(string name, Shader shader, Surface surface,
             float smoothness, float metallic, float normalStrength, System.Func<float, float, float> gloss = null)
         {
@@ -144,11 +110,6 @@ namespace Deepbound.EditorTools
 
         private const string ModelDir = "Assets/Resources/Models";
 
-        /// <summary>
-        /// Every texture set beside a downloaded model (Resources/Models/&lt;slug&gt;/textures/&lt;stem&gt;_diff_1k) becomes a URP
-        /// Lit material Resources/Materials/Models/&lt;stem&gt;.mat (colour + normal), toned a touch toward the dungeon palette.
-        /// <see cref="Deepbound.Art.ModelKit"/> swaps them onto the model's renderers by material name at spawn.
-        /// </summary>
         private static void BakeModels(Shader lit)
         {
             if (!AssetDatabase.IsValidFolder(ModelDir)) return;
@@ -201,7 +162,6 @@ namespace Deepbound.EditorTools
             }
         }
 
-        /// <summary>A detail normal map on a baked material (URP Lit's detail inputs; the detail albedo stays neutral grey).</summary>
         private static void ApplyDetail(string material, string normalPath, float tiling, float strength)
         {
             var importer = AssetImporter.GetAtPath(normalPath) as TextureImporter;
@@ -244,7 +204,6 @@ namespace Deepbound.EditorTools
             EditorUtility.SetDirty(mat);
         }
 
-        /// <summary>Additive, vertex-coloured (URP particle unlit): weapon swing trails that fade along their length.</summary>
         private static void BakeTrail(string name)
         {
             var shader = Shader.Find("Universal Render Pipeline/Particles/Unlit");
@@ -252,7 +211,7 @@ namespace Deepbound.EditorTools
             var mat = GetOrCreateMaterial(name, shader);
             mat.SetColor("_BaseColor", Color.white);
             mat.SetFloat("_Surface", 1f);
-            mat.SetFloat("_Blend", 2f); // additive
+            mat.SetFloat("_Blend", 2f);
             mat.SetFloat("_SrcBlend", (float)BlendMode.SrcAlpha);
             mat.SetFloat("_DstBlend", (float)BlendMode.One);
             mat.SetFloat("_SrcBlendAlpha", (float)BlendMode.Zero);
@@ -265,15 +224,8 @@ namespace Deepbound.EditorTools
             EditorUtility.SetDirty(mat);
         }
 
-        /// <summary>
-        /// One material per Kenney sprite in Assets/Textures/Fx ("Fx_smoke_01"...): URP Unlit, transparent,
-        /// additive for light (sparks, flares, magic, fire), alpha-blended for what darkens (smoke, scorch, dirt).
-        /// Tinted per renderer at runtime (Art/FxSprite).
-        /// </summary>
         private static void BakeFxSprites()
         {
-            // Plain URP Unlit (the particle shader drew nothing on these quads; Unlit's transparent variants are
-            // already kept for the Smoke and Telegraph materials).
             var shader = Shader.Find("Universal Render Pipeline/Unlit");
             if (shader == null) return;
             foreach (var guid in AssetDatabase.FindAssets("t:Texture2D", new[] { "Assets/Textures/Fx" }))
@@ -299,7 +251,7 @@ namespace Deepbound.EditorTools
                 mat.renderQueue = (int)RenderQueue.Transparent;
                 EditorUtility.SetDirty(mat);
             }
-            // Playing cards (World/CardArt draws the atlas at runtime): plain opaque Unlit, so they read in a dark tent.
+
             BakeUnlit("Cards", shader, Color.white, false);
         }
 
@@ -310,9 +262,6 @@ namespace Deepbound.EditorTools
 
             if (transparent)
             {
-                // Mirrors what URP's material inspector does when Surface Type is switched
-                // to Transparent — the shader reads these floats, the keyword selects the
-                // variant, and the render queue puts it after opaque geometry.
                 mat.SetFloat("_Surface", 1f);
                 mat.SetFloat("_Blend", 0f);
                 mat.SetFloat("_SrcBlend", (float)BlendMode.SrcAlpha);
@@ -328,20 +277,13 @@ namespace Deepbound.EditorTools
             EditorUtility.SetDirty(mat);
         }
 
-        /// <summary>
-        /// Lit, transparent and almost mirror-smooth, with the flagstone normal map stretched
-        /// over it for a gentle ripple: torchlight glints across it, which is most of what
-        /// makes standing water read as water.
-        /// </summary>
         private static void BakeWater(string name, Shader shader)
         {
             var mat = GetOrCreateMaterial(name, shader);
             mat.SetColor("_BaseColor", new Color(0.06f, 0.16f, 0.14f, 0.72f));
             mat.SetFloat("_Smoothness", 0.6f);
             mat.SetFloat("_Metallic", 0f);
-            // Ripples: a tileable wave field (whole-number sine waves + soft noise). URP Lit samples the
-            // normal with the base UVs and the detail normal with its own: WaterFlow scrolls the two
-            // against each other, so the surface moves instead of sliding.
+
             var h = new float[Size * Size];
             for (int y = 0; y < Size; y++)
                 for (int x = 0; x < Size; x++)
@@ -371,11 +313,8 @@ namespace Deepbound.EditorTools
             EditorUtility.SetDirty(mat);
         }
 
-        // ---- Generators. Each returns albedo in rgb and height in a. ----
-
         private static Color StoneBricks(float u, float v)
         {
-            // 4 rows of 2 bricks per tile; alternate rows offset by half a brick.
             const int rows = 4, cols = 2;
             float rowF = v * rows;
             int row = Mathf.FloorToInt(rowF);
@@ -384,8 +323,7 @@ namespace Deepbound.EditorTools
 
             float bx = colF - col, by = rowF - row;
             float mortar = 0.045f;
-            // Bricks are twice as wide as they are tall, so horizontal distance is doubled to
-            // measure both edges in the same units.
+
             float edge = Mathf.Min(Mathf.Min(bx, 1f - bx) * 2f, Mathf.Min(by, 1f - by));
             float inBrick = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(mortar * 0.5f, mortar * 1.6f, edge));
 
@@ -394,8 +332,6 @@ namespace Deepbound.EditorTools
             float grain = Fbm(u, v, 18f, 18f, 4, 11) * 0.12f;
             float chip = Mathf.Clamp01(Fbm(u, v, 6f, 6f, 3, 12) - 0.62f) * 1.2f;
 
-            // Worn edges catch less light and collect grime, so each brick reads as a
-            // rounded block rather than a flat painted rectangle.
             float bevel = Mathf.Clamp01(edge / 0.16f);
             float grime = Fbm(u, v, 4f, 4f, 3, 13) * 0.35f;
             var stone = new Color(tone + 0.02f, tone, tone - 0.03f) * (1f - grain * 0.6f) * (1f - chip * 0.5f)
@@ -412,8 +348,6 @@ namespace Deepbound.EditorTools
 
         private static Color Flagstones(float u, float v)
         {
-            // Voronoi cells read as irregular laid stones; the gap between nearest and
-            // second-nearest distance is the grout line.
             Voronoi(u * 5f, v * 5f, 5, out float d1, out float d2, out float cellId);
             float gap = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.02f, 0.09f, d2 - d1));
 
@@ -421,21 +355,18 @@ namespace Deepbound.EditorTools
             float grain = Fbm(u, v, 24f, 24f, 4, 21) * 0.15f;
             float moss = Mathf.Clamp01(Fbm(u, v, 3f, 3f, 3, 22) - 0.6f) * (1f - gap);
 
-            // Hairline cracks across some stones.
             float crack = Mathf.Clamp01(1f - Mathf.Abs(Fbm(u, v, 7f, 7f, 4, 25) - 0.5f) * 40f) * (cellId > 0.55f ? 1f : 0f);
             var stone = new Color(tone, tone * 0.97f, tone * 0.92f) * (1f - grain) * (1f - crack * 0.6f);
             stone = Color.Lerp(stone, new Color(0.14f, 0.18f, 0.1f), moss * 1.5f);
             var c = Color.Lerp(new Color(0.08f, 0.075f, 0.07f), stone, gap);
-            // Wet stone is darker.
+
             c *= 1f - Puddle(u, v) * 0.35f;
             c.a = gap * (0.85f + grain) * (1f - d1 * 0.3f) - crack * 0.35f;
             return c;
         }
 
-        /// <summary>Where water stands on the floor: broad, soft-edged patches (0 dry .. 1 pooled).</summary>
         private static float Puddle(float u, float v) => Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.6f, 0.7f, Fbm(u, v, 2f, 2f, 3, 23)));
 
-        /// <summary>Damp running down a wall: tall thin streaks, strongest low on the wall.</summary>
         private static float Damp(float u, float v) =>
             Mathf.Clamp01((Fbm(u, v, 14f, 1.5f, 3, 14) - 0.55f) * 3.5f) * Mathf.Lerp(1f, 0.35f, v);
 
@@ -443,7 +374,7 @@ namespace Deepbound.EditorTools
         {
             Voronoi(u * 5f, v * 5f, 5, out float d1, out float d2, out float _);
             float grout = 1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.02f, 0.09f, d2 - d1));
-            // Dry stone is matte, grout holds a little water, puddles are mirrors.
+
             return Mathf.Max(0.18f + Fbm(u, v, 20f, 20f, 2, 24) * 0.1f, grout * 0.45f, Puddle(u, v) * 0.95f);
         }
 
@@ -458,7 +389,7 @@ namespace Deepbound.EditorTools
             float seam = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0f, 0.05f, Mathf.Min(px, 1f - px)));
 
             float id = Hash(plank, 7);
-            // Grain runs along the plank: high frequency across it, low along it.
+
             float grain = Fbm(u, v + id, 48f, 2f, 3, 31);
             float rings = Mathf.Clamp01(grain * 1.4f - 0.2f);
             float knot = Mathf.Clamp01(1f - Vector2.Distance(new Vector2(px, Mathf.Repeat(v + id, 1f)), new Vector2(0.5f, 0.5f)) * 9f);
@@ -492,25 +423,18 @@ namespace Deepbound.EditorTools
 
         private static Color ClothWeave(float u, float v)
         {
-            // A diagonal twill at a frequency the texture can hold (8 px a thread), soft folds over
-            // it, and grime gathered in the creases.
             float twill = Mathf.Sin((u + v) * Mathf.PI * 2f * 64f) * 0.5f + 0.5f;
             float thread = Mathf.Sin((u - v) * Mathf.PI * 2f * 64f) * 0.5f + 0.5f;
             float weave = Mathf.Lerp(twill, thread, 0.35f);
             float fold = Fbm(u, v, 3f, 1.5f, 3, 62);
             float dirt = Fbm(u, v, 7f, 7f, 3, 61);
-            // The weave is a faint texture in the colour only: as height it lit up as big diagonal
-            // ridges on small things (hoods, bedrolls) and read as scuffed. Folds carry the relief.
+
             float tone = 0.74f + (fold - 0.5f) * 0.18f - dirt * 0.1f + weave * 0.025f;
             var c = new Color(tone, tone, tone);
             c.a = 0.35f + fold * 0.5f + weave * 0.015f;
             return c;
         }
 
-        /// <summary>
-        /// Leather (rebaked 2026-10-20: the old 30-cell Voronoi read as cobblestones, so the Rogue and Ranger
-        /// looked made of rock): a fine pore grain, long soft creases and a little wear, with gentle relief.
-        /// </summary>
         private static Color LeatherSurface(float u, float v)
         {
             Voronoi(u * 90f, v * 90f, 90, out float d1, out float d2, out float id);
@@ -534,7 +458,6 @@ namespace Deepbound.EditorTools
             return c;
         }
 
-        /// <summary>Pale funerary marble: cool grey-white, soft clouding, thin dark veins. For statues.</summary>
         private static Color Marble(float u, float v)
         {
             float cloud = Fbm(u, v, 4f, 4f, 4, 31);
@@ -547,10 +470,6 @@ namespace Deepbound.EditorTools
         }
 
         private static Color Tint(Color c, Color tint) => new Color(c.r * tint.r, c.g * tint.g, c.b * tint.b, c.a);
-
-        // ------------------------------------------------------------------
-        // Noise — all tileable over [0,1) via integer periods
-        // ------------------------------------------------------------------
 
         private static int Mod(int a, int m) => ((a % m) + m) % m;
 
@@ -565,7 +484,6 @@ namespace Deepbound.EditorTools
             }
         }
 
-        /// <summary>Value noise that wraps every <paramref name="px"/> by <paramref name="py"/> units.</summary>
         private static float ValueNoise(float x, float y, int px, int py, int seed)
         {
             int x0 = Mathf.FloorToInt(x), y0 = Mathf.FloorToInt(y);
@@ -580,10 +498,6 @@ namespace Deepbound.EditorTools
             return Mathf.Lerp(Mathf.Lerp(a, b, fx), Mathf.Lerp(c, d, fx), fy);
         }
 
-        /// <summary>
-        /// Fractal noise over (u, v) in [0,1), at a base frequency per axis. Frequencies are
-        /// rounded to whole numbers and used as the wrap period, so the result tiles.
-        /// </summary>
         private static float Fbm(float u, float v, float freqX, float freqY, int octaves, int seed)
         {
             int px = Mathf.Max(1, Mathf.RoundToInt(freqX));
@@ -628,10 +542,6 @@ namespace Deepbound.EditorTools
                 }
             }
         }
-
-        // ------------------------------------------------------------------
-        // Texture + asset plumbing
-        // ------------------------------------------------------------------
 
         private static Color[] HeightToNormal(float[] height, float strength)
         {
@@ -695,18 +605,8 @@ namespace Deepbound.EditorTools
             AssetDatabase.Refresh();
         }
 
-        // ------------------------------------------------------------------
-        // Post-processing and renderer
-        // ------------------------------------------------------------------
-
         public const string VolumeProfilePath = "Assets/Settings/DungeonPost.asset";
 
-        /// <summary>
-        /// The grade that makes it read as a dungeon rather than a test scene: ACES for
-        /// filmic torch highlights, bloom so flames and eyes glow, a heavy vignette for the
-        /// claustrophobic Dark-and-Darker edge, and a cool desaturated shadow tone that
-        /// makes the warm torchlight pop by contrast.
-        /// </summary>
         private static void BakeVolumeProfile()
         {
             var profile = AssetDatabase.LoadAssetAtPath<VolumeProfile>(VolumeProfilePath);
@@ -730,8 +630,6 @@ namespace Deepbound.EditorTools
             var tone = Get<Tonemapping>();
             tone.mode.Override(TonemappingMode.ACES);
 
-            // The grade (visual pass 2026-10-16): deeper blacks, warmer firelight, cooler shadows, a
-            // little lens character. Readability first: the tells and glows must still pop.
             var bloom = Get<Bloom>();
             bloom.threshold.Override(0.9f);
             bloom.intensity.Override(1.05f);
@@ -753,7 +651,6 @@ namespace Deepbound.EditorTools
             split.highlights.Override(new Color(0.68f, 0.52f, 0.36f));
             split.balance.Override(-10f);
 
-            // Shadows sink a little, highlights keep their warmth.
             var smh = Get<ShadowsMidtonesHighlights>();
             smh.shadows.Override(new Vector4(0.92f, 0.95f, 1.05f, -0.06f));
             smh.midtones.Override(new Vector4(1f, 1f, 1f, 0.02f));
@@ -769,10 +666,6 @@ namespace Deepbound.EditorTools
             EditorUtility.SetDirty(profile);
         }
 
-        /// <summary>
-        /// Screen-space ambient occlusion: contact shadows in corners, under props and round feet —
-        /// the single biggest step away from the flat look. Added once to the renderer asset.
-        /// </summary>
         private static void AddAmbientOcclusion(UniversalRendererData renderer)
         {
             ScreenSpaceAmbientOcclusion ssao = null;
@@ -806,10 +699,6 @@ namespace Deepbound.EditorTools
             EditorUtility.SetDirty(renderer);
         }
 
-        /// <summary>
-        /// The retro gothic pass (2026-10-31): <c>Shaders/Retro.shader</c> as a full-screen pass after post-processing,
-        /// through a baked material (so the shader is never stripped). <c>UI/RetroLook</c> drives it with globals.
-        /// </summary>
         private static void AddRetroPass(UniversalRendererData renderer)
         {
             var shader = Shader.Find("Deepbound/Retro");
@@ -843,17 +732,13 @@ namespace Deepbound.EditorTools
             EditorUtility.SetDirty(renderer);
         }
 
-        /// <summary>
-        /// Forward+ lifts URP's 8-lights-per-object cap, which a torch-lit corridor blows
-        /// through immediately. Additional-light shadows let torches cast them.
-        /// </summary>
         private static void ConfigureRenderer()
         {
             var renderer = AssetDatabase.LoadAssetAtPath<UniversalRendererData>("Assets/Settings/DeepboundRenderer.asset");
             if (renderer != null)
             {
                 var so = new SerializedObject(renderer);
-                so.FindProperty("m_RenderingMode").intValue = 2; // Forward+
+                so.FindProperty("m_RenderingMode").intValue = 2;
                 so.ApplyModifiedPropertiesWithoutUndo();
                 EditorUtility.SetDirty(renderer);
                 AddAmbientOcclusion(renderer);
@@ -865,7 +750,7 @@ namespace Deepbound.EditorTools
             {
                 var so = new SerializedObject(pipeline);
                 so.FindProperty("m_AdditionalLightShadowsSupported").boolValue = true;
-                so.FindProperty("m_AdditionalLightsRenderingMode").intValue = 1; // per pixel
+                so.FindProperty("m_AdditionalLightsRenderingMode").intValue = 1;
                 so.FindProperty("m_ShadowDistance").floatValue = 40f;
                 so.FindProperty("m_AdditionalLightsShadowmapResolution").intValue = 2048;
                 so.ApplyModifiedPropertiesWithoutUndo();

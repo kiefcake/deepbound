@@ -11,22 +11,6 @@ using UnityEngine.InputSystem;
 
 namespace Deepbound.Player
 {
-    /// <summary>
-    /// The Cleric's kit: keep everyone standing.
-    ///
-    /// <list type="bullet">
-    /// <item><b>Passive — Benediction.</b> (2026-11-23, reworked from Grace) Healing past full health becomes a holy shield, up to
-    ///   <see cref="BenedictionCap"/> of the target's max health (your own self-heal too, so it counts solo); revives stay twice as fast.</item>
-    /// <item><b>LMB — Smite.</b> Golden bolts; modest damage so the healer can still contribute.</item>
-    /// <item><b>RMB — Mending Beam.</b> Hold on a teammate under your crosshair to heal them
-    ///   continuously; with no one targeted it heals you at a third of the rate. Costs mana
-    ///   per second — the Cleric's whole game is spending mana well.</item>
-    /// <item><b>Q — Consecrate.</b> Holy ground at your feet for six seconds: allies in it
-    ///   heal, enemies in it burn. Drop it where the tank is holding the line.</item>
-    /// <item><b>E — Divine Aegis.</b> Every ally within 12m gains a shield that soaks the next
-    ///   60 damage (scaled by WIS) for eight seconds. Cast it before the boss slam lands.</item>
-    /// </list>
-    /// </summary>
     [RequireComponent(typeof(Health))]
     public class ClericKit : NetworkBehaviour, IClassKit
     {
@@ -39,8 +23,6 @@ namespace Deepbound.Player
         public const float ConsecrateHealPerSec = 9f, ConsecrateBurnPerSec = 12f;
         public const float AegisCooldown = 16f, AegisMana = 60f, AegisRadius = 12f, AegisAmount = 60f, AegisSeconds = 8f;
 
-        /// <summary>Who the beam is on: a player's NetworkObjectId, the Cleric itself, or 0 for off. Owner-written.</summary>
-        /// <summary>Shots and tests: hold the beam on this object as if RMB were held on it (0 = off).</summary>
         public ulong DebugBeamTarget { get; set; }
 
         public readonly NetworkVariable<ulong> BeamTarget = new NetworkVariable<ulong>(0,
@@ -65,7 +47,6 @@ namespace Deepbound.Player
 
         private static readonly List<ClericKit> AllClerics = new List<ClericKit>();
 
-        /// <summary>Is this point inside anyone's consecrated ground? (Blessed: +20% damage.)</summary>
         public static bool InConsecration(Vector3 at)
         {
             foreach (var c in AllClerics)
@@ -77,7 +58,6 @@ namespace Deepbound.Player
             return false;
         }
 
-        /// <summary>Is this player held in a Cleric's Mending Beam? (Inspired: +15% damage.)</summary>
         public static bool IsInspired(Health ally)
         {
             if (ally == null) return false;
@@ -89,7 +69,6 @@ namespace Deepbound.Player
         private void OnEnable() => AllClerics.Add(this);
         private void OnDisable() => AllClerics.Remove(this);
 
-        /// <summary>Consecrate's radius (grows with its rank).</summary>
         public float ZoneRadius => ConsecrateRadius;
 
         private void Awake()
@@ -103,13 +82,12 @@ namespace Deepbound.Player
 
         private bool Active => progress.ClassId.Value == ClassId.Cleric;
         private float ManaMax => progress.Value(StatType.MP);
-        private float ManaRegen => (2.5f + progress.Value(StatType.WIS) * 0.11f) * progress.ManaRegenScale; // 2026-11-12: lower from the start (11.5/s -> 8/s at base WIS)
-        /// <summary>WIS 50 is the reference; healing and shields scale ±1% per point.</summary>
+        private float ManaRegen => (2.5f + progress.Value(StatType.WIS) * 0.11f) * progress.ManaRegenScale;
+
         private float Potency => 1f + (progress.Value(StatType.WIS) - 50f) / 100f;
 
         public const float BenedictionCap = 0.2f, BenedictionSeconds = 6f;
 
-        /// <summary>Server: every heal the Cleric gives. What would spill past full health becomes a shield (Benediction).</summary>
         public static void Bless(Health h, float amount)
         {
             if (h == null || !h.IsAlive || amount <= 0f) return;
@@ -121,8 +99,6 @@ namespace Deepbound.Player
             if (h.Shield.Value >= cap) return;
             h.ServerShield(Mathf.Min(cap, h.Shield.Value + over), BenedictionSeconds);
         }
-
-        // ---- IClassKit ----
 
         public ClassId Class => ClassId.Cleric;
         public string ResourceName => "Mana";
@@ -142,10 +118,6 @@ namespace Deepbound.Player
             into.Add(new AbilityView { Key = "E", Name = "Aegis", Remaining = aegisReadyAt - Time.time,
                 Cooldown = AegisCooldown * progress.CooldownFor(AbilitySlot.E), Unaffordable = Mana < AegisMana });
         }
-
-        // ==================================================================
-        // Owner
-        // ==================================================================
 
         private void Update()
         {
@@ -172,7 +144,6 @@ namespace Deepbound.Player
             var mouse = Mouse.current;
             var keyboard = Keyboard.current;
 
-            // --- RMB held: Mending Beam ---
             ulong wantBeam = 0;
             if (canAct && UI.Binds.SecondaryHeld && Mana > 0.5f)
             {
@@ -189,7 +160,6 @@ namespace Deepbound.Player
 
             if (!canAct) return;
 
-            // --- LMB held: Smite ---
             if (wantBeam == 0 && UI.Binds.PrimaryHeld && Time.time >= nextSmite && Mana >= SmiteMana)
             {
                 Mana -= SmiteMana;
@@ -198,18 +168,16 @@ namespace Deepbound.Player
                 SmiteRpc(player.AimOrigin + player.AimForward * 0.6f, player.AimForward);
             }
 
-            // --- Q: Consecrate ---
             if (UI.Binds.Down(UI.Bind.AbilityQ) && Time.time >= consecrateReadyAt && Mana >= ConsecrateMana)
             {
                 Mana -= ConsecrateMana;
                 consecrateReadyAt = Time.time + ConsecrateCooldown * progress.CooldownFor(AbilitySlot.Q);
                 player.ViewModelCast(true);
-                // Thrown Blessing (rank 2 B): it lands where you aim.
+
                 if (progress.B(AbilitySlot.Q, 1) && player.TryAimFloor(ThrowRange * RangeMul, out var aimed)) ConsecrateAtRpc(aimed);
                 else ConsecrateRpc();
             }
 
-            // --- E: Divine Aegis ---
             if (UI.Binds.Down(UI.Bind.AbilityE) && Time.time >= aegisReadyAt && Mana >= AegisMana)
             {
                 Mana -= AegisMana;
@@ -219,7 +187,6 @@ namespace Deepbound.Player
             }
         }
 
-        /// <summary>The teammate nearest the centre of the screen, within beam range and sight.</summary>
         private PlayerLife AllyUnderCrosshair()
         {
             PlayerLife best = null;
@@ -235,10 +202,6 @@ namespace Deepbound.Player
             return best;
         }
 
-        // ==================================================================
-        // Server
-        // ==================================================================
-
         private void ServerBeamTick()
         {
             ulong id = BeamTarget.Value;
@@ -250,7 +213,6 @@ namespace Deepbound.Player
             if (target == null || target.Team != Team.Players || !target.IsAlive) return;
             if (target != health && Vector3.Distance(target.transform.position, transform.position) > BeamReach + 2f) return;
 
-            // Shepherd: stronger beam, and healing past full becomes a shield.
             float rate = BeamHealPerSec * Potency * (target == health ? 0.33f : 1f) * (progress.Mastered(2) ? 1.4f : 1f);
             if (progress.Mastered(2) && target.Current.Value >= target.Max.Value - 0.01f)
                 target.ServerShield(Mathf.Min(40f, target.Shield.Value + rate * Time.deltaTime), 4f);
@@ -258,20 +220,15 @@ namespace Deepbound.Player
             Enemies.EnemyBrain.ServerHealThreat(health, rate * Time.deltaTime);
         }
 
-        /// <summary>
-        /// Alone, a Cleric has no one to keep alive and only its smites to fight with (2026-10-28 autoplay: solo floors took
-        /// 6-9 min against 4-5 for every other class): +35% smite damage with no other player in the party.
-        /// </summary>
         public const float LoneSmiteBonus = 1.35f;
-        // ---- Hobb's paths (2026-11-20) ----
+
         public const float HammerDamage = 1.8f, HammerRadius = 2.5f, HammerInterval = 1.6f, ShepherdHeal = 14f, PlantAfter = 1f, PlantedTaken = 0.7f;
         private float stillSince = -1f;
-        /// <summary>Server: the Anchorite has stood still long enough to plant.</summary>
+
         public bool Planted => IsServer && progress != null && progress.OnPath(Classes.PathTriads.Path) && stillSince >= 0f && Time.time - stillSince >= PlantAfter;
         private bool wasPlanted;
         private float nextPlantMend;
 
-        /// <summary>Server: watch for the Anchorite standing still.</summary>
         private void ServerTickPlant()
         {
             if (!progress.OnPath(Classes.PathTriads.Path) || !Active) { stillSince = -1f; wasPlanted = false; return; }
@@ -310,7 +267,6 @@ namespace Deepbound.Player
             ulong me = NetworkObjectId;
             if (progress.OnPath(1))
             {
-                // Zealot: a hammer of light: heavier, bursts where it lands, and mends the most wounded ally.
                 float dmg = smite * HammerDamage;
                 bool stun = progress.Mastered(1);
                 Arrows.ServerFire(origin, direction, 0f, Team.Enemies, me, SmiteSpeed * 0.8f, h => { }, false, SmiteRange * RangeMul, 0f, at =>
@@ -331,7 +287,6 @@ namespace Deepbound.Player
             }
             else if (progress.OnPath(2))
             {
-                // Shepherd: the smite flies on through the dead, and heals every ally it passes.
                 Arrows.ServerFire(origin, direction, smite, Team.Enemies, me, SmiteSpeed, null, true, SmiteRange * RangeMul);
                 var healed = new HashSet<Health>();
                 Arrows.ServerFire(origin, direction, 0f, Team.Players, me, SmiteSpeed, h =>
@@ -342,7 +297,7 @@ namespace Deepbound.Player
                 }, true, SmiteRange * RangeMul);
             }
             else Arrows.ServerFire(origin, direction, smite, Team.Enemies, me, SmiteSpeed, null, false, SmiteRange * RangeMul);
-            // Anchorite: planted, the smites fly in pairs.
+
             if (Planted)
             {
                 var twin = Quaternion.AngleAxis(4f, Vector3.up) * direction;
@@ -352,7 +307,6 @@ namespace Deepbound.Player
             SmiteFxRpc(origin, direction);
         }
 
-        // ---- Ysolde's options for Consecrate and Divine Aegis (2026-11-20) ----
         public const float ThrowRange = 16f, PillarEvery = 1.5f, HaloRadius = 5f, HaloSeconds = 4f;
 
         [Rpc(SendTo.Server)]
@@ -365,7 +319,6 @@ namespace Deepbound.Player
             ServerConsecrate(at);
         }
 
-        /// <summary>Server: lay holy ground at your feet (or where you aimed). Public for the smoke test.</summary>
         public void ServerConsecrate() => ServerConsecrate(transform.position);
 
         public void ServerConsecrate(Vector3 at)
@@ -375,7 +328,7 @@ namespace Deepbound.Player
             if (follow) at = transform.position;
             zones.Add(new Zone { At = at, Until = Time.time + ConsecrateSeconds, NextPillar = Time.time + 0.6f, Follow = follow });
             AbilityKit.ServerClearSanctuary(NetworkObjectId);
-            // Searing Ground (rank 3 A): it sears as it lands.
+
             if (progress.A(AbilitySlot.Q, 2))
             {
                 AbilityKit.Blast(at, ZoneRadius, ConsecrateBurnPerSec * progress.AttackMultiplier, NetworkObjectId, "Searing Ground", h => { h.ServerScorch(4f, NetworkObjectId); AbilityKit.Stun(h, 1f); });
@@ -386,7 +339,6 @@ namespace Deepbound.Player
 
         private Vector3 ZoneAt(Zone z) => z.Follow ? transform.position : z.At;
 
-        /// <summary>Server: an enemy died; Everburning keeps the ground burning longer and heals those in it.</summary>
         private void OnEnemyDied(Health dead)
         {
             if (!IsServer || !Active || !progress.B(AbilitySlot.Q, 4) || dead == null || dead.Team != Team.Enemies) return;
@@ -421,7 +373,7 @@ namespace Deepbound.Player
                 if (Time.time > z.Until)
                 {
                     zones.RemoveAt(i);
-                    // Hallowed Burst (rank 5 A): it ends in a burst.
+
                     if (progress.A(AbilitySlot.Q, 4))
                     {
                         foreach (var ally in CombatQuery.Circle(at, ZoneRadius, Team.Players).ToArray()) Bless(ally, ally.Max.Value * 0.2f);
@@ -433,14 +385,14 @@ namespace Deepbound.Player
                 foreach (var ally in CombatQuery.Circle(at, ZoneRadius, Team.Players).ToArray())
                 {
                     Bless(ally, ConsecrateHealPerSec * Potency * progress.Potency(AbilitySlot.Q) * dt);
-                    // Sanctuary (rank 3 B): a downing blow leaves 1 health, once each per cast.
+
                     if (progress.B(AbilitySlot.Q, 2)) AbilityKit.ServerSanctuary(ally, 0.6f, NetworkObjectId);
-                    // Purifying (rank 4 B): afflictions wash away inside.
+
                     if (progress.B(AbilitySlot.Q, 3) && ally.TryGetComponent<PlayerDebuffs>(out var db) && db.AnyAffliction) { db.ServerCleanse(); progress.AbilityTextRpc(ally.Center + Vector3.up, "PURIFIED", PlayerProgress.FxKind.Holy); }
                 }
                 foreach (var foe in CombatQuery.Circle(at, ZoneRadius, Team.Enemies).ToArray())
                     foe.Tag("Consecrate").Ticking().ServerDamage(ConsecrateBurnPerSec * progress.AttackMultiplier * progress.Potency(AbilitySlot.Q) * dt, at, NetworkObjectId);
-                // Judgement (rank 4 A): pillars of light on what stands inside.
+
                 if (progress.A(AbilitySlot.Q, 3) && Time.time >= z.NextPillar)
                 {
                     z.NextPillar = Time.time + PillarEvery;
@@ -461,7 +413,6 @@ namespace Deepbound.Player
         [Rpc(SendTo.Server)]
         private void AegisRpc() => ServerAegis();
 
-        /// <summary>Server: shield everyone nearby. Public for the smoke test.</summary>
         public void ServerAegis()
         {
             if (!life.CanAct) return;
@@ -471,19 +422,19 @@ namespace Deepbound.Player
             foreach (var ally in allies)
             {
                 float amount = AegisAmount * Potency * progress.Potency(AbilitySlot.E);
-                // Martyr's Share (rank 4 B): the most wounded gets twice the shield.
+
                 if (progress.B(AbilitySlot.E, 3) && ally == worst && allies.Count > 1) { amount *= 2f; progress.AbilityTextRpc(ally.Center + Vector3.up, "MARTYR'S SHARE", PlayerProgress.FxKind.Holy); }
                 ally.ServerShield(amount, AegisSeconds);
                 aegisOn[ally] = Time.time + AegisSeconds;
-                // Thorned Aegis (rank 2 A).
+
                 if (progress.A(AbilitySlot.E, 1)) AbilityKit.ServerThorn(ally, AegisSeconds);
-                // Swift Wings (rank 2 B).
+
                 if (progress.B(AbilitySlot.E, 1) && ally.TryGetComponent<PlayerProgress>(out var ap)) ap.ServerRally(4f, 1f);
-                // Mending (rank 3 A).
+
                 if (progress.A(AbilitySlot.E, 2)) Bless(ally, ally.Max.Value * 0.25f);
-                // Purge (rank 3 B).
+
                 if (progress.B(AbilitySlot.E, 2) && ally.TryGetComponent<PlayerDebuffs>(out var db)) { db.ServerCleanse(); db.ServerWard(4f); }
-                // Echo of Grace (rank 5 B): what is left when it runs out comes back as healing.
+
                 if (progress.B(AbilitySlot.E, 4))
                 {
                     var who = ally;
@@ -496,14 +447,10 @@ namespace Deepbound.Player
                     });
                 }
             }
-            // Halo (rank 4 A): a ring of light throws back what crosses it.
+
             if (progress.A(AbilitySlot.E, 3)) StartCoroutine(Halo());
             AegisFxRpc();
         }
-
-        // ==================================================================
-        // Presentation
-        // ==================================================================
 
         [Rpc(SendTo.ClientsAndHost)]
         private void SmiteFxRpc(Vector3 origin, Vector3 direction)
@@ -514,7 +461,6 @@ namespace Deepbound.Player
             if (!IsOwner) player.Rig?.Play(RigAction.Point, 0.3f);
         }
 
-        /// <summary>Server: Halo: for a few seconds anything that comes inside 5 m is thrown back out.</summary>
         private System.Collections.IEnumerator Halo()
         {
             progress.AbilityCircleRpc(transform.position, HaloRadius, HaloSeconds, PlayerProgress.FxKind.Holy);
@@ -533,7 +479,6 @@ namespace Deepbound.Player
             }
         }
 
-        /// <summary>Server: Breaking Light: an ally's Aegis broke; the enemies round them pay for it.</summary>
         private void OnShieldBroken(Health who)
         {
             if (!IsServer || !Active || who == null || !progress.A(AbilitySlot.E, 4)) return;
@@ -561,9 +506,9 @@ namespace Deepbound.Player
         {
             var g = HolyGround.Spawn(at, ConsecrateRadius, ConsecrateSeconds);
             if (follow) g.Follow = transform;
-            // Runes turning in the hallowed ground for as long as it lasts.
+
             FxSprite.Decal("magic_05", at, ConsecrateRadius * 1.9f, ConsecrateRadius * 2f, ConsecrateSeconds, new Color(1f, 0.85f, 0.45f, 0.55f), 18f);
-            // 2026-11-21 (distinct abilities): a shaft of light drops onto the spot and a cross burns into the ground.
+
             ClassFx.ClericConsecrate(at, ConsecrateRadius, ConsecrateSeconds, transform.forward, follow ? transform : null);
             Sfx.Play(Sound.Revive, at + Vector3.up, 0.9f, 0.85f);
             if (!IsOwner) player.Rig?.Play(RigAction.Pray, 0.8f);
@@ -576,8 +521,7 @@ namespace Deepbound.Player
             var gold = new Color(1f, 0.85f, 0.45f);
             Vfx.AbilityFlash(transform.position + Vector3.up * 1.5f, gold, 4f, 10f, 0.5f);
             player.Rig?.Play(RigAction.Point, 0.5f);
-            // 2026-11-21 (distinct abilities): a gyroscope of gold rings closes round every ally the Aegis takes, then
-            // settles into the shield bubble each wears (PlayerStatusFx).
+
             foreach (var ally in PlayerLife.All)
             {
                 if (ally == null || ally.Downed.Value || Vector3.Distance(ally.transform.position, transform.position) > AegisRadius) continue;
@@ -585,7 +529,6 @@ namespace Deepbound.Player
             }
         }
 
-        /// <summary>Every peer draws the beam from its Cleric's hand to the target.</summary>
         private void DrawBeam()
         {
             ulong id = BeamTarget.Value;
@@ -602,7 +545,7 @@ namespace Deepbound.Player
             beam.gameObject.SetActive(true);
             var from = IsOwner ? player.AimOrigin + player.AimForward * 0.5f - Vector3.up * 0.25f : transform.position + Vector3.up * 1.4f + transform.forward * 0.4f;
             beam.Set(from, to.position + Vector3.up * 1.1f);
-            // 2026-11-21 (more visual): the mending shows on the one being mended: motes of light rising off them.
+
             if (Time.time >= nextMendMote)
             {
                 nextMendMote = Time.time + 0.2f;

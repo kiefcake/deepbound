@@ -5,14 +5,6 @@ using UnityEngine.Rendering.Universal;
 
 namespace Deepbound.Art
 {
-    /// <summary>
-    /// A real mirror (2026-11-08, the user: "make a large mirror when reworking the tailor so i and players can see emotes").
-    /// A second camera stands at the viewer's reflection behind the glass, looks out through it with an off-axis frustum
-    /// cut exactly to the glass (near plane = the mirror plane, so nothing behind it shows), and renders into a texture
-    /// on the glass. Your own body (shadows-only in first person) is shown to that camera alone; the view-model layer
-    /// is left out. It renders only while you are within <see cref="Range"/> m, in front of it, and it is on screen.
-    /// Local to each peer; built at camp by <c>Lobby</c>.
-    /// </summary>
     public class Mirror : MonoBehaviour
     {
         public const float Range = 14f;
@@ -39,7 +31,7 @@ namespace Deepbound.Art
         {
             float w = Size.x / 2f, h = Size.y / 2f;
             var mesh = new Mesh { name = "MirrorGlass" };
-            // In front of the frame by a hair, facing out (+Z). Clockwise as seen from the front.
+
             mesh.vertices = new[] { new Vector3(-w, -h, 0.012f), new Vector3(-w, h, 0.012f), new Vector3(w, h, 0.012f), new Vector3(w, -h, 0.012f) };
             mesh.uv = new[] { new Vector2(0f, 0f), new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(1f, 0f) };
             mesh.triangles = new[] { 0, 2, 1, 0, 3, 2 };
@@ -95,7 +87,6 @@ namespace Deepbound.Art
             if (rt != null) { rt.Release(); Destroy(rt); }
         }
 
-        /// <summary>Once a frame, before any camera: stand the mirror camera at the viewer's reflection.</summary>
         private void Place(ScriptableRenderContext ctx, List<Camera> cams)
         {
             if (cam == null) return;
@@ -109,7 +100,7 @@ namespace Deepbound.Art
             if (!show) { cam.enabled = false; return; }
             var mirrored = e - 2f * dist * n;
             cam.transform.SetPositionAndRotation(mirrored, Quaternion.LookRotation(n, transform.up));
-            // Off-axis frustum cut to the glass (camera axes = the mirror's own right/up/forward).
+
             var toC = c - mirrored;
             float d = Vector3.Dot(toC, n);
             float xc = Vector3.Dot(toC, transform.right), yc = Vector3.Dot(toC, transform.up);
@@ -118,7 +109,6 @@ namespace Deepbound.Art
             cam.enabled = true;
         }
 
-        /// <summary>Your own first-person body is shadows-only: let the mirror camera see it.</summary>
         private void Begin(ScriptableRenderContext ctx, Camera c)
         {
             if (c != cam) return;

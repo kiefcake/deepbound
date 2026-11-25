@@ -7,23 +7,6 @@ using UnityEngine;
 
 namespace Deepbound.Enemies
 {
-    /// <summary>
-    /// The Pale Cardinal: floor 4's boss, in the Black Cathedral. A towering prelate in
-    /// crimson and gold who fights with the cathedral itself.
-    ///
-    /// <list type="bullet">
-    /// <item><b>Toll of the Bell</b> — a golden shockwave rolls out across the nave. Jump
-    ///   it or dodge through it.</item>
-    /// <item><b>Judgement</b> — circles of holy fire open under and around every player;
-    ///   when they fill, pillars of flame erupt. Keep moving.</item>
-    /// <item><b>Choir of the Damned</b> — at two thirds and one third health, Wraiths answer
-    ///   the hymn. They are Ethereal: pin them down (chill, stun, mark, consecrate).</item>
-    /// <item><b>Last Rites</b> — below a third, everything comes faster.</item>
-    /// <item><b>Excommunication</b> (2026-10-26) — after the first choir, a golden brand rings one player (whoever
-    ///   stands with the most friends); when it bursts it scorches everyone inside the ring, the bearer least. The
-    ///   branded walks away from the party (or dodges through the burst).</item>
-    /// </list>
-    /// </summary>
     public class CardinalBrain : BossBrain
     {
         protected override DashStyle Dash => DashStyle.Leap;
@@ -37,7 +20,7 @@ namespace Deepbound.Enemies
         public override string Hint => "Kill the Wraith choir to break its ward. Step out of the burning circles, jump the bell's toll - and if you are BRANDED, walk away from your friends.";
 
         private float nextJudgement;
-        private bool choir66, choir33;
+        private bool brandUnlocked;
 
         private struct Pillar { public Vector3 At; public float When; }
         private readonly List<Pillar> pillars = new List<Pillar>();
@@ -47,11 +30,10 @@ namespace Deepbound.Enemies
         public const float BrandCooldown = 15f, BrandSeconds = 4.5f, BrandRadius = 4.5f;
         private float nextBrand, brandBurstsAt = -1f;
         private PlayerLife branded;
-        /// <summary>For tests: brands that burst, and who the last one caught.</summary>
+
         public int BrandsBurst { get; private set; }
         public int LastBrandCaught { get; private set; }
 
-        // ---- Phases ----
         protected override float[] PhaseGates => new[] { 0.66f, 0.33f, 0.12f };
         private float nextHymnPillars;
 
@@ -60,7 +42,7 @@ namespace Deepbound.Enemies
             if (index < 2)
             {
                 var choir = Summon((index == 0 ? 1 : 2) + scaledPlayers, 5f, 1.8f);
-                if (index == 0) { choir66 = true; nextBrand = Time.time + 6f; } else choir33 = true;
+                if (index == 0) { brandUnlocked = true; nextBrand = Time.time + 6f; }
                 InvulnerableWhile("Choir of the Damned", index == 0 ? "Sing, my children. Sing them to sleep." : "Louder! Let the whole cathedral hear!",
                     "The Wraith choir wards the Cardinal: pin them (chill, stun, mark) and silence them", choir, 22f,
                     () => Taunt("The hymn is broken... no matter. I am the hymn."));
@@ -69,7 +51,7 @@ namespace Deepbound.Enemies
             {
                 Survive("Final Hymn", "Kneel. Kneel, and burn.", "Survive the Final Hymn: never stop moving", 10f, () => Taunt("Still standing? Then come and end it."));
                 nextHymnPillars = Time.time + 0.8f;
-                // The rose window: four emitters circling the arena, swaying arms of holy fire.
+
                 var c = World.DungeonDirector.Layout != null ? World.DungeonDirector.Layout.BossRoom.Center : transform.position;
                 for (int e = 0; e < 4; e++)
                 {
@@ -118,7 +100,7 @@ namespace Deepbound.Enemies
         {
             if (TryShockwave()) return true;
 
-            if (choir66 && !InSurvival && brandBurstsAt < 0f && Time.time >= nextBrand && Brand()) return true;
+            if (brandUnlocked && !InSurvival && brandBurstsAt < 0f && Time.time >= nextBrand && Brand()) return true;
             if (Time.time >= nextJudgement)
             {
                 nextJudgement = Time.time + judgementCooldown * (LastRites ? 0.65f : 1f);
@@ -126,7 +108,7 @@ namespace Deepbound.Enemies
                 busyUntil = castUntil;
                 PlayActionRpc(RigAction.Cast, 0.9f);
                 Debug.Log("[Boss] Cardinal judgement");
-                // One circle under each player, and a few scattered near them.
+
                 foreach (var p in PlayerLife.All)
                 {
                     if (p == null || !p.Targetable) continue;
@@ -139,7 +121,6 @@ namespace Deepbound.Enemies
             return false;
         }
 
-        /// <summary>Excommunication: ring the player who stands with the most friends.</summary>
         private bool Brand()
         {
             PlayerLife pick = null;
@@ -171,7 +152,7 @@ namespace Deepbound.Enemies
             if (brandBurstsAt < 0f || Time.time < brandBurstsAt) return;
             brandBurstsAt = -1f;
             if (branded == null) return;
-            // Down or hidden in a soul before the burst: the brand goes with them, rather than burning the spot they fell on.
+
             if (!branded.Targetable) { branded = null; return; }
             var at = branded.transform.position;
             int caught = 0;
@@ -188,8 +169,7 @@ namespace Deepbound.Enemies
             branded = null;
         }
 
-        /// <summary>For tests: brand now.</summary>
-        public bool ServerDebugBrand() { choir66 = true; brandBurstsAt = -1f; nextBrand = 0f; return Brand(); }
+        public bool ServerDebugBrand() { brandUnlocked = true; brandBurstsAt = -1f; nextBrand = 0f; return Brand(); }
 
         [Rpc(SendTo.ClientsAndHost)]
         private void BrandRpc(ulong playerObject, float radius, float seconds)
@@ -228,7 +208,7 @@ namespace Deepbound.Enemies
                 foreach (var victim in CombatQuery.Circle(at, judgementRadius, Team.Players))
                 {
                     victim.ServerDamage(Signature(judgementDamage), at + Vector3.up, NetworkObjectId);
-                    // In the Last Rites, holy fire burns the mind too.
+
                     if (LastRites && victim.TryGetComponent<Player.PlayerDebuffs>(out var deb)) deb.ServerMania(1.8f);
                 }
                 PillarFxRpc(at);

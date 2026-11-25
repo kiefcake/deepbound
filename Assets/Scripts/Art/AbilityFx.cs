@@ -2,20 +2,12 @@ using UnityEngine;
 
 namespace Deepbound.Art
 {
-    /// <summary>
-    /// Layered ability effects (2026-11-21, the user: "make all abilities more visual"). Each ability reads in three
-    /// beats: the CAST (a rune circle at the feet, motes spiralling up, a flare at the hand), the TRAVEL (a streak of
-    /// light, a trail) and the LANDING (a flat burst along the floor, a column of light, a lingering mark). Built only
-    /// from <see cref="Vfx"/> puffs and <see cref="FxSprite"/>s, so it pools like everything else. Client side only:
-    /// call from FX RPCs. Colours stay each class's own; never the boss shockwave wall (that means "jump this").
-    /// </summary>
     public static class AbilityFx
     {
         private static Mesh cube, ball;
         private static Mesh Cube => cube ??= MeshKit.Box(Vector3.one);
         private static Mesh Ball => ball ??= MeshKit.Ball(0.5f, 8, 6);
 
-        /// <summary>Far effects are thinned: past this many metres from the camera only the main shape is drawn.</summary>
         private const float Near = 30f;
 
         private static bool Close(Vector3 at)
@@ -26,7 +18,6 @@ namespace Deepbound.Art
 
         private static Color A(Color c, float a) => new Color(c.r, c.g, c.b, a);
 
-        /// <summary>The cast: a turning rune circle at the feet, motes spiralling up the body, a flare at the hand.</summary>
         public static void Cast(Vector3 feet, Vector3 hand, Color c, float radius = 1.1f, float seconds = 0.8f)
         {
             if (Application.isBatchMode) return;
@@ -37,7 +28,6 @@ namespace Deepbound.Art
             Spiral(feet, c, radius * 0.55f, 2f, 12, seconds);
         }
 
-        /// <summary>Motes that rise round a body and fan out, turning as they go.</summary>
         public static void Spiral(Vector3 feet, Color c, float radius, float height, int count, float life)
         {
             if (Application.isBatchMode) return;
@@ -53,10 +43,6 @@ namespace Deepbound.Art
             }
         }
 
-        /// <summary>
-        /// A landing: a ring and a soft flat wave, sparks skating outward along the floor, a flare and a light.
-        /// <paramref name="mark"/> leaves a faint stain of the colour for a few seconds.
-        /// </summary>
         public static void Burst(Vector3 at, float radius, Color c, float strength = 1f, bool mark = false)
         {
             if (Application.isBatchMode) return;
@@ -78,7 +64,6 @@ namespace Deepbound.Art
             FxSprite.Billboard(FxSprite.AnyStar, at + Vector3.up * 0.6f, Vector3.zero, 0.25f, 0.4f, 1.2f + radius * 0.3f, A(c, 0.9f), Random.Range(-250f, 250f));
         }
 
-        /// <summary>A column of light standing on a spot and fading: a blessing, a mark, a summons.</summary>
         public static void Column(Vector3 at, float height, Color c, float life = 0.9f, float width = 1f)
         {
             if (Application.isBatchMode) return;
@@ -99,7 +84,6 @@ namespace Deepbound.Art
             }
         }
 
-        /// <summary>A streak from one point to another: beads of light along it, a bright trace and a glint at each end.</summary>
         public static void Streak(Vector3 from, Vector3 to, Color c, float width = 1f, float life = 0.45f)
         {
             if (Application.isBatchMode) return;
@@ -123,7 +107,6 @@ namespace Deepbound.Art
             FxSprite.Billboard("spark_01", to, Vector3.zero, 0.3f, 0.3f, 1.1f * width, A(c, 0.9f), -300f);
         }
 
-        /// <summary>A puff at the hand when something is thrown or loosed: a small flare and sparks along the shot.</summary>
         public static void Muzzle(Vector3 at, Vector3 dir, Color c, float size = 1f)
         {
             if (Application.isBatchMode) return;
@@ -137,7 +120,6 @@ namespace Deepbound.Art
             }
         }
 
-        /// <summary>A forward cone of force (a shove, a shout, a cleave): sparks and grit fanned out ahead.</summary>
         public static void Cone(Vector3 origin, Vector3 forward, float length, float arcDegrees, Color c, int count = 18)
         {
             if (Application.isBatchMode) return;
@@ -154,7 +136,6 @@ namespace Deepbound.Art
             FxSprite.Billboard(FxSprite.AnySmoke, mid, forward * length, 0.5f, 0.6f, length * 0.8f, new Color(0.3f, 0.27f, 0.25f, 0.4f), Random.Range(-30f, 30f), 2f);
         }
 
-        /// <summary>Bubbles of something foul welling up over a spot for a moment (a vial bursting, a plague taking).</summary>
         public static void Bubbles(Vector3 at, float radius, Color c, int count = 10)
         {
             if (Application.isBatchMode || !Close(at)) return;
@@ -166,7 +147,6 @@ namespace Deepbound.Art
             }
         }
 
-        /// <summary>Gold-white motes rising off a body: someone being healed, shielded or blessed.</summary>
         public static void Uplift(Vector3 feet, Color c, int count = 8)
         {
             if (Application.isBatchMode || !Close(feet)) return;

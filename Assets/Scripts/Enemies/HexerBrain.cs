@@ -6,12 +6,6 @@ using UnityEngine;
 
 namespace Deepbound.Enemies
 {
-    /// <summary>
-    /// The Hexer: a gaunt cultist that hangs back and lays a Curse on whoever it can see —
-    /// 30% less damage dealt, half the healing received — for a long while. The curse ends
-    /// the moment the Hexer dies, so it is always the first target. It slips away from
-    /// anyone who closes in.
-    /// </summary>
     public class HexerBrain : EnemyBrain
     {
         [SerializeField] private float preferredRange = 11f, curseCooldown = 9f, curseSeconds = 12f, curseWindup = 1f;

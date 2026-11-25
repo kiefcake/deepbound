@@ -3,11 +3,6 @@ using UnityEngine;
 
 namespace Deepbound.EditorTools
 {
-    /// <summary>
-    /// Import settings for the recorded audio (2026-10-24, CC0 packs, see docs/CREDITS.md): music and room tone stream
-    /// from disk as Vorbis, so a 22 MB boss loop costs a few MB in the build and nothing in memory up front; sound
-    /// effects are decompressed on load and mono (they are placed in 3D, where stereo only blurs them).
-    /// </summary>
     public class AudioImportSettings : AssetPostprocessor
     {
         private void OnPreprocessAudio()

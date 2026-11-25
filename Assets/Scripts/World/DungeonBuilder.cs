@@ -3,19 +3,11 @@ using UnityEngine;
 
 namespace Deepbound.World
 {
-    /// <summary>
-    /// Turns a <see cref="DungeonLayout"/> into geometry, lights and props.
-    ///
-    /// Runs identically on every peer (the layout is deterministic, and so is this — all
-    /// randomness comes from each room's <c>DecorSeed</c>). Only the server additionally
-    /// bakes a navmesh over the result, since only the server runs enemy AI.
-    /// </summary>
     public static partial class DungeonBuilder
     {
         private const float WallThickness = 0.8f;
         private const float FloorThickness = 0.4f;
 
-        /// <summary>The theme of the floor being built. Set at the top of <see cref="Build"/>.</summary>
         private static DungeonTheme theme = DungeonTheme.ByDepth[0];
 
         public static GameObject Build(DungeonLayout layout)
@@ -36,7 +28,6 @@ namespace Deepbound.World
             for (int ti = 0; ti < layout.FlameTraps.Count; ti++) FlameJet.Build(lights, layout.FlameTraps[ti], dressing, ti);
             if (layout.PeddlerSpot.HasValue)
             {
-                // The peddler: the camp merchant's travelling cousin, with a lantern and his pack.
                 var at = layout.PeddlerSpot.Value;
                 Props.Merchant(lights, at, at + layout.PeddlerFacing * 3f, dressing);
                 Props.Crate(dressing, at - layout.PeddlerFacing * 0.6f + new Vector3(layout.PeddlerFacing.z, 0f, -layout.PeddlerFacing.x) * 1.2f, 0.9f, 20f);
@@ -57,11 +48,6 @@ namespace Deepbound.World
             return root;
         }
 
-        /// <summary>
-        /// Standing water: one sheet across the whole floor's footprint at the water line.
-        /// Walls hide it outside the rooms, so it needs no per-room fitting. No collider —
-        /// you wade through it.
-        /// </summary>
         private static void BuildWater(DungeonLayout layout, Transform parent)
         {
             var min = new Vector2(float.MaxValue, float.MaxValue);
@@ -81,11 +67,6 @@ namespace Deepbound.World
             r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
         }
 
-        /// <summary>
-        /// Near-black ambient and dense fog: the dark is what makes torchlight mean
-        /// something. Shadows read as cool blue-grey (see the post-processing split tone),
-        /// firelight as warm — that contrast does most of the mood work.
-        /// </summary>
         public static void ApplyAtmosphere(DungeonTheme t = null)
         {
             t ??= DungeonTheme.ByDepth[0];
@@ -98,18 +79,10 @@ namespace Deepbound.World
             RenderSettings.fogColor = t.Fog;
             RenderSettings.fogDensity = t.FogDensity;
 
-            // There is no sky underground. Unity's default reflections come from a bright
-            // procedural sky, which makes wet floors look like ice and steel look like
-            // chrome; keep only a trace of it so torch highlights still glint.
             RenderSettings.reflectionIntensity = 0.12f;
 
-            // The camera clears to the fog colour, so the far darkness matches the murk.
             foreach (var cam in Camera.allCameras) cam.backgroundColor = t.Fog;
         }
-
-        // ------------------------------------------------------------------
-        // Rooms
-        // ------------------------------------------------------------------
 
         private static void BuildRoom(DungeonLayout.Room room, MeshKit.Batcher structure, MeshKit.Batcher dressing, Transform lights)
         {
@@ -123,7 +96,7 @@ namespace Deepbound.World
             else if (room.Feature == RoomFeature.Undercroft) BuildLowFloor(room, DungeonLayout.UndercroftDepth, 0f, structure, dressing, Mat.Rubble, edgeRamps: false);
             else structure.AddBox(c + Vector3.down * FloorThickness / 2f, new Vector3(w + WallThickness * 2f, FloorThickness, d + WallThickness * 2f), floorMat);
             structure.AddBox(c + Vector3.up * (h + FloorThickness / 2f), new Vector3(w + WallThickness * 2f, FloorThickness, d + WallThickness * 2f), Mat.StoneWall);
-            // Raised ground (terraces, ziggurat tiers) and the ramps up onto it.
+
             foreach (var (rr, top) in room.Raised)
             {
                 var rc = new Vector3(rr.center.x, 0f, rr.center.y);
@@ -131,9 +104,9 @@ namespace Deepbound.World
                 structure.AddBox(rc + Vector3.up * (top - 0.03f), new Vector3(rr.width - 0.1f, 0.08f, rr.height - 0.1f), Mat.Flagstone);
             }
             foreach (var (low, high, rw) in room.Ramps) Ramp(low, high, rw, structure, dressing);
-            // Decks (mezzanines, belfry ledges): slabs on pillars, open beneath.
+
             foreach (var (dr, top) in room.Decks) BuildDeck(room, dr, top, structure, lights);
-            // The undercroft's pit is lit by four braziers in its corners.
+
             if (room.Feature == RoomFeature.Undercroft)
                 foreach (var (sx, sz) in new[] { (1f, 1f), (-1f, 1f), (1f, -1f), (-1f, -1f) })
                     Props.Brazier(lights, new Vector3(room.Low.center.x + sx * (room.Low.width / 2f - 1.4f), -DungeonLayout.UndercroftDepth, room.Low.center.y + sz * (room.Low.height / 2f - 1.4f)), theme.TorchColor, false);
@@ -142,7 +115,6 @@ namespace Deepbound.World
 
             var rng = new System.Random(room.DecorSeed);
 
-            // Ceiling beams across the shorter span, for scale and a sense of weight.
             bool beamsAlongX = w < d;
             float span = beamsAlongX ? d : w;
             for (float t = -span / 2f + 3f; t < span / 2f - 1f; t += 4f)
@@ -151,12 +123,11 @@ namespace Deepbound.World
                 dressing.AddBox(pos, beamsAlongX ? new Vector3(w, 0.5f, 0.4f) : new Vector3(0.4f, 0.5f, d), Mat.Wood);
             }
 
-            // A lightless hall has no torches, shafts or braziers: only the torch you carry.
             bool dark = room.Feature == RoomFeature.Lightless;
             if (!dark) PlaceWallTorches(room, lights, rng);
             WallBays(room, dressing, lights);
             if (room.Kind != RoomKind.Start && !dark) PlaceLightShafts(room, lights, dressing, rng);
-            // Something in the middle (2026-11-13; World/Centrepieces): plain rooms, great halls, crypts, lightless halls.
+
             var middle = Centrepieces.Of(room);
             if (middle != Centrepieces.Kind.None) Centrepieces.Build(room, middle, dressing, lights, new System.Random(room.Id * 7919 + 17));
 
@@ -168,10 +139,10 @@ namespace Deepbound.World
                 case RoomFeature.Pendulums: DressPendulums(room, dressing, lights, lights); return;
                 case RoomFeature.Ritual: DressRitual(room, dressing, lights, rng); return;
                 case RoomFeature.GreatHall: DressGreatHall(room, dressing, lights); return;
-                case RoomFeature.Chasm: return; // the pit is the dressing
+                case RoomFeature.Chasm: return;
                 case RoomFeature.Crypt: DressCrypt(room, dressing, lights, rng); return;
                 case RoomFeature.Vault: DressVault(room, dressing, lights, rng); return;
-                case RoomFeature.Fountain: return; // the fountain is a networked object
+                case RoomFeature.Fountain: return;
                 case RoomFeature.Library: DressLibrary(room, dressing, lights, rng); return;
                 case RoomFeature.Pyre: DressPyre(room, dressing, lights, rng); return;
                 case RoomFeature.Gauntlet: DressGauntlet(room, dressing, lights, rng); return;
@@ -180,8 +151,7 @@ namespace Deepbound.World
                 case RoomFeature.Treasury: case RoomFeature.Beggar: case RoomFeature.Proving: case RoomFeature.Armoury: case RoomFeature.Mirror: case RoomFeature.Oath: case RoomFeature.Statues: case RoomFeature.Chimes: case RoomFeature.Mirrors: case RoomFeature.Scales: case RoomFeature.Draught: case RoomFeature.Crucible:
                     DressSpecial(room, dressing, lights, rng); return;
                 case RoomFeature.Panoply: DressSpecial(room, dressing, lights, rng); DressPanoply(room, dressing, lights); return;
-                // The tall rooms keep their floors clear for the stairs and decks (no free-standing pillars, no theme heaps);
-                // an undercroft's dressing is its pit braziers (anything set on the floor line would hang over the pit).
+
                 case RoomFeature.Mezzanine: case RoomFeature.Belfry: DressRoom(room, dressing, lights, rng, pillars: false); return;
                 case RoomFeature.Undercroft: return;
                 case RoomFeature.Ruin: DressRuin(room, dressing, lights, rng); return;
@@ -196,18 +166,17 @@ namespace Deepbound.World
             }
         }
 
-        /// <summary>Timber door frame and the pointed stone arch over a doorway.</summary>
         private static void DoorTrim(Vector3 wallCenter, Vector2 dir, bool alongX, MeshKit.Batcher b)
         {
             float door = DungeonLayout.CorridorWidth;
             Vector3 Size(float len, float height) => alongX ? new Vector3(len, height, WallThickness) : new Vector3(WallThickness, height, len);
             Vector3 Along(float t) => alongX ? new Vector3(t, 0f, 0f) : new Vector3(0f, 0f, t);
-            // Door frame: two jambs and a header in heavy timber.
+
             var inward = -new Vector3(dir.x, 0f, dir.y) * (WallThickness / 2f + 0.1f);
             b.AddBox(wallCenter + inward + Along(-door / 2f - 0.15f) + Vector3.up * DungeonLayout.CorridorHeight / 2f, Size(0.3f, DungeonLayout.CorridorHeight) + (alongX ? new Vector3(0, 0, -0.5f) : new Vector3(-0.5f, 0, 0)), Mat.Wood);
             b.AddBox(wallCenter + inward + Along(door / 2f + 0.15f) + Vector3.up * DungeonLayout.CorridorHeight / 2f, Size(0.3f, DungeonLayout.CorridorHeight) + (alongX ? new Vector3(0, 0, -0.5f) : new Vector3(-0.5f, 0, 0)), Mat.Wood);
             b.AddBox(wallCenter + inward + Vector3.up * (DungeonLayout.CorridorHeight + 0.15f), Size(door + 0.9f, 0.3f) + (alongX ? new Vector3(0, 0, -0.5f) : new Vector3(-0.5f, 0, 0)), Mat.Wood);
-            // A pointed gothic arch of dressed stone over the lintel, with a keystone.
+
             var normal = new Vector3(dir.x, 0f, dir.y);
             float archY = DungeonLayout.CorridorHeight + 0.3f;
             float leg = door * 0.62f;
@@ -222,7 +191,6 @@ namespace Deepbound.World
 
         private static Transform doorParent;
 
-        /// <summary>Plank doors in a doorway (not into the boss arena or a vault: those have portcullises).</summary>
         private static void HangDoor(DungeonLayout.Room room, Vector3 wallCenter, Vector2 dir, bool alongX)
         {
             if (doorParent == null || room.Kind == RoomKind.Boss || room.Feature == RoomFeature.Vault) return;
@@ -236,7 +204,7 @@ namespace Deepbound.World
         {
             var c = room.Center;
             float h = room.Height;
-            bool alongX = side == 0 || side == 2;                     // N/S walls run along X
+            bool alongX = side == 0 || side == 2;
             float length = (alongX ? room.Size.x : room.Size.y) + WallThickness * 2f;
             var dir = DungeonLayout.Dir[side];
             float offset = (alongX ? room.Size.y : room.Size.x) / 2f + WallThickness / 2f;
@@ -248,7 +216,6 @@ namespace Deepbound.World
             var hole = room.HoleOn(side);
             if (hole != null && room.Doors[side])
             {
-                // A doorway and a hollow on the same wall: three solid stretches around two gaps.
                 float door = DungeonLayout.CorridorWidth, hw = WallHole.Width, a = hole.Along;
                 var gaps = new[] { (c: 0f, w: door, top: DungeonLayout.CorridorHeight), (c: a, w: hw, top: WallHole.Height) };
                 System.Array.Sort(gaps, (p, q) => p.c.CompareTo(q.c));
@@ -267,7 +234,6 @@ namespace Deepbound.World
             }
             else if (hole != null && !room.Doors[side])
             {
-                // Wall split around the hole, a lintel over it, and the niche beyond.
                 float hw = WallHole.Width, a = hole.Along;
                 float leftLen = (a - hw / 2f) + length / 2f, rightLen = length / 2f - (a + hw / 2f);
                 b.AddBox(wallCenter + Along(-length / 2f + leftLen / 2f) + Vector3.up * h / 2f, Size(leftLen, h), Mat.StoneWall);
@@ -292,8 +258,6 @@ namespace Deepbound.World
                 HangDoor(room, wallCenter, dir, alongX);
             }
 
-            // Plinth along the base of the wall, so walls meet the floor with a line
-            // rather than a seam.
             var plinthIn = -new Vector3(dir.x, 0f, dir.y) * (WallThickness / 2f + 0.1f);
             if (!room.Doors[side] && hole == null)
             {
@@ -301,11 +265,6 @@ namespace Deepbound.World
             }
         }
 
-        /// <summary>
-        /// The space behind a hollow wall: floor, ceiling, back and sides. A secret cache is
-        /// a little shrine-alcove; a breach is a rough tunnel the dead dug to reach you.
-        /// </summary>
-        /// <summary>A cellar vault: a low stone room <see cref="DungeonLayout.CellarDrop"/> under its side room, a torch, crates.</summary>
         private static void BuildCellar(DungeonLayout.Room room, MeshKit.Batcher s, MeshKit.Batcher d, Transform lights)
         {
             var c = room.CellarCenter;
@@ -323,7 +282,7 @@ namespace Deepbound.World
             Props.WallTorch(lights, c + new Vector3(0f, 2.2f, w / 2f - 0.15f), Vector3.back, false, theme.TorchColor);
             Props.Crate(d, c + new Vector3(-w / 2f + 0.8f, 0f, w / 2f - 0.9f), 0.9f, 12f);
             Props.Crate(d, c + new Vector3(-w / 2f + 0.9f, 0f, w / 2f - 1.9f), 0.7f, -20f);
-            Props.Crate(d, c + new Vector3(w / 2f - 0.8f, 0f, 0.6f), 0.8f, 33f); // clear of the chests in the far corners
+            Props.Crate(d, c + new Vector3(w / 2f - 0.8f, 0f, 0.6f), 0.8f, 33f);
             d.AddBox(c + new Vector3(w / 2f - 1.2f, 0.06f, w / 2f - 1.2f), new Vector3(1.4f, 0.12f, 0.9f), Mat.Bone, Quaternion.Euler(0f, 25f, 0f));
         }
 
@@ -336,9 +295,7 @@ namespace Deepbound.World
             var across = alongX ? Vector3.right : Vector3.forward;
 
             b.AddBox(mid + Vector3.down * FloorThickness / 2f, S(w, FloorThickness, depth), breach ? Mat.Rubble : Mat.Flagstone);
-            // The opening's own floor, through the wall's thickness: without it there was a 0.8 m hole between
-            // the room and the niche, so the navmesh never joined them (2026-10-22, the autoplay run: breach
-            // dead stuck in their tunnel, and whoever followed them in could not path back out).
+
             b.AddBox(wallMid + Vector3.down * FloorThickness / 2f, S(WallHole.Width + 0.4f, FloorThickness, WallThickness + 0.2f), breach ? Mat.Rubble : Mat.Flagstone);
             b.AddBox(mid + Vector3.up * (hh + 0.2f), S(w, 0.4f, depth), Mat.StoneWall);
             b.AddBox(start + outward * (depth + 0.4f) + Vector3.up * hh / 2f, S(w + 0.8f, hh + 0.4f, 0.8f), Mat.StoneWall);
@@ -347,26 +304,19 @@ namespace Deepbound.World
 
             if (breach)
             {
-                // Spoil heaps and gouges: something dug through here.
                 b.AddBox(mid + outward * 0.9f + across * 0.9f + Vector3.up * 0.25f, S(0.9f, 0.5f, 1.1f), Mat.Rubble, Quaternion.Euler(0f, 23f, 8f));
                 b.AddBox(mid - outward * 0.2f - across * 1.1f + Vector3.up * 0.2f, S(0.7f, 0.4f, 0.8f), Mat.Rubble, Quaternion.Euler(0f, -31f, -6f));
             }
             else
             {
-                // A little plinth at the back for whatever was hidden here.
                 b.AddBox(start + outward * (depth - 0.5f) + Vector3.up * 0.3f, S(1.6f, 0.6f, 0.6f), Mat.StoneWall);
             }
         }
 
-        /// <summary>
-        /// Gothic wall bays (2026-11-20 visual pass: long walls were flat sheets of brick): a stone pilaster from floor to
-        /// ceiling halfway between each pair of torches, on a stepped plinth, with a corbel under the ceiling. Not where a
-        /// door, a hollow wall or a balcony is, and not in rooms whose walls carry windows, shelves or galleries.
-        /// </summary>
         private static void WallBays(DungeonLayout.Room room, MeshKit.Batcher b, Transform lights)
         {
             if (room.Height < 4.5f) return;
-            // A guardian's arena hangs banners between its torches instead: the act's colour and a deep crimson by turns.
+
             bool arena = room.Kind == RoomKind.Boss;
             int hung = 0;
             switch (room.Feature)
@@ -375,7 +325,7 @@ namespace Deepbound.World
                 case RoomFeature.Chasm: case RoomFeature.SunkenCourt: case RoomFeature.Cistern: case RoomFeature.Undercroft: case RoomFeature.Ruin: case RoomFeature.Rampart: case RoomFeature.Terrace: case RoomFeature.Ziggurat:
                     return;
             }
-            float spacing = arena ? 6.5f : 7f; // as PlaceWallTorches
+            float spacing = arena ? 6.5f : 7f;
             for (int side = 0; side < 4; side++)
             {
                 if (room.Balconies.Contains(side)) continue;
@@ -386,7 +336,7 @@ namespace Deepbound.World
                 float offset = (alongX ? room.Size.y : room.Size.x) / 2f;
                 int count = Mathf.Max(1, Mathf.FloorToInt(len / spacing));
                 var hole = room.HoleOn(side);
-                // Where PlaceWallTorches hangs this wall's torches (a door nudges one aside): keep the pilasters off them.
+
                 var torchAt = new System.Collections.Generic.List<float>();
                 for (int k = 0; k < count; k++)
                 {
@@ -421,7 +371,7 @@ namespace Deepbound.World
         private static void PlaceWallTorches(DungeonLayout.Room room, Transform lights, System.Random rng)
         {
             float spacing = room.Kind == RoomKind.Boss ? 6.5f : 7f;
-            int shadowBudget = room.Kind == RoomKind.Boss ? 0 : 2; // boss room uses braziers for shadows
+            int shadowBudget = room.Kind == RoomKind.Boss ? 0 : 2;
             float y = Mathf.Min(2.6f, room.Height - 1f);
 
             for (int side = 0; side < 4; side++)
@@ -441,7 +391,6 @@ namespace Deepbound.World
                     if (holeHere != null && Mathf.Abs(t - holeHere.Along) < WallHole.Width) continue;
                     if (Mathf.Abs(t) > len / 2f - 0.8f) continue;
 
-                    // On a gallery wall the torches hang above the balcony.
                     float ty = room.Balconies.Contains(side) ? DungeonLayout.BalconyHeight + 1.7f : y;
                     var p = room.Center + new Vector3(dir.x, 0f, dir.y) * offset + (alongX ? new Vector3(t, ty, 0f) : new Vector3(0f, ty, t));
                     Props.WallTorch(lights, p, outward, shadowBudget-- > 0, theme.TorchColor);
@@ -449,10 +398,6 @@ namespace Deepbound.World
             }
         }
 
-        /// <summary>
-        /// Grime on the flagstones (2026-10-28, Kenney's CC0 dirt and scorch sprites): a few faint stains, soot and the
-        /// odd old bloodstain lying flat on a plain room's floor. Seeded with the floor, so every peer sees the same.
-        /// </summary>
         private static void FloorStains(DungeonLayout.Room room, Transform parent, System.Random rng)
         {
             if (room.Feature != RoomFeature.None || parent == null) return;
@@ -499,10 +444,9 @@ namespace Deepbound.World
             var c = room.Center;
             float hx = room.Size.x / 2f, hz = room.Size.y / 2f;
             FloorStains(room, lights, rng);
-            // Something in the middle (2026-11-13): cover, a landmark, or a hearth to light (World/Centrepieces).
-            var centre = Centrepieces.Of(room); // built before the feature switch (DressRoomFeatures)
 
-            // Large rooms get pillars: line-of-sight breaks for kiting and hiding.
+            var centre = Centrepieces.Of(room);
+
             if (pillars && room.Size.x >= 16f && room.Size.y >= 16f)
             {
                 float px = hx * 0.5f, pz = hz * 0.5f;
@@ -512,16 +456,14 @@ namespace Deepbound.World
                 Props.Pillar(b, c + new Vector3(-px, 0f, -pz), room.Height);
             }
 
-            // Clutter in the corners, away from doors and the middle where fights happen.
             for (int corner = 0; corner < 4; corner++)
             {
                 if (rng.NextDouble() < 0.35) continue;
                 float sx = (corner & 1) == 0 ? -1f : 1f, sz = (corner & 2) == 0 ? -1f : 1f;
                 var p = c + new Vector3(sx * (hx - 1.3f), 0f, sz * (hz - 1.3f));
-                // 2026-11-20: three furnished corners join the clutter (a laid table, a bookcase, a statue).
+
                 int kind = rng.Next(8);
-                // Never in front of a hollow wall: a rubble heap there ate shots meant for a secret cache
-                // (2026-10-23 smoke test; the "unbreakable wall" the user hit), and crates boxed breach dead in.
+
                 bool byHole = false;
                 foreach (var hole in room.Holes)
                     if (Vector3.Distance(room.HoleFace(hole), p) < WallHole.Width / 2f + 2.6f) byHole = true;
@@ -550,7 +492,6 @@ namespace Deepbound.World
                 }
             }
 
-            // (The rng draws stay in the same order with or without a centrepiece, so the rest of the room dresses the same.)
             bool pile = rng.NextDouble() < 0.5;
             var pileAt = c + new Vector3((float)rng.NextDouble() * 4f - 2f, 0f, (float)rng.NextDouble() * 4f - 2f);
             if (pile && centre == Centrepieces.Kind.None) Props.BonePile(b, pileAt, rng);
@@ -558,14 +499,6 @@ namespace Deepbound.World
             if (room.Kind == RoomKind.Combat && room.Feature != RoomFeature.Lightless && rng.NextDouble() < 0.4 && centre == Centrepieces.Kind.None) Props.Brazier(lights, c, theme.BrazierColor, true);
         }
 
-        // ------------------------------------------------------------------
-        // Feature rooms
-        // ------------------------------------------------------------------
-
-        /// <summary>
-        /// A chasm: the floor is a ring around a pit, crossed by two narrow bridges. Far
-        /// below, a dim red glow — you can see how far it is to fall.
-        /// </summary>
         private static void BuildChasmFloor(DungeonLayout.Room room, MeshKit.Batcher b, MeshKit.Batcher dressing, Transform lights)
         {
             var c = room.Center;
@@ -580,13 +513,11 @@ namespace Deepbound.World
                 b.AddBox(new Vector3((x0 + x1) / 2f, y, (z0 + z1) / 2f), new Vector3(x1 - x0, FloorThickness, z1 - z0), Mat.Flagstone);
             }
 
-            // Ring around the pit.
             Slab(minX, maxX, minZ, pit.yMin);
             Slab(minX, maxX, pit.yMax, maxZ);
             Slab(minX, pit.xMin, pit.yMin, pit.yMax);
             Slab(pit.xMax, maxX, pit.yMin, pit.yMax);
 
-            // Two bridges: one along X, one along Z, with low stone rails.
             const float bridge = 2.2f;
             Slab(pit.xMin, pit.xMax, c.z - bridge / 2f, c.z + bridge / 2f);
             Slab(c.x - bridge / 2f, c.x + bridge / 2f, pit.yMin, pit.yMax);
@@ -598,7 +529,6 @@ namespace Deepbound.World
                 dressing.AddBox(new Vector3(c.x + s * (bridge / 2f + 0.1f), 0.25f, c.z + pit.height / 4f + bridge / 4f), new Vector3(0.2f, 0.5f, pit.height / 2f - bridge / 2f), Mat.StoneWall);
             }
 
-            // Pit walls going down, and the glowing bottom.
             const float depth = 10f;
             b.AddBox(new Vector3(pit.center.x, -depth / 2f, pit.yMin - 0.3f), new Vector3(pit.width, depth, 0.6f), Mat.Rubble);
             b.AddBox(new Vector3(pit.center.x, -depth / 2f, pit.yMax + 0.3f), new Vector3(pit.width, depth, 0.6f), Mat.Rubble);
@@ -606,7 +536,6 @@ namespace Deepbound.World
             b.AddBox(new Vector3(pit.xMax + 0.3f, -depth / 2f, pit.center.y), new Vector3(0.6f, depth, pit.height), Mat.Rubble);
             b.AddBox(new Vector3(pit.center.x, -depth - 0.2f, pit.center.y), new Vector3(pit.width, 0.4f, pit.height), Mat.Rubble);
 
-            // Kerb stones mark the lip, broken where the bridges cross.
             void Kerb(Vector3 from, Vector3 to)
             {
                 var mid = (from + to) / 2f;
@@ -626,7 +555,6 @@ namespace Deepbound.World
                 Kerb(new Vector3(x, 0f, c.z + gap), new Vector3(x, 0f, pit.yMax));
             }
 
-            // Embers glowing in the cracks far below: the only way to judge the drop.
             var rng = new System.Random(room.Id * 7919 + 17);
             for (int i = 0; i < 18; i++)
             {
@@ -649,16 +577,11 @@ namespace Deepbound.World
             }
         }
 
-        /// <summary>A great hall: a colonnade down both sides, chandeliers, and banners in the floor's colours.</summary>
-        /// <summary>
-        /// The gothic layer for any room: gargoyles flanking a doorless wall, iron candelabras,
-        /// and cobwebs in the high corners.
-        /// </summary>
         private static void GothicDressing(DungeonLayout.Room room, MeshKit.Batcher b, Transform lights, System.Random rng)
         {
             var c = room.Center;
             float hx = room.Size.x / 2f, hz = room.Size.y / 2f;
-            // A pair of gargoyles watching from a wall with no door (and no hollow in it).
+
             for (int side = 0; side < 4; side++)
             {
                 if (room.Doors[side] || room.HoleOn(side) != null || room.Size.x < 12f || rng.NextDouble() < 0.5) continue;
@@ -671,8 +594,7 @@ namespace Deepbound.World
                 Props.Candelabra(lights, b, wall + along * 0.0f - new Vector3(d.x, 0f, d.y) * 0.3f, theme.TorchColor);
                 break;
             }
-            // Ribbed vaulting (2026-11-20 visual pass: the ceilings were flat and bare): two stone ribs crossing corner to
-            // corner to a carved boss, and transverse ribs across a long room. High overhead, clear of every fight.
+
             if (room.Height >= 5f && room.Size.x >= 10f && room.Size.y >= 10f && room.Feature != RoomFeature.Chasm && room.Feature != RoomFeature.Lightless)
             {
                 float yTop = room.Height - 0.2f;
@@ -693,7 +615,7 @@ namespace Deepbound.World
                     b.AddBox(at, longX ? new Vector3(0.26f, 0.3f, room.Size.y - 0.2f) : new Vector3(room.Size.x - 0.2f, 0.3f, 0.26f), Mat.StoneWall);
                 }
             }
-            // Cobwebs in two or three of the high corners.
+
             for (int corner = 0; corner < 4; corner++)
             {
                 if (rng.NextDouble() < 0.4) continue;
@@ -706,7 +628,7 @@ namespace Deepbound.World
         private static void DressGreatHall(DungeonLayout.Room room, MeshKit.Batcher b, Transform lights)
         {
             var c = room.Center;
-            // Stained-glass lancets along both long walls, between the banners.
+
             int seed = room.DecorSeed;
             for (int side = 1; side < 4; side += 2)
             {
@@ -745,7 +667,6 @@ namespace Deepbound.World
             }
         }
 
-        /// <summary>A crypt: candles, bones and a stone altar. The sarcophagi themselves are networked.</summary>
         private static void DressCrypt(DungeonLayout.Room room, MeshKit.Batcher b, Transform lights, System.Random rng)
         {
             var c = room.Center;
@@ -760,7 +681,6 @@ namespace Deepbound.World
             Props.Candles(lights, c + new Vector3(room.Size.x * 0.3f, 0f, -room.Size.y * 0.3f), new Color(0.9f, 0.75f, 0.5f));
         }
 
-        /// <summary>A treasure vault: heaped gold and a pedestal. The chests inside are networked.</summary>
         private static void DressVault(DungeonLayout.Room room, MeshKit.Batcher b, Transform lights, System.Random rng)
         {
             var c = room.Center;
@@ -782,13 +702,10 @@ namespace Deepbound.World
 
         private static void DressStartRoom(DungeonLayout.Room room, MeshKit.Batcher b, Transform lights)
         {
-            // A campfire-like brazier in the middle: the one safe, warm place on the floor.
             Props.Brazier(lights, room.Center + new Vector3(0f, 0f, 0f), new Color(1f, 0.6f, 0.3f), true);
             Props.Crate(b, room.Center + new Vector3(-4.5f, 0f, -4.5f), 1f, 10f);
             Props.Barrel(b, room.Center + new Vector3(4.5f, 0f, -4.5f));
 
-            // The expedition's landing: bedrolls round the fire, packs, a supply stack,
-            // and a waystone glowing where the carriage set you down.
             var c = room.Center;
             for (int i = 0; i < 4; i++)
             {
@@ -800,14 +717,14 @@ namespace Deepbound.World
                 b.Add(MeshKit.Cylinder(0.14f, 0.14f, 0.8f, 8), Mat.Cloth, Matrix4x4.TRS(c + dir * 4.85f + Vector3.up * 0.14f, Quaternion.LookRotation(dir) * Quaternion.Euler(0f, 90f, 90f) * Quaternion.Euler(0f, 0f, 0f), Vector3.one));
                 b.AddBox(c + dir * 3.1f + Quaternion.Euler(0f, 90f, 0f) * dir * 0.9f + Vector3.up * 0.25f, new Vector3(0.45f, 0.5f, 0.3f), Mat.Leather, Quaternion.LookRotation(dir));
             }
-            // Supply stack in a corner.
+
             float hx = room.Size.x / 2f, hz = room.Size.y / 2f;
             Props.Crate(b, c + new Vector3(hx - 1.4f, 0f, hz - 1.4f), 1.1f, 15f);
             Props.Crate(b, c + new Vector3(hx - 2.6f, 0f, hz - 1.3f), 0.9f, -10f);
             Props.Crate(b, c + new Vector3(hx - 1.5f, 1.1f, hz - 1.4f), 0.7f, 40f);
             Props.Barrel(b, c + new Vector3(-hx + 1.3f, 0f, hz - 1.3f));
             Props.Barrel(b, c + new Vector3(-hx + 2.2f, 0f, hz - 1.4f));
-            // The waystone: on a wall with no door, a tall carved stone with a glowing rune.
+
             for (int side = 0; side < 4; side++)
             {
                 if (room.Doors[side]) continue;
@@ -842,7 +759,7 @@ namespace Deepbound.World
             switch (room.Arena)
             {
                 case BossArena.Colonnade:
-                    // Ring of pillars: cover from the slam and the patterns, and a circle to fight around.
+
                     for (int i = 0; i < 8; i++)
                     {
                         float a = i * Mathf.PI / 4f + Mathf.PI / 8f;
@@ -850,13 +767,13 @@ namespace Deepbound.World
                     }
                     break;
                 case BossArena.Dais:
-                    // The raised dais is structure (see BuildRoom); four tall pillars mark its corners.
+
                     foreach (var (rr, top) in room.Raised)
                         foreach (var (sx, sz) in new[] { (1f, 1f), (-1f, 1f), (1f, -1f), (-1f, -1f) })
                             Props.Pillar(b, new Vector3(rr.center.x + sx * (rr.width / 2f - 0.6f), top, rr.center.y + sz * (rr.height / 2f - 0.6f)), room.Height - top);
                     break;
                 case BossArena.Ruins:
-                    // Broken columns and heaps of fallen masonry: uneven cover, a field to weave through.
+
                     for (int i = 0; i < 7; i++)
                     {
                         float a = (i * 51f + 20f) * Mathf.Deg2Rad;
@@ -869,7 +786,6 @@ namespace Deepbound.World
                     break;
             }
 
-            // Throne at the far wall from whichever door the party enters by.
             int entry = 0;
             for (int s = 0; s < 4; s++) if (room.Doors[s]) entry = s;
             var back = -new Vector3(DungeonLayout.Dir[entry].x, 0f, DungeonLayout.Dir[entry].y);
@@ -883,10 +799,6 @@ namespace Deepbound.World
             Props.Brazier(lights, c + new Vector3(5f, 0f, -5f), cold, false);
             Props.Brazier(lights, c + new Vector3(-5f, 0f, -5f), cold, false);
         }
-
-        // ------------------------------------------------------------------
-        // Corridors
-        // ------------------------------------------------------------------
 
         private static void BuildCorridor(DungeonLayout.Room a, DungeonLayout.Room bRoom, int dir, MeshKit.Batcher b, MeshKit.Batcher dressing, Transform lights)
         {
@@ -911,7 +823,6 @@ namespace Deepbound.World
             b.AddBox(mid + side * (w / 2f + WallThickness / 2f) + Vector3.up * h / 2f, Size(length, h, WallThickness), Mat.StoneWall);
             b.AddBox(mid - side * (w / 2f + WallThickness / 2f) + Vector3.up * h / 2f, Size(length, h, WallThickness), Mat.StoneWall);
 
-            // Mine-shaft timber sets: posts and a cap beam every few metres.
             int sets = Mathf.Max(1, Mathf.FloorToInt(length / 3.5f));
             for (int i = 0; i < sets; i++)
             {
@@ -921,8 +832,6 @@ namespace Deepbound.World
                 dressing.AddBox(p + Vector3.up * (h - 0.18f), Size(0.3f, 0.36f, w), Mat.Wood);
             }
 
-            // Clutter, deterministic per corridor: bones and rubble at the foot of the walls,
-            // chains hanging from the cap beams, cobwebs in the corners, a puddle or two.
             var crng = new System.Random(a.Id * 7919 + bRoom.Id * 104729 + 11);
             for (float t = 2f; t < length - 2f; t += 2.5f + (float)crng.NextDouble() * 3f)
             {
@@ -933,7 +842,7 @@ namespace Deepbound.World
                     case 0: Props.BonePile(dressing, foot, crng); break;
                     case 1: Props.Rubble(dressing, foot, crng); break;
                     case 2:
-                        // A chain hanging from the beam, swaying slightly out of true.
+
                         float len = 0.8f + (float)crng.NextDouble() * 1.4f;
                         dressing.AddBox(start + axis * t + side * s * 0.6f + Vector3.up * (h - 0.4f - len / 2f), new Vector3(0.04f, len, 0.04f), Mat.Steel,
                             Quaternion.Euler((float)crng.NextDouble() * 8f - 4f, 0f, (float)crng.NextDouble() * 8f - 4f));
@@ -951,7 +860,7 @@ namespace Deepbound.World
                         }
                         break;
                     case 5:
-                        // Something left against the wall on the way down (2026-11-20, downloaded CC0 models).
+
                         var by = start + axis * t + side * s * (w / 2f - 0.4f);
                         if (crng.Next(2) == 0) dressing.AddModel("wine_barrel_01", 0.8f, by, crng.Next(360));
                         else dressing.AddModel("wooden_bucket_01", 0.42f, by, crng.Next(360));
@@ -959,7 +868,6 @@ namespace Deepbound.World
                 }
             }
 
-            // One torch per ~9m, alternating walls.
             int torches = Mathf.Max(1, Mathf.FloorToInt(length / 9f));
             for (int i = 0; i < torches; i++)
             {

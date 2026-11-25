@@ -1,11 +1,5 @@
 namespace Deepbound.Classes
 {
-    /// <summary>
-    /// The two directions each class weapon can be taken at the anvil. Chosen once, at
-    /// <see cref="PathLevel"/>; the path's mastery wakes at <see cref="MasteryLevel"/>.
-    /// Paths are numbered 1 and 2 (0 = not chosen yet). The effects live in each kit,
-    /// gated by <see cref="Progression.PlayerProgress.OnPath"/> and <c>Mastered</c>.
-    /// </summary>
     public static class WeaponPaths
     {
         public const int PathLevel = 2, MasteryLevel = 4;
@@ -40,7 +34,7 @@ namespace Deepbound.Classes
                     : "Smites pass through your allies and heal each one they touch, and fly on through the dead.";
                 case ClassId.Rogue: return path == 1
                     ? "Stabs from behind deal x2.0 instead of x1.5 and leave the foe bleeding."
-                    : "Stabs strike two enemies and hit 25% harder from the front; every 5th stab in a row on one foe is a FLOURISH (x2.5, staggers).";
+                    : "Stabs strike two enemies; every 5th stab in a row on one foe is a FLOURISH (x2.5, staggers).";
                 case ClassId.Flagellant: return path == 1
                     ? "The crash comes every OTHER swing, and it leaves the ground burning."
                     : "The flail whirls all round you (at 70%), and Penance heals twice as much.";

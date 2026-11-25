@@ -7,11 +7,6 @@ using UnityEngine.InputSystem;
 
 namespace Deepbound.Player
 {
-    /// <summary>
-    /// V: a boot to whatever is in front of you, for every class. Little damage, a lot of
-    /// shove, and a stagger. Its real use is the room: kick the dead into a chasm (they do
-    /// not climb back out), into a swinging pendulum, or off a balcony.
-    /// </summary>
     public class Kick : NetworkBehaviour
     {
         public const float Cooldown = 5f, Range = 2.4f, Arc = 80f, Shove = 15f, AllyShove = 7f;
@@ -52,7 +47,7 @@ namespace Deepbound.Player
             forward.y = 0f;
             forward.Normalize();
             bool hit = false;
-            // A slide kick sweeps low and wide, and hits like a cart.
+
             var from = slide ? transform.position + Vector3.up * 0.6f : origin;
             foreach (var target in CombatQuery.Arc(from, forward, Range + (slide ? 0.6f : 0f), slide ? 110f : Arc, Team.Enemies))
             {
@@ -63,14 +58,14 @@ namespace Deepbound.Player
                     push.y = 0f;
                     var v = (push.normalized + forward).normalized * (slide ? Shove * 1.5f : Shove);
                     cc.ServerStun(slide ? 1f : 0.45f);
-                    // Shielded rank and file: the boot knocks the shield wide open.
+
                     if (target.TryGetComponent<Enemies.ShieldbearerBrain>(out var sb)) sb.ServerBreakGuard(slide ? 5f : 3.5f);
                     cc.ServerKnockback(v);
                     World.DungeonDirector.Instance?.ServerCheckShove(target, v, NetworkObjectId);
                 }
                 hit = true;
             }
-            // An ally in the way gets booted too: a shove, no harm (and never a downed one).
+
             bool booted = false;
             foreach (var ally in CombatQuery.Arc(from, forward, Range, Arc, Team.Players))
             {
@@ -83,7 +78,6 @@ namespace Deepbound.Player
             KickFxRpc(hit, slide, booted);
         }
 
-        /// <summary>For tests: allies this player has booted (server).</summary>
         public int ServerBoots { get; private set; }
 
         [Rpc(SendTo.ClientsAndHost)]
@@ -95,7 +89,7 @@ namespace Deepbound.Player
             if (!IsOwner) player.Rig?.Play(RigAction.Bash, 0.35f);
             Sfx.Play(hit ? Sound.Bash : Sound.Swing, transform.position + transform.forward + Vector3.up, 0.8f, hit ? 0.8f : 1.3f);
             if (hit) Vfx.Smoke(transform.position + transform.forward * 1.6f, 1, 0.4f, 0.8f);
-            // 2026-11-21 (more visual): the boot lands with a crack of dust and grit thrown forward.
+
             if (hit)
             {
                 var foot = transform.position + transform.forward * 1.3f + Vector3.up * 0.6f;

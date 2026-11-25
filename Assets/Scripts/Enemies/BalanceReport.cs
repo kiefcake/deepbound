@@ -4,19 +4,10 @@ using UnityEngine;
 
 namespace Deepbound.Enemies
 {
-    /// <summary>
-    /// The balance pass's measuring stick. For every enemy type on every floor it works out,
-    /// from the real stats and scaling: how many Knight sword swings kill it (a reference
-    /// player with one anvil level per floor), how long that takes, and how many of its hits
-    /// put that Knight down. Anything far outside the norm is flagged so it can be tuned.
-    /// Pure arithmetic: logged by the smoke test as <c>[Balance]</c> lines.
-    /// </summary>
     public static class BalanceReport
     {
-        // The reference player: a Knight carrying what a typical run has gathered by each floor.
         private const float SwingDamage = Player.KnightKit.SwingDamage, SwingCycle = 0.6f;
 
-        /// <summary>What the reference Knight carries into floor <paramref name="depth"/> (0-based).</summary>
         public struct Loadout
         {
             public int WeaponLevel, Relics;
@@ -29,25 +20,24 @@ namespace Deepbound.Enemies
                 var k = Classes.ClassDefinition.Knight.BaseStats;
                 var l = new Loadout
                 {
-                    // Anvil: nothing before floor 1; then about a level a floor (embers are scarcer, levels dearer).
                     WeaponLevel = Mathf.Clamp(depth, 0, World.Anvil.MaxLevel),
-                    // Gear: a Fine armour piece and charm from the floor before (none on floor 1).
+
                     Armor = depth >= 1 ? new Loot.GearItem(Loot.GearId.OssuaryPlate, 1, depth - 1) : default,
                     Charm = depth >= 1 ? new Loot.GearItem(Loot.GearId.HuntersTooth, 1, depth - 1) : default,
-                    // A rune once the first socket opens at +1.
+
                     Rune = depth >= 1,
-                    // Relics: about one every other floor (drops are rarer now; the shrine sells them).
+
                     Relics = (depth + 1) / 2,
                 };
                 float gearAtt = Loot.Gear.StatValue(l.Armor, Core.StatType.ATT) + Loot.Gear.StatValue(l.Charm, Core.StatType.ATT);
                 float gearDef = Loot.Gear.StatValue(l.Armor, Core.StatType.DEF) + Loot.Gear.StatValue(l.Charm, Core.StatType.DEF);
                 float gearHp = Loot.Gear.StatValue(l.Armor, Core.StatType.HP) + Loot.Gear.StatValue(l.Charm, Core.StatType.HP);
-                // Gold at camp: the training yard's drills, a little each floor.
+
                 float shopHp = Mathf.Min(150f, 20f * depth), shopDef = Mathf.Min(10f, 1.2f * depth);
                 l.Att = k[(int)Core.StatType.ATT] + 4f * l.WeaponLevel + gearAtt;
                 l.Def = k[(int)Core.StatType.DEF] + gearDef + shopDef;
                 l.Hp = k[(int)Core.StatType.HP] + gearHp + shopHp;
-                // Rune (~+5% on average) and relics (most are not raw damage: ~+6% each).
+
                 l.DamageMult = (l.Rune ? 1.05f : 1f) * (l.WeaponLevel >= 3 ? 1.04f : 1f) * (1f + 0.06f * l.Relics) * (l.WeaponLevel >= World.Anvil.AscendedLevel ? World.Anvil.AscendedDamage : 1f);
                 return l;
             }
@@ -72,21 +62,20 @@ namespace Deepbound.Enemies
                 if (b == null) continue;
                 for (int depth = 0; depth <= World.DungeonDirector.FinalDepth; depth++)
                 {
-                    // A boss is only ever met on its own floor: act bosses on the second floor of their act, Wardens on the first.
                     int bossFloor = b is GravewardenBrain ? 1 : b is TideLichBrain ? 3 : b is HollowKingBrain ? 5 : b is CardinalBrain ? 7 : b is UnsungBrain ? World.DungeonDirector.FinalDepth
                         : b is WardenBrain w ? w.Act * 2 : -1;
                     if (bossFloor >= 0 && depth != bossFloor) continue;
-                    // The rank and file: every other floor is enough to read the curve.
+
                     if (bossFloor < 0 && depth % 2 == 1) continue;
                     bool boss = b is BossBrain;
                     var kit = Loadout.For(depth);
-                    float swing = SwingDamage * (0.5f + kit.Att / 50f) * kit.DamageMult * (boss && !kit.Charm.IsEmpty ? 1.25f : 1f); // Hunter's Tooth vs bosses
+                    float swing = SwingDamage * (0.5f + kit.Att / 50f) * kit.DamageMult * (boss && !kit.Charm.IsEmpty ? 1.25f : 1f);
                     float hp = b.BaseHealth * (boss ? Difficulty.BossHealth(1) : Difficulty.EnemyHealth(1) * Difficulty.RankHealth) * Difficulty.DepthHealth(depth);
                     float perSwing = Mathf.Max(swing - b.BaseDefense * Combat.Health.DefenseWeight, swing * Combat.Health.MinDamageFraction);
                     float hit = b.BaseDamage * Difficulty.Damage(1) * Difficulty.DepthDamage(depth) * (boss ? 1f : Difficulty.RankDamage);
                     float taken = Mathf.Max(hit - kit.Def * Combat.Health.DefenseWeight, hit * Combat.Health.MinDamageFraction);
                     rows.Add(Make(b.name, depth, hp, hit, perSwing, taken, kit.Hp, b.AttackCycle, b));
-                    // The first boss, alone: the shield takes most frontal hits; openings after each sweep let some through.
+
                     if (b is GravewardenBrain)
                     {
                         float open = GravewardenBrain.Opening / GravewardenBrain.SweepCycle;
@@ -111,11 +100,10 @@ namespace Deepbound.Enemies
                 HitsToDown = taken > 0f ? playerHp / taken : 999f,
                 EnemyDps = taken / Mathf.Max(0.5f, cycle),
             };
-            // The norms: a rank-and-file enemy dies in 1.6-12 swings and needs 4+ hits to down you;
-            // a heavy up to 25 swings; a boss, on its own floor, 50-160.
+
             bool boss = b is BossBrain;
             bool heavy = b is BruteBrain || b is GargoyleBrain || b is MimicBrain;
-            // A Warden is the lighter boss of its act (the first, on floor 1, lighter still).
+
             float maxSwings = boss ? 160f : heavy ? 25f : 12f, minSwings = b is WardenBrain ? 30f : boss ? 50f : 1.6f;
             if (row.SwingsToKill > maxSwings) row.Flag = "TANKY";
             else if (row.SwingsToKill < minSwings) row.Flag = "FRAGILE";

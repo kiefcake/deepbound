@@ -11,48 +11,25 @@ using UnityEngine.InputSystem;
 
 namespace Deepbound.Player
 {
-    /// <summary>
-    /// The Mage's kit: set up, then cash in.
-    ///
-    /// <list type="bullet">
-    /// <item><b>Passive — Shatter.</b> Fire that hits a chilled enemy deals +75% and
-    ///   consumes the chill, with a glassy crack you learn to listen for.</item>
-    /// <item><b>LMB — Firebolt.</b> Hold to fire fast bolts; free (no mana).</item>
-    /// <item><b>RMB — Frostbolt.</b> A slower, costlier bolt that chills (slows) its target —
-    ///   the setup for Shatter.</item>
-    /// <item><b>Q — Tidal Wave.</b> A wave flows out in front of the Mage, washing the dead
-    ///   back and stunning them for half a second (2026-11-01, replacing Blink). On a flooded
-    ///   floor, or standing in water, it hits harder and stuns for longer.</item>
-    /// <item><b>E — Meteor.</b> Call a meteor onto the spot under your crosshair. A blue
-    ///   circle shows your party where it will land; then it hits everything inside, and
-    ///   shatters every chilled enemy at once. The Mage's big moment.</item>
-    /// </list>
-    ///
-    /// Mana is owner-side, like the Knight's stamina; every hit is resolved on the server.
-    /// </summary>
     [RequireComponent(typeof(Health))]
     public class MageKit : NetworkBehaviour, IClassKit
     {
-        // Mana costs up ~1.5x (play-test 2026-11-01: "casting is way too cheap on the resource bar").
-        // Left click is free for every class (2026-11-01, the user): only the right click and abilities spend the bar.
         public const float FireboltInterval = 0.42f, FireboltDamage = 23f, FireboltSpeed = 32f, FireboltMana = 0f;
-        // The frostbolt is a heavy, deliberate shot: buffed 2026-11-01 (34 -> 50, cooldown 3 -> 2.2 s, chill 4 -> 5 s).
+
         public const float FrostboltInterval = 0.95f, FrostboltDamage = 44f, FrostboltSpeed = 28f, FrostboltMana = 20f, ChillSeconds = 5f, FrostboltCooldown = 2.2f;
-        /// <summary>Tidal Wave: a <see cref="WaveArc"/>-degree wedge rolling out <see cref="WaveLength"/> m over <see cref="WaveSeconds"/>.</summary>
+
         public const float WaveCooldown = 8f, WaveMana = 18f, WaveLength = 8f, WaveArc = 70f, WaveSeconds = 0.5f, WaveDamage = 20f, WaveStun = 0.5f, WavePush = 7f;
-        /// <summary>On a flooded floor (or knee-deep in a cistern) the wave is heavier.</summary>
+
         public const float WaveWetDamage = 1.6f, WaveWetStun = 1f;
-        public const float MeteorCooldown = 14f, MeteorMana = 50f, MeteorDelay = 1.3f, MeteorRadius = 3.6f, MeteorDamage = 60f, MeteorRange = 30f;
+        public const float MeteorCooldown = 14f, MeteorMana = 50f, MeteorDelay = 1.3f, MeteorRadius = 3.6f, MeteorDamage = 60f;
         public const float ShatterMultiplier = 1.75f;
-        /// <summary>Base reach of the bolts and of Meteor's aim (x the anvil / Farsight range multiplier).</summary>
+
         public const float FireboltRange = 20f, FrostboltRange = 22f, MeteorAimRange = 24f;
         public float AttackRange => FireboltRange * (progress != null ? progress.RangeMultiplier : 1f);
         private float RangeMul => progress != null ? progress.RangeMultiplier : 1f;
 
-        /// <summary>Cryomancer mastery deepens the Shatter.</summary>
         private float Shatter => ShatterMultiplier;
 
-        // ---- Hobb's paths (2026-11-20): INFERNO breathes a flame stream, STORMCALLER calls forking lightning ----
         public const float FlameInterval = 0.15f, FlameRange = 6f, FlameArc = 40f, FlameShare = 0.36f, IgniteAfter = 1.1f;
         public const float StormShare = 1.1f, ForkRange = 6f, ForkShare = 0.6f, StormAim = 9f;
         private readonly Dictionary<Health, float> inFlame = new Dictionary<Health, float>();
@@ -65,12 +42,10 @@ namespace Deepbound.Player
         private NetworkPlayer player;
         private PlayerProgress progress;
 
-        // Owner-side.
         public float Mana { get; private set; }
         private float nextCast, waveReadyAt, meteorReadyAt, frostReadyAt;
         private bool manaInitialised;
 
-        // Server-side.
         private struct PendingMeteor { public Vector3 At, From; public float When, Radius, Scale; public bool Mini; }
         private readonly List<PendingMeteor> meteors = new List<PendingMeteor>();
         private float lastServerBolt;
@@ -86,9 +61,7 @@ namespace Deepbound.Player
 
         private bool Active => progress.ClassId.Value == ClassId.Mage;
         private float ManaMax => progress.Value(StatType.MP);
-        private float ManaRegen => (1.5f + progress.Value(StatType.WIS) * 0.09f) * progress.ManaRegenScale; // 2026-11-12, the user: lower from the start (8.4/s -> 5.6/s at base WIS; Meditation matters)
-
-        // ---- IClassKit ----
+        private float ManaRegen => (1.5f + progress.Value(StatType.WIS) * 0.09f) * progress.ManaRegenScale;
 
         public ClassId Class => ClassId.Mage;
         public string ResourceName => "Mana";
@@ -107,10 +80,6 @@ namespace Deepbound.Player
             into.Add(new AbilityView { Key = "E", Name = "Meteor", Remaining = meteorReadyAt - Time.time, Cooldown = MeteorCooldown * progress.CooldownFor(AbilitySlot.E), Unaffordable = Mana < MeteorMana });
         }
 
-        // ==================================================================
-        // Owner
-        // ==================================================================
-
         private void Update()
         {
             if (IsServer) ResolveMeteors();
@@ -127,10 +96,8 @@ namespace Deepbound.Player
             var keyboard = Keyboard.current;
             float rate = progress.AttackTimeMultiplier;
 
-            // --- LMB held: Firebolt ---
             if (UI.Binds.PrimaryHeld && Time.time >= nextCast && Mana >= FireboltMana && progress.OnPath(1))
             {
-                // Inferno: a held stream of fire.
                 nextCast = Time.time + FlameInterval * rate;
                 if (Time.time - lastFlameAnim > 0.4f) { player.ViewModelCast(false); lastFlameAnim = Time.time; }
                 FlameRpc(player.AimOrigin + player.AimForward * 0.5f, player.AimForward);
@@ -142,7 +109,7 @@ namespace Deepbound.Player
                 player.ViewModelCast(false);
                 BoltRpc(player.AimOrigin + player.AimForward * 0.6f, player.AimForward, false);
             }
-            // --- RMB: Frostbolt ---
+
             else if (UI.Binds.SecondaryHeld && Time.time >= nextCast && Time.time >= frostReadyAt && Mana >= FrostboltMana)
             {
                 Mana -= FrostboltMana;
@@ -152,7 +119,6 @@ namespace Deepbound.Player
                 BoltRpc(player.AimOrigin + player.AimForward * 0.6f, player.AimForward, true);
             }
 
-            // --- Q: Tidal Wave ---
             if (UI.Binds.Down(UI.Bind.AbilityQ) && Time.time >= waveReadyAt && Mana >= WaveMana)
             {
                 var dir = player.AimForward;
@@ -167,7 +133,6 @@ namespace Deepbound.Player
                 }
             }
 
-            // --- E: Meteor at the crosshair ---
             if (UI.Binds.Down(UI.Bind.AbilityE) && Time.time >= meteorReadyAt && Mana >= MeteorMana &&
                 TryAimGround(out var spot))
             {
@@ -184,7 +149,6 @@ namespace Deepbound.Player
         [Rpc(SendTo.Server)]
         private void FlameRpc(Vector3 origin, Vector3 forward) => ServerFlame(origin, forward);
 
-        /// <summary>Server: one breath of the Inferno's stream. Public for the smoke test.</summary>
         public void ServerFlame(Vector3 origin, Vector3 forward)
         {
             if (!life.CanAct || Time.time - lastServerFlame < FlameInterval * 0.6f) return;
@@ -201,7 +165,7 @@ namespace Deepbound.Player
                 h.Tag(shatter ? "Flame shatter" : "Flame").ServerDamage(FireboltDamage * FlameShare * att * (shatter ? Shatter : 1f), transform.position, me);
                 if (!h.IsAlive) continue;
                 h.ServerScorch(2f, me);
-                // Mastered: kept in the fire long enough, it catches and burns on.
+
                 if (progress.Mastered(1))
                 {
                     if (!lastFlamed.TryGetValue(h, out var last) || Time.time - last > 0.5f) inFlame[h] = Time.time;
@@ -233,7 +197,6 @@ namespace Deepbound.Player
         }
         private float lastFlameSound;
 
-        /// <summary>Server: Stormcaller: the bolt strikes at once and forks. Public for the smoke test.</summary>
         public void ServerStorm(Vector3 origin, Vector3 direction)
         {
             float att = progress.AttackMultiplier;
@@ -273,10 +236,6 @@ namespace Deepbound.Player
             ImpactFxRpc(first.Center, true, false);
         }
 
-        // ==================================================================
-        // Server
-        // ==================================================================
-
         [Rpc(SendTo.Server)]
         private void BoltRpc(Vector3 origin, Vector3 direction, bool frost)
         {
@@ -286,14 +245,13 @@ namespace Deepbound.Player
             ServerBolt(origin, direction, frost);
         }
 
-        /// <summary>Server: launch a bolt. Public for the smoke test, which fires without input.</summary>
         public void ServerBolt(Vector3 origin, Vector3 direction, bool frost)
         {
             if (Vector3.Distance(origin, transform.position + Vector3.up * 1.6f) > 2.5f) origin = transform.position + Vector3.up * 1.6f;
 
             float att = progress.AttackMultiplier;
             ulong me = NetworkObjectId;
-            // Captured by value: the bolt may land after the caster has left the session.
+
             var casterPos = transform.position;
             if (frost)
             {
@@ -311,15 +269,13 @@ namespace Deepbound.Player
             }
             else
             {
-                const bool pyro = false;
-                float burstRadius = 2f, burstShare = 0.5f;
                 float shatterMul = Shatter;
                 Arrows.ServerFire(origin, direction, 0f, Team.Enemies, me, FireboltSpeed, h =>
                 {
                     bool shatter = h.ServerConsumeChill();
                     if (shatter && this != null) Combos.Popup(h, ComboKind.Shatter, progress);
                     h.Tag(shatter ? "Firebolt shatter" : "Firebolt").ServerDamage(FireboltDamage * att * (shatter ? shatterMul : 1f), casterPos, me);
-                    // Scalding Steam (Tidal Wave, rank 5 B): fire on a soaked foe bursts into steam.
+
                     if (this != null && soaked.TryGetValue(h, out var wetUntil) && Time.time < wetUntil)
                     {
                         soaked.Remove(h);
@@ -327,14 +283,7 @@ namespace Deepbound.Player
                         progress.AbilityBurstRpc(h.Center, SteamRadius, PlayerProgress.FxKind.Water);
                         progress.AbilityTextRpc(h.Center + Vector3.up, "STEAM", PlayerProgress.FxKind.Frost);
                     }
-                    if (pyro)
-                    {
-                        // Pyromancer fire scorches: the next frost to touch it sets off a Thermal Shock.
-                        if (h.IsAlive) h.ServerScorch(4f, me);
-                        foreach (var other in CombatQuery.Circle(h.Center, burstRadius, Team.Enemies).ToArray())
-                            if (other != h) { other.Tag("Firebolt burst").ServerDamage(FireboltDamage * att * burstShare, h.Center, me); other.ServerScorch(4f, me); }
-                    }
-                    if (this != null) ImpactFxRpc(h.Center, false, shatter || pyro);
+                    if (this != null) ImpactFxRpc(h.Center, false, shatter);
                 }, false, FireboltRange * RangeMul);
             }
             BoltFxRpc(origin, direction, frost);
@@ -343,19 +292,18 @@ namespace Deepbound.Player
         [Rpc(SendTo.Server)]
         private void MeteorRpc(Vector3 spot) => ServerMeteor(spot);
 
-        /// <summary>Server: call down a meteor. Public for the screenshot run.</summary>
         public void ServerMeteor(Vector3 spot)
         {
             if (!life.CanAct || Vector3.Distance(spot, transform.position) > MeteorAimRange * RangeMul + 3f) return;
             var from = transform.position;
             meteors.Add(new PendingMeteor { At = spot, From = from, When = Time.time + MeteorDelay, Radius = MeteorRadius, Scale = 1f });
-            // Twin Star (rank 3 A): a second stone follows the first.
+
             bool twin = progress.A(AbilitySlot.E, 2);
             if (twin) meteors.Add(new PendingMeteor { At = spot, From = from, When = Time.time + MeteorDelay + 0.7f, Radius = MeteorRadius, Scale = 1f });
             MeteorWarnRpc(spot, twin);
-            // Comet Trail (rank 2 A): the furrow it will plough shows from the start.
+
             if (progress.A(AbilitySlot.E, 1)) progress.AbilityLaneRpc(Vfx.Floor(from), spot - from, Flat(spot - from).magnitude, 2f, MeteorDelay, PlayerProgress.FxKind.Fire);
-            // Gravity Well (rank 2 B): just before it lands, it drags everything in.
+
             if (progress.B(AbilitySlot.E, 1))
                 AbilityKit.Later(this, MeteorDelay - 0.45f, () =>
                 {
@@ -368,7 +316,6 @@ namespace Deepbound.Player
         [Rpc(SendTo.Server)]
         private void WaveRpc(Vector3 direction) => ServerWave(direction);
 
-        /// <summary>Is the Mage on a flooded floor, or standing in water? The wave is heavier there.</summary>
         public bool WaveWet
         {
             get
@@ -379,7 +326,6 @@ namespace Deepbound.Player
             }
         }
 
-        /// <summary>Server: roll a Tidal Wave out along <paramref name="direction"/>. Public for the smoke test.</summary>
         public void ServerWave(Vector3 direction)
         {
             if (!life.CanAct) return;
@@ -388,12 +334,12 @@ namespace Deepbound.Player
             direction.Normalize();
             bool wet = WaveWet;
             float length = WaveLength * RangeMul;
-            // Maelstrom Ring (rank 4 A): all round you, a little shorter.
+
             bool ring = progress.A(AbilitySlot.Q, 3);
             if (ring) length *= RingShare;
             WaveFxRpc(transform.position, direction, wet, length, ring);
             StartCoroutine(RollWave(transform.position, direction, wet, length, ring, true));
-            // Second Swell (rank 3 B): another wave just after.
+
             if (progress.B(AbilitySlot.Q, 2))
                 AbilityKit.Later(this, SwellDelay, () =>
                 {
@@ -403,13 +349,11 @@ namespace Deepbound.Player
                 });
         }
 
-        // ---- Ysolde's options for Tidal Wave and Meteor (2026-11-20) ----
         public const float RingShare = 0.7f, SwellDelay = 0.6f, FloodSeconds = 5f, WhirlSeconds = 3f, WhirlRadius = 4.5f, SoakSeconds = 4f;
         public const float SteamRadius = 2.5f, SteamShare = 0.8f, GravityRadius = 7f, CraterSeconds = 5f, AftermathDelay = 2f;
         private readonly Dictionary<Health, float> soaked = new Dictionary<Health, float>();
         private static Vector3 Flat(Vector3 v) { v.y = 0f; return v.sqrMagnitude > 0.0001f ? v.normalized : Vector3.forward; }
 
-        /// <summary>Server: Floodwater: the strip the wave left chills whoever wades in it.</summary>
         private System.Collections.IEnumerator Flood(Vector3 from, Vector3 dir, float length)
         {
             float end = Time.time + FloodSeconds;
@@ -420,7 +364,6 @@ namespace Deepbound.Player
             }
         }
 
-        /// <summary>Server: Whirlpool: drag everything near into the eye, then a last surge.</summary>
         private System.Collections.IEnumerator Whirl(Vector3 at)
         {
             progress.AbilityCircleRpc(at, WhirlRadius, WhirlSeconds, PlayerProgress.FxKind.Water);
@@ -436,7 +379,6 @@ namespace Deepbound.Player
             progress.AbilityBurstRpc(at, WhirlRadius, PlayerProgress.FxKind.Water);
         }
 
-        /// <summary>Server: Molten Crater: the hole burns.</summary>
         private System.Collections.IEnumerator Crater(Vector3 at, float radius)
         {
             progress.AbilityCircleRpc(at, radius, CraterSeconds, PlayerProgress.FxKind.Fire);
@@ -449,7 +391,6 @@ namespace Deepbound.Player
             }
         }
 
-        /// <summary>Server: a small star (Starshower, Chain of Stars).</summary>
         private void MiniMeteor(Vector3 at, float delay)
         {
             meteors.Add(new PendingMeteor { At = at, From = at, When = Time.time + delay, Radius = MeteorRadius * 0.5f, Scale = 0.45f, Mini = true });
@@ -463,12 +404,11 @@ namespace Deepbound.Player
             MeteorFall.Spawn(at, delay, (int)(at.x * 31f + at.z * 17f));
         }
 
-        /// <summary>Server: the crest sweeps outward; everything it reaches is struck once, stunned and pushed.</summary>
         private System.Collections.IEnumerator RollWave(Vector3 from, Vector3 dir, bool wet, float length, bool ring, bool first)
         {
             float damage = WaveDamage * progress.AttackMultiplier * progress.Potency(AbilitySlot.Q) * (wet ? WaveWetDamage : 1f);
             float stun = wet ? WaveWetStun : WaveStun;
-            // Ice-Cold (rank 3 A): the wave chills what it hits (Shatter's setup).
+
             bool cold = progress.A(AbilitySlot.Q, 2);
             bool undertow = progress.A(AbilitySlot.Q, 1);
             bool soak = progress.B(AbilitySlot.Q, 4);
@@ -489,14 +429,14 @@ namespace Deepbound.Player
                     {
                         cc.ServerStun(stun);
                         var away = ring ? Flat(h.transform.position - from) : dir;
-                        // Undertow (rank 2 A): dragged back toward you instead.
+
                         cc.ServerKnockback((undertow ? -away * 0.75f : away) * WavePush * (wet ? 1.3f : 1f));
                     }
                 }
                 if (k >= 1f) break;
                 yield return null;
             }
-            // Crushing Weight (rank 4 B): the more it caught, the harder each one is hit.
+
             if (progress.B(AbilitySlot.Q, 3) && struck.Count > 1)
             {
                 float extra = damage * 0.25f * Mathf.Min(4, struck.Count - 1);
@@ -504,13 +444,13 @@ namespace Deepbound.Player
                 progress.AbilityTextRpc(from + dir * (length * 0.5f) + Vector3.up * 2f, "CRUSHING x" + struck.Count, PlayerProgress.FxKind.Water);
             }
             if (!first) yield break;
-            // Floodwater (rank 2 B): the strip stays wet and chills.
+
             if (progress.B(AbilitySlot.Q, 1) && !ring)
             {
                 progress.AbilityLaneRpc(Vfx.Floor(from), dir, length, 3.2f, FloodSeconds, PlayerProgress.FxKind.Water);
                 StartCoroutine(Flood(from, dir, length));
             }
-            // Whirlpool (rank 5 A): where it breaks, a whirlpool turns.
+
             if (progress.A(AbilitySlot.Q, 4)) StartCoroutine(Whirl(Vfx.Floor(ring ? from : from + dir * length * 0.85f)));
         }
 
@@ -547,7 +487,7 @@ namespace Deepbound.Player
                     }
                     h.Tag(shatter ? "Meteor shatter" : m.Mini ? "Star" : "Meteor").ServerDamage(MeteorDamage * progress.AttackMultiplier * potency * m.Scale * (shatter ? Shatter : 1f), at + Vector3.up, NetworkObjectId);
                     if (!h.IsAlive) { killed.Add(h); continue; }
-                    // Frostfall (rank 4 B): ice, not fire: frozen solid, then left chilled.
+
                     if (frost) { AbilityKit.Stun(h, 1.5f); h.ServerChill(ChillSeconds); }
                     else if (!shatter) h.ServerScorch(5f, NetworkObjectId);
                 }
@@ -555,7 +495,6 @@ namespace Deepbound.Player
                 if (frost) progress.AbilityBurstRpc(at, m.Radius, PlayerProgress.FxKind.Frost);
                 if (!m.Mini)
                 {
-                    // Comet Trail (rank 2 A): the furrow burns.
                     if (progress.A(AbilitySlot.E, 1))
                     {
                         var dir = Flat(at - m.From);
@@ -564,16 +503,16 @@ namespace Deepbound.Player
                         foreach (var h in AbilityKit.Lane(m.From, dir, len, 1f)) { h.Tag("Comet Trail").ServerDamage(MeteorDamage * progress.AttackMultiplier * potency * 0.45f, m.From, NetworkObjectId); h.ServerScorch(4f, NetworkObjectId); }
                         for (int k = 1; k <= 4; k++) progress.AbilityBurstRpc(Vector3.Lerp(m.From, at, k / 5f), 0.8f, PlayerProgress.FxKind.Fire);
                     }
-                    // Molten Crater (rank 3 B).
+
                     if (progress.B(AbilitySlot.E, 2)) StartCoroutine(Crater(at, m.Radius * 0.8f));
-                    // Starshower (rank 4 A): three small stars round it.
+
                     if (progress.A(AbilitySlot.E, 3))
                         for (int s = 0; s < 3; s++)
                         {
                             float ang = (s * 120f + Random.Range(-25f, 25f)) * Mathf.Deg2Rad;
                             MiniMeteor(Vfx.Floor(at + new Vector3(Mathf.Sin(ang), 0f, Mathf.Cos(ang)) * Random.Range(3f, 5f)), 0.6f + s * 0.2f);
                         }
-                    // Chain of Stars (rank 5 A): each kill calls a star on the nearest other foe.
+
                     if (progress.A(AbilitySlot.E, 4))
                     {
                         var taken = new HashSet<Health>(killed);
@@ -585,7 +524,7 @@ namespace Deepbound.Player
                             MiniMeteor(next.transform.position, 0.7f + c * 0.15f);
                         }
                     }
-                    // Aftermath (rank 5 B): it erupts again, wider.
+
                     if (progress.B(AbilitySlot.E, 4))
                     {
                         float r2 = m.Radius * 1.5f;
@@ -598,7 +537,6 @@ namespace Deepbound.Player
                     }
                 }
 
-                // Hallowed Fire: a meteor into consecrated ground mends everyone standing on it.
                 if (ClericKit.InConsecration(at))
                 {
                     Health first = null;
@@ -611,10 +549,6 @@ namespace Deepbound.Player
                 }
             }
         }
-
-        // ==================================================================
-        // Presentation
-        // ==================================================================
 
         [Rpc(SendTo.ClientsAndHost)]
         private void BoltFxRpc(Vector3 origin, Vector3 direction, bool frost)
@@ -635,8 +569,7 @@ namespace Deepbound.Player
             Vfx.Embers(at, frost ? 6 : 8, frost ? ice : fire, 4f, 0.05f, 0.5f);
             if (!frost) Vfx.Fireball(at, shatter ? 1.4f : 0.8f, fire);
             if (shatter) Vfx.Embers(at, 14, ice, 7f, 0.08f, 0.8f);
-            // Where a bolt lands it marks the floor: a rime crown and a snowflake for frost, a scorch for fire; a SHATTER
-            // breaks like glass (2026-11-22, its own shape: the Mage's cash-in should be unmistakable).
+
             if (shatter) ClassFx.ShatterBurst(at);
             else if (frost) ClassFx.Snowflake(at, 0.9f);
             if (frost) Vfx.IceSpikes(Vfx.Floor(at), shatter ? 1.4f : 0.7f, shatter ? 12 : 6);
@@ -653,9 +586,9 @@ namespace Deepbound.Player
             int seed = (int)(at.x * 13f + at.z * 7f + Time.time * 100f);
             MeteorFall.Spawn(at, MeteorDelay, seed);
             if (twin) MeteorFall.Spawn(at, MeteorDelay, seed + 1, 0.7f);
-            // The caster's hand flares as the sky answers.
+
             if (IsOwner) Vfx.AbilityFlash(player.AimOrigin + player.AimForward * 0.6f, new Color(1f, 0.5f, 0.15f), 4f, 4f, 0.5f);
-            // 2026-11-22: a ring of fire closes on the blast radius as the rock falls: when it lands, not only where.
+
             ClassFx.MeteorRing(at, MeteorRadius, MeteorDelay);
         }
 
@@ -676,5 +609,4 @@ namespace Deepbound.Player
             if (shattered) ClassFx.ShatterBurst(at + Vector3.up);
         }
     }
-
 }

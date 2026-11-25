@@ -2,10 +2,6 @@ using UnityEngine;
 
 namespace Deepbound.Art
 {
-    /// <summary>
-    /// A skeleton's jaw working on its hinge: idle clacks now and then, and it gapes while the rig
-    /// winds up an attack or dies. Pure local animation.
-    /// </summary>
     public class JawChatter : MonoBehaviour
     {
         private HumanoidRig rig;

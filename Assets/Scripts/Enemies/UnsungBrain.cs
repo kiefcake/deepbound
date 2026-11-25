@@ -7,25 +7,6 @@ using UnityEngine;
 
 namespace Deepbound.Enemies
 {
-    /// <summary>
-    /// The Unsung: what the Cardinal's hymn was sung to keep asleep, at the bottom of the Abyss
-    /// (on floor 10, the bottom of the Abyss; every Seal left unbroken makes it 15% tougher). A colossal floating ribcage under a three-eyed skull,
-    /// ringed with orbiting bone. It fights in patterns, RotMG-style:
-    ///
-    /// <list type="bullet">
-    /// <item><b>The Dirge</b>: a ring of slow shadow bolts with a gap in it. Find the gap.</item>
-    /// <item><b>Grasping Dark</b>: a circle opens under every player; step out before it closes.</item>
-    /// <item><b>The Toll</b>: a jumpable shockwave.</item>
-    /// <item>70%: <b>The Seal Wardens</b>: two Mourners rise; it is warded until they fall. Someone
-    ///   must keep watching them while the others break them.</item>
-    /// <item>40%: <b>The Silence</b>: the light fails and it pours out a five-armed spiral. Survive.</item>
-    /// <item>15%: <b>The Last Morning</b>: everything faster, rings thicker, and the ECLIPSE: pools of dawn light
-    ///   open around the arena; when the dark falls, anyone outside one is struck.</item>
-    /// <item>After its wardens fall it sings ECHOES of the four it devoured (2026-10-26, "keep working on bosses"), one
-    ///   in turn: the Gravewarden's bone lines, the Tide Lich's drowning pools, the Hollow King's crown slam, the
-    ///   Cardinal's rose of holy fire.</item>
-    /// </list>
-    /// </summary>
     public class UnsungBrain : BossBrain
     {
         public override string DisplayName => "The Unsung";
@@ -36,13 +17,12 @@ namespace Deepbound.Enemies
         public override string Hint => "Slip through the gaps in its rings, break its wardens while someone keeps watching them, and when the dawn opens, stand in the light.";
 
         private const float BoltSpeed = 9f, SpiralSpeed = 11.5f;
-        private float nextRing, nextGrasp, nextSpiral, spiralAngle;
+        private float nextRing, nextGrasp, nextSpiral;
         private bool lastMorning;
 
         private struct Grasp { public Vector3 At; public float When; }
         private readonly List<Grasp> grasps = new List<Grasp>();
 
-        // ---- Echoes (after the Seal Wardens) ----
         private bool echoesAwake;
         private int echoIndex;
         private float nextEcho;
@@ -52,12 +32,11 @@ namespace Deepbound.Enemies
         private static readonly string[] EchoNames = { "THE GRAVEWARDEN", "THE TIDE LICH", "THE HOLLOW KING", "THE PALE CARDINAL" };
         private static readonly Color[] EchoColors = { new Color(0.85f, 0.8f, 0.7f), new Color(0.45f, 0.8f, 1f), new Color(1f, 0.8f, 0.3f), new Color(1f, 0.65f, 0.3f) };
 
-        // ---- The Eclipse (The Last Morning) ----
         public const float EclipseEvery = 10f, EclipseWarning = 4.5f, DawnRadius = 2.8f;
         private float nextEclipse;
         private readonly List<Vector3> dawnPools = new List<Vector3>();
         private float eclipseAt = -1f;
-        /// <summary>For tests: how many Echoes and Eclipses it has sung.</summary>
+
         public int EchoesSung { get; private set; }
         public int EclipsesFallen { get; private set; }
 
@@ -94,7 +73,7 @@ namespace Deepbound.Enemies
                         () => Taunt("Still here. Still small."));
                     grasps.Clear();
                     SilenceRpc(14f);
-                    // Three emitters wheel round it at different speeds and directions; one shoots at stragglers.
+
                     for (int e = 0; e < 3; e++)
                         StartPattern(new Pattern
                         {
@@ -112,7 +91,7 @@ namespace Deepbound.Enemies
         protected override void Update()
         {
             if (HeldByStun()) return;
-            // Everyone: it floats, and its bone rings turn.
+
             if (Rig != null)
             {
                 var lp = Rig.transform.localPosition;
@@ -166,7 +145,6 @@ namespace Deepbound.Enemies
             return false;
         }
 
-        /// <summary>The Dirge: a full ring of bolts with a three-bolt gap, aimed so the gap is somewhere new.</summary>
         private void FireRing()
         {
             int count = lastMorning ? 24 : 18;
@@ -177,7 +155,7 @@ namespace Deepbound.Enemies
             for (int i = 0; i < count; i++)
             {
                 int d = (i - gapAt + count) % count;
-                if (d < 3) continue; // the gap
+                if (d < 3) continue;
                 var dir = Quaternion.Euler(0f, offset + i * 360f / count, 0f) * Vector3.forward;
                 dirs.Add(dir);
                 Arrows.ServerFire(origin, dir, damage * 0.55f, Team.Players, NetworkObjectId, BoltSpeed * (lastMorning ? 1.25f : 1f));
@@ -188,9 +166,6 @@ namespace Deepbound.Enemies
 
         private void TickSpiral() { }
 
-        // ------------------------------------------------------------------ echoes
-
-        /// <summary>One of the dead it swallowed, sung back: each a known attack, telegraphed in that boss's colour.</summary>
         private void SingEcho(int which)
         {
             EchoesSung++;
@@ -203,7 +178,7 @@ namespace Deepbound.Enemies
             var me = transform.position;
             switch (which)
             {
-                case 0: // Grave Rend: a line of bone spikes from it to (and past) every player.
+                case 0:
                     foreach (var p in PlayerLife.All)
                     {
                         if (p == null || !p.Targetable) continue;
@@ -216,7 +191,7 @@ namespace Deepbound.Enemies
                         EchoLineRpc(start, dir, len, 1.8f, tell);
                     }
                     break;
-                case 1: // The Tide: a drowning pool under each player that roots whoever it catches.
+                case 1:
                     foreach (var p in PlayerLife.All)
                     {
                         if (p == null || !p.Targetable) continue;
@@ -225,11 +200,11 @@ namespace Deepbound.Enemies
                         TintedCircleRpc(at, 3f, tell, Telegraph.Frost);
                     }
                     break;
-                case 2: // Crown's Fall: everything near it is crushed. Get out.
+                case 2:
                     hazards.Add(new Hazard { Kind = 2, At = Vfx.Floor(me), Radius = 7.5f, When = Time.time + tell * 1.3f });
                     TintedCircleRpc(Vfx.Floor(me), 7.5f, tell * 1.3f, Telegraph.Harm);
                     break;
-                default: // The rose window: four emitters wheel out from it, swaying holy fire.
+                default:
                     for (int e = 0; e < 4; e++)
                     {
                         float phase = e * 90f;
@@ -278,9 +253,6 @@ namespace Deepbound.Enemies
             }
         }
 
-        // ------------------------------------------------------------------ the eclipse
-
-        /// <summary>The Last Morning: pools of dawn open; when the dark falls everyone outside them is struck.</summary>
         private void TickEclipse()
         {
             if (!lastMorning || InSurvival) return;
@@ -324,11 +296,10 @@ namespace Deepbound.Enemies
             }
         }
 
-        /// <summary>For tests: begin an Eclipse now.</summary>
         public void ServerDebugEclipse() { lastMorning = true; nextEclipse = 0f; eclipseAt = -1f; }
-        /// <summary>For tests: sing one echo now.</summary>
+
         public void ServerDebugEcho(int which) => SingEcho(which);
-        /// <summary>For tests: where the dawn pools are.</summary>
+
         public IReadOnlyList<Vector3> DawnPools => dawnPools;
 
         protected override ProjectileKind? QuickKind => null;
@@ -343,7 +314,7 @@ namespace Deepbound.Enemies
                 foreach (var v in CombatQuery.Circle(at, 2.6f, Team.Players))
                 {
                     v.ServerDamage(damage * 1.3f, at + Vector3.up, NetworkObjectId);
-                    // The dark under your feet gets into your head.
+
                     if (v.TryGetComponent<PlayerDebuffs>(out var deb)) deb.ServerMania(2f);
                 }
                 GraspFxRpc(at);
@@ -360,7 +331,6 @@ namespace Deepbound.Enemies
             Vfx.Embers(transform.position + Vector3.up * 3f, 18, c, 3f, 0.06f, 1f);
         }
 
-        /// <summary>The Gravewarden's lines in bone, not the default red (telegraphs stay quiet, 2026-10-21).</summary>
         [Rpc(SendTo.ClientsAndHost)]
         private void EchoLineRpc(Vector3 start, Vector3 dir, float length, float width, float seconds)
         {
@@ -436,7 +406,7 @@ namespace Deepbound.Enemies
         private void GraspWarnRpc(Vector3 at, float radius, float seconds)
         {
             Telegraph.Show(at, radius, seconds, null, Telegraph.Madness);
-            Sfx.Play(Sound.Shade, at + Vector3.up, 0.7f, 0.5f); // READABILITY (2026-11-19): the grasp under you made no sound
+            Sfx.Play(Sound.Shade, at + Vector3.up, 0.7f, 0.5f);
         }
 
         [Rpc(SendTo.ClientsAndHost)]
@@ -449,7 +419,6 @@ namespace Deepbound.Enemies
             for (int i = 0; i < 5; i++) Vfx.Embers(at + Random.insideUnitSphere * 1.5f, 4, c, 3f, 0.06f, 0.8f);
         }
 
-        /// <summary>Every peer: the light fails for a while (fog thickens, the ambient drops).</summary>
         [Rpc(SendTo.ClientsAndHost)]
         private void SilenceRpc(float seconds) => Art.TheSilence.Begin(seconds);
     }

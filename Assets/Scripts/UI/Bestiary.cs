@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using Deepbound.Core;
 
 namespace Deepbound.UI
 {
@@ -62,10 +63,10 @@ namespace Deepbound.UI
                 if (Progression.Cosmetics.TestMode) return met;
                 try
                 {
-                    string saved = PlayerPrefs.GetString(Key2, null);
+                    string saved = Prefs.GetString(Key2, null);
                     if (saved == null)
                     {
-                        int bits = PlayerPrefs.GetInt(Key, 0);
+                        int bits = Prefs.GetInt(Key, 0);
                         for (int i = 0; i < Entries.Length && i < 32; i++) if ((bits & (1 << i)) != 0) met[Entries[i].Type] = 0;
                         Save();
                     }
@@ -85,7 +86,7 @@ namespace Deepbound.UI
             if (Progression.Cosmetics.TestMode || met == null) return;
             var parts = new List<string>();
             foreach (var kv in met) parts.Add(kv.Key + ":" + kv.Value);
-            try { PlayerPrefs.SetString(Key2, string.Join("|", parts)); PlayerPrefs.Save(); } catch { }
+            Prefs.SetString(Key2, string.Join("|", parts)); Prefs.Save();
         }
 
         public static bool Seen(int i) => Met.ContainsKey(Entries[i].Type);

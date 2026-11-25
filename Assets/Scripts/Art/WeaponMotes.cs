@@ -2,10 +2,6 @@ using UnityEngine;
 
 namespace Deepbound.Art
 {
-    /// <summary>
-    /// A worn weapon glow on a weapon with no blade edge (2026-11-22): small sparks in its colour drift up off the weapon
-    /// hand now and then, instead of the solid glowing ball it used to be. Seen on other players (never in your own view).
-    /// </summary>
     public class WeaponMotes : MonoBehaviour
     {
         public Color Color = Color.white;

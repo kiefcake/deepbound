@@ -3,11 +3,6 @@ using UnityEngine;
 
 namespace Deepbound.UI
 {
-    /// <summary>
-    /// Crisp little pixel icons for the map, built from text masks at startup ('#' = ink), each with
-    /// a dark one-pixel outline so it reads on any floor. Tinted at draw time with GUI.color.
-    /// Plus the player's view cone and arrow, drawn as soft generated textures.
-    /// </summary>
     public static class MapIcons
     {
         public enum Id { Chest, Skull, Fountain, Book, Coin, Waystone, Exit, Cross, Ping, Gear, Gem, Lever, Altar, Armor, Charm, Sword, Flask, Rune, Lair }
@@ -27,7 +22,7 @@ namespace Deepbound.UI
             [Id.Gem] = new[] { "...#...", "..###..", ".#####.", "#######", ".#####.", "..###..", "...#..." },
             [Id.Lever] = new[] { "......##", ".....##.", "....##..", "...##...", "..##....", "#######.", "#######." },
             [Id.Altar] = new[] { "...#...", "..###..", "...#...", "#######", ".#####.", ".#...#.", ".#...#." },
-            // The bag's icons (2026-11-14): a cuirass, an amulet, a blade, a flask, a rune stone; the map's lair horns.
+
             [Id.Armor] = new[] { "##.....##", "###...###", "#########", ".#######.", ".###.###.", ".#######.", ".###.###.", ".#######.", "..#####.." },
             [Id.Charm] = new[] { "#.......#", ".#.....#.", "..#...#..", "...#.#...", "...###...", "..#####..", "..##.##..", "..#####..", "...###..." },
             [Id.Sword] = new[] { "........#", ".......##", "......##.", ".....##..", "#...##...", ".####....", "..##.....", ".#.##....", "#..#....." },
@@ -62,7 +57,6 @@ namespace Deepbound.UI
             return t;
         }
 
-        /// <summary>Draw icon <paramref name="id"/> centred on <paramref name="at"/>, <paramref name="px"/> screen pixels per mask pixel.</summary>
         public static void Draw(Id id, Vector2 at, Color color, float px = 2f)
         {
             var t = Get(id);
@@ -72,7 +66,6 @@ namespace Deepbound.UI
             GUI.color = old;
         }
 
-        /// <summary>A soft wedge (pointing up the texture), fading with distance: your field of view.</summary>
         public static Texture2D Cone
         {
             get
@@ -94,7 +87,6 @@ namespace Deepbound.UI
             }
         }
 
-        /// <summary>A chevron pointing up, with a dark rim.</summary>
         public static Texture2D Arrow
         {
             get
@@ -105,14 +97,12 @@ namespace Deepbound.UI
                 for (int y = 0; y < n; y++)
                     for (int x = 0; x < n; x++)
                     {
-                        // Inside a triangle (tip at top centre) minus a notch at the bottom.
                         float u = (x + 0.5f) / n - 0.5f, v = (y + 0.5f) / n;
-                        float half = (1f - v) * 0.45f;           // width at height v
-                        float notch = 0.18f - Mathf.Abs(u) * 0.6f;   // the V cut out of the base
+                        float half = (1f - v) * 0.45f;
+                        float notch = 0.18f - Mathf.Abs(u) * 0.6f;
                         bool inside = Mathf.Abs(u) < half && v > notch && v < 0.98f;
                         bool rim = !inside && Mathf.Abs(u) < half + 0.07f && v > notch - 0.07f && v < 1f;
-                        // Row y counts up from the texture's bottom, and IMGUI draws it upright: the tip (v near 1) is
-                        // at the top. (It was flipped until 2026-11-01: every arrow on the map pointed backwards.)
+
                         arrow.SetPixel(x, y, inside ? Color.white : rim ? new Color(0f, 0f, 0f, 0.85f) : Color.clear);
                     }
                 arrow.Apply();
@@ -120,7 +110,6 @@ namespace Deepbound.UI
             }
         }
 
-        /// <summary>A soft round blob (enemy dots, ping pulses).</summary>
         public static Texture2D Soft
         {
             get

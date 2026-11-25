@@ -3,15 +3,10 @@ using UnityEngine;
 
 namespace Deepbound.Art
 {
-    /// <summary>
-    /// The camp breathing (2026-11-07, the user: "ambient effects"): fireflies drifting round the trees and planters,
-    /// smoke from the tavern and forge chimneys, leaves falling from the trees, and a low fog rolling in at the gate.
-    /// Local on every peer, built with the camp and gone with it; nothing here is networked or touches play.
-    /// </summary>
     public class CampAmbience : MonoBehaviour
     {
-        public readonly List<Vector3> Glades = new List<Vector3>();   // fireflies hover round these
-        public readonly List<Vector3> Crowns = new List<Vector3>();   // leaves fall from these
+        public readonly List<Vector3> Glades = new List<Vector3>();
+        public readonly List<Vector3> Crowns = new List<Vector3>();
         public readonly List<Vector3> Chimneys = new List<Vector3>();
         public Vector3 Gate;
         public float Ground;
@@ -40,29 +35,29 @@ namespace Deepbound.Art
         private void Update()
         {
             float t = Time.time;
-            // Fireflies: slow looping drift round their glade, blinking on and off.
+
             foreach (var f in flies)
             {
                 float p = f.Phase + t * f.Speed;
                 f.T.position = f.Home + new Vector3(Mathf.Sin(p * 1.3f) * 2.2f, 0.9f + Mathf.Sin(p * 0.7f) * 0.6f, Mathf.Cos(p * 0.9f) * 2.2f);
-                bool on = Mathf.Sin(p * 3.1f + f.Phase) > -0.2f && World.CampWeather.RainK < 0.5f; // no fireflies in the rain
+                bool on = Mathf.Sin(p * 3.1f + f.Phase) > -0.2f && World.CampWeather.RainK < 0.5f;
                 if (f.R.enabled != on) f.R.enabled = on;
             }
-            // Chimney smoke.
+
             if (t >= nextSmoke && Chimneys.Count > 0)
             {
                 nextSmoke = t + 0.9f;
                 foreach (var c in Chimneys)
                     FxSprite.Billboard(FxSprite.AnySmoke, c + Random.insideUnitSphere * 0.15f, new Vector3(0.25f, Random.Range(0.6f, 0.9f), 0.1f), Random.Range(4f, 5.5f), 0.6f, 2.4f, new Color(0.35f, 0.33f, 0.32f, 0.35f), Random.Range(-20f, 20f), 0.6f);
             }
-            // Gate fog: big pale drifts low across the road.
+
             if (t >= nextFog)
             {
                 nextFog = t + 2.2f;
                 var at = Gate + new Vector3(Random.Range(-6f, 6f), 0.3f, Random.Range(-2f, 3f));
                 FxSprite.Billboard(FxSprite.AnySmoke, at, new Vector3(Random.Range(-0.25f, 0.25f), 0.03f, -0.2f), Random.Range(6f, 8f), 2.5f, 5f, new Color(0.55f, 0.58f, 0.66f, 0.12f), Random.Range(-8f, 8f), 0.4f);
             }
-            // Leaves: one every so often from a random crown, tumbling down and lying a while.
+
             if (t >= nextLeaf && Crowns.Count > 0 && leaves.Count < 28)
             {
                 nextLeaf = t + Random.Range(0.4f, 1.2f);

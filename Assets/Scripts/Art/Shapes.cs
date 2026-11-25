@@ -3,11 +3,6 @@ using UnityEngine;
 
 namespace Deepbound.Art
 {
-    /// <summary>
-    /// Meshes for <see cref="FxShape"/> silhouettes (2026-11-21). Every mesh carries V across its width (0 one edge, 1 the
-    /// other), so on <see cref="FxShape.SoftMat"/> its edges fade and only a bright core is left: a blade of light, a band of
-    /// sound. Built once and cached where the shape is fixed; ribbons along a path are built per use.
-    /// </summary>
     public static class Shapes
     {
         private static readonly Dictionary<string, Mesh> Cache = new Dictionary<string, Mesh>();
@@ -21,10 +16,6 @@ namespace Deepbound.Art
             return m;
         }
 
-        /// <summary>
-        /// A ribbon through <paramref name="path"/>: at each point it spans <paramref name="width"/>[i] along <paramref name="side"/>[i].
-        /// U runs along the path, V across it.
-        /// </summary>
         public static Mesh Ribbon(IList<Vector3> path, IList<Vector3> side, IList<float> width)
         {
             int n = path.Count;
@@ -60,10 +51,6 @@ namespace Deepbound.Art
             return c;
         }
 
-        /// <summary>
-        /// A crescent lying in the XZ plane round the origin, centred on +Z: a sword-cut of light. Thick in the middle,
-        /// knife-thin at both tips. Radius 1; scale it.
-        /// </summary>
         public static Mesh Crescent(float degrees = 120f, float thickness = 0.22f) => Cached("crescent" + degrees + "_" + thickness, () =>
         {
             const int n = 24;
@@ -73,7 +60,7 @@ namespace Deepbound.Art
                 float t = i / (float)(n - 1);
                 float a = Mathf.Deg2Rad * Mathf.Lerp(-degrees * 0.5f, degrees * 0.5f, t);
                 var out_ = new Vector3(Mathf.Sin(a), 0f, Mathf.Cos(a));
-                // The cut leans: its bright belly sits a little behind the middle of the arc (the blade's follow-through).
+
                 float belly = Mathf.Pow(Mathf.Max(0f, Mathf.Sin(t * Mathf.PI)), 0.8f) * (0.75f + 0.25f * t);
                 path[i] = out_ * (1f - thickness * belly * 0.5f);
                 side[i] = out_;
@@ -82,7 +69,6 @@ namespace Deepbound.Art
             return Ribbon(path, side, w);
         });
 
-        /// <summary>A flat ring in the XZ plane, radius 1, soft across its band (halos, gyroscopes, zone edges).</summary>
         public static Mesh Hoop(float band = 0.12f, int segments = 40) => Cached("hoop" + band + "_" + segments, () =>
         {
             var path = new Vector3[segments + 1]; var side = new Vector3[segments + 1]; var w = new float[segments + 1];
@@ -95,7 +81,6 @@ namespace Deepbound.Art
             return Ribbon(path, side, w);
         });
 
-        /// <summary>An open cylinder, radius 1 and height 1 (bottom at 0), soft at its top and bottom: a wall of sound, a shaft of light.</summary>
         public static Mesh Wall(int segments = 36) => Cached("wall" + segments, () =>
         {
             var v = new List<Vector3>(); var uv = new List<Vector2>(); var tris = new List<int>();
@@ -118,11 +103,9 @@ namespace Deepbound.Art
             return m;
         });
 
-        /// <summary>A bar in the XY plane, <paramref name="length"/> along Y, centred: arms of a cross, a slash seen flat.</summary>
         public static Mesh Bar(float length, float width) => Cached("bar" + length + "_" + width, () =>
             Ribbon(new[] { new Vector3(0f, -length * 0.5f, 0f), new Vector3(0f, length * 0.5f, 0f) }, new[] { Vector3.right, Vector3.right }, new[] { width, width }));
 
-        /// <summary>A bar tapering to a point at both ends (in the XY plane, along Y): a knife-cut, a spark of a roar.</summary>
         public static Mesh Spindle(float length, float width) => Cached("spindle" + length + "_" + width, () =>
         {
             const int n = 9;
@@ -137,10 +120,6 @@ namespace Deepbound.Art
             return Ribbon(path, side, w);
         });
 
-        /// <summary>
-        /// A closed outline through <paramref name="points"/> in the XY plane: each edge its own soft band, so the corners
-        /// overlap and glow a little brighter, like rivets.
-        /// </summary>
         public static Mesh Outline(string key, Vector2[] points, float width) => Cached("outline_" + key + width, () =>
         {
             var path = new List<Vector3>(); var side = new List<Vector3>(); var w = new List<float>();
@@ -150,7 +129,7 @@ namespace Deepbound.Art
                 Vector3 a = points[i], b = points[(i + 1) % points.Length];
                 var d = (b - a).normalized;
                 var n = new Vector3(-d.y, d.x, 0f) * width * 0.5f;
-                // Run a little past each corner so the joints close.
+
                 a -= d * width * 0.4f; b += d * width * 0.4f;
                 int o = v.Count;
                 v.Add(a - n); v.Add(a + n); v.Add(b - n); v.Add(b + n);
@@ -164,7 +143,6 @@ namespace Deepbound.Art
             return m;
         });
 
-        /// <summary>A filled polygon in the XY plane (fan from its centre), full brightness everywhere (V = 0.5).</summary>
         public static Mesh Fill(string key, Vector2[] points) => Cached("fill_" + key, () =>
         {
             var c = Vector2.zero;
@@ -176,7 +154,7 @@ namespace Deepbound.Art
             for (int i = 0; i < points.Length; i++)
             {
                 v.Add(points[i]);
-                // Toward the rim the fill thins a little (V eases off the bright middle).
+
                 uv.Add(new Vector2(0.5f, 0.22f));
             }
             for (int i = 0; i < points.Length; i++) tris.AddRange(new[] { 0, 1 + (i + 1) % points.Length, 1 + i });
@@ -187,20 +165,14 @@ namespace Deepbound.Art
             return m;
         });
 
-        /// <summary>The Knight's kite shield, about 0.9 m wide and 1.2 m tall, centred (XY plane, facing +Z).</summary>
         public static readonly Vector2[] Kite =
         {
             new Vector2(-0.45f, 0.48f), new Vector2(0.45f, 0.48f), new Vector2(0.48f, 0.12f),
             new Vector2(0.26f, -0.38f), new Vector2(0f, -0.72f), new Vector2(-0.26f, -0.38f), new Vector2(-0.48f, 0.12f),
         };
 
-        /// <summary>A chevron pointing down (a "this one" over a head), in the XY plane.</summary>
         public static readonly Vector2[] Chevron = { new Vector2(-0.3f, 0.2f), new Vector2(0f, -0.15f), new Vector2(0.3f, 0.2f), new Vector2(0f, 0f) };
 
-        /// <summary>
-        /// A jagged crack along the floor (XZ plane) from the origin out along +Z for <paramref name="length"/>, wide at the root
-        /// and closing to nothing. Seeded, so each call can differ.
-        /// </summary>
         public static Mesh Crack(float length, float width, int seed)
         {
             var rnd = new System.Random(seed);
@@ -218,7 +190,6 @@ namespace Deepbound.Art
             return Ribbon(path, side, w);
         }
 
-        /// <summary>A small flat triangle (glass, shield shards), in the XY plane.</summary>
         public static Mesh Shard => Cached("shard", () =>
         {
             var m = new Mesh
@@ -233,7 +204,6 @@ namespace Deepbound.Art
             return m;
         });
 
-        /// <summary>A path's sides for a ribbon lying flat on the floor (side = horizontal, across the path).</summary>
         public static Vector3[] FlatSides(IList<Vector3> path)
         {
             var s = new Vector3[path.Count];

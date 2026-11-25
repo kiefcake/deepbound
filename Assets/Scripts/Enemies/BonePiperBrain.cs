@@ -6,20 +6,6 @@ using UnityEngine;
 
 namespace Deepbound.Enemies
 {
-    /// <summary>
-    /// The Bone Piper (2026-10-21, the user: "more bullet hell, one more enemy, change up the shot and
-    /// spray pattern"): a wandering skeleton in a wide-brimmed hat playing a bagpipe of bone. It stands
-    /// still and PLAYS: each tune is a different pattern of pale soulfire, unlike anything the
-    /// Orbweaver fires.
-    /// <list type="bullet">
-    /// <item>ROSE: two interlocking five-petal blooms (speed varies round the ring, so it opens like a flower).</item>
-    /// <item>SCISSORS: two streams that sweep across each other and back, closing on you then opening.</item>
-    /// <item>SEEDPODS: three slow shells lobbed at and beside you that burst into rings where they land.</item>
-    /// <item>MARCH: three walls of notes marching at you, each with a gap somewhere new.</item>
-    /// </list>
-    /// It cannot move while it plays, a stun or a kick ends the tune, and its bag glows: a weak point.
-    /// Each tune's name floats over it as it starts, so you learn to read what is coming.
-    /// </summary>
     public class BonePiperBrain : EnemyBrain
     {
         public enum Song : byte { Rose, Scissors, Seedpods, March }
@@ -35,7 +21,6 @@ namespace Deepbound.Enemies
         private int order;
         private static readonly Song[] Cycle = { Song.Rose, Song.March, Song.Scissors, Song.Seedpods };
 
-        /// <summary>Tests: volleys fired and the last song played.</summary>
         public int VolleysFired { get; private set; }
         public Song LastSong => song;
         public bool Playing => songEnds > Time.time;
@@ -47,14 +32,12 @@ namespace Deepbound.Enemies
             order = Random.Range(0, Cycle.Length);
         }
 
-        // 0.45 until 2026-11-13: a whole Rose read as scenery. Each shot now hurts (dodging them is the point).
         private float SoulDamage => damage * 0.85f;
         private Vector3 Mouth => transform.position + Vector3.up * 1.25f + transform.forward * 0.35f;
         private static float TellScale => Difficulty.Tell(World.DungeonDirector.Instance != null ? World.DungeonDirector.Instance.Floor.Value.y : 0);
 
         protected override void Strike()
         {
-            // Between tunes: three quick notes in a tight fan at you.
             if (target == null) return;
             var origin = Mouth;
             var dir = AimDir(origin, SoulSpeed * 1.4f);
@@ -72,7 +55,6 @@ namespace Deepbound.Enemies
             return true;
         }
 
-        /// <summary>Server: start a tune now (tests and the dev menu).</summary>
         public void ServerBeginSong(Song which)
         {
             song = which;
@@ -109,7 +91,7 @@ namespace Deepbound.Enemies
                 songEnds = Time.time + SongLength(song);
                 nextTick = Time.time;
                 step = 0;
-                // The tune is aimed where you were when it began: move.
+
                 var to = target != null ? target.transform.position - transform.position : transform.forward;
                 to.y = 0f;
                 aimYaw = to.sqrMagnitude > 0.01f ? Quaternion.LookRotation(to).eulerAngles.y : transform.eulerAngles.y;
@@ -120,7 +102,6 @@ namespace Deepbound.Enemies
             {
                 case Song.Rose:
                 {
-                    // Two blooms, the second turned half a petal and a little slower, so they interlock.
                     float phase = aimYaw + step * 36f;
                     float scale = step == 0 ? 1f : 0.82f;
                     for (int k = 0; k < RoseCount; k++)
@@ -135,7 +116,6 @@ namespace Deepbound.Enemies
                 }
                 case Song.Scissors:
                 {
-                    // Two streams crossing: they meet on you, part, and close again.
                     float t = Time.time - songBegan;
                     float off = 62f * Mathf.Cos(t * 2.7f);
                     Fire(at, aimYaw + off, SoulSpeed * 1.15f);
@@ -146,7 +126,6 @@ namespace Deepbound.Enemies
                 }
                 case Song.Seedpods:
                 {
-                    // Three shells at you and to either side; each bursts into a ring where it falls.
                     float dist = target != null ? Mathf.Clamp(Vector3.Distance(target.transform.position, transform.position) - 1f, 5f, 11f) : 8f;
                     float yaw = aimYaw + (step - 1) * 34f;
                     var dir = Quaternion.Euler(0f, yaw, 0f) * Vector3.forward;
@@ -160,7 +139,6 @@ namespace Deepbound.Enemies
                 }
                 default:
                 {
-                    // A wall of notes across your path with a gap somewhere: find it.
                     int gap = Random.Range(1, WallNotes - 3);
                     for (int k = 0; k < WallNotes; k++)
                     {
@@ -176,12 +154,9 @@ namespace Deepbound.Enemies
             VolleysFired++;
         }
 
-        // ---- Pattern maths (shared by the server shots and every peer's visuals) ----
-
         private const int RoseCount = 30, WallNotes = 13, BurstCount = 10;
         private const float PodSpeed = 5.5f, WallSpeed = 5.6f, WallSpacing = 0.8f;
 
-        /// <summary>Five petals: speed rises and falls five times round the ring.</summary>
         private static float RoseSpeed(int k) => SoulSpeed * (0.5f + 0.5f * Mathf.Abs(Mathf.Cos(2.5f * k * 2f * Mathf.PI / RoseCount)));
 
         private static Vector3 WallOrigin(Vector3 at, float yaw, int k)
@@ -202,8 +177,6 @@ namespace Deepbound.Enemies
             BurstRpc(at, offset);
         }
 
-        // ---- Presentation ----
-
         private static readonly string[] SongNames = { "ROSE", "SCISSORS", "SEEDPODS", "MARCH" };
         private static readonly float[] SongNotes = { 1f, 1.26f, 0.84f, 1.12f };
 
@@ -217,7 +190,7 @@ namespace Deepbound.Enemies
             Vfx.Flash(head, Soul, 2f, 5f, 0.6f);
             Vfx.Embers(head, 10, Soul, 1.2f, 0.05f, 0.7f);
             UI.GameHud.ShowCombo(head + Vector3.up * 0.3f, SongNames[which % 4], Soul);
-            // The opening bar of the tune: three breathy notes.
+
             float p = SongNotes[which % 4];
             Sfx.Play(Sound.Pipe, at + Vector3.up * 1.3f, 0.55f, p);
             if (!IsServer) Rig?.Play(RigAction.Cast, 0.7f);

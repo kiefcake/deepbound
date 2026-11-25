@@ -1,33 +1,23 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace Deepbound.UI
 {
-    /// <summary>
-    /// Shared IMGUI look: gothic. Serif book type (Palatino, from the OS), blackletter for
-    /// titles where Windows has it, and panels framed like old ironwork — dark iron edge, a
-    /// gold inner rule, a leather-dark fill and gold studs at the corners. Built from code;
-    /// no assets, like everything else.
-    /// </summary>
     public static class UiSkin
     {
-        private static Font bookFont, titleFont;
+        private static Font bookFont;
 
-        /// <summary>Body text: a clean sans (2026-10-21, the user: away from the gothic look).</summary>
         public static Font BookFont => bookFont ??= Font.CreateDynamicFontFromOSFont(new[] { "Segoe UI", "Tahoma", "Arial" }, 16);
 
-        /// <summary>Titles: the same clean face, semibold.</summary>
-        /// A second OS font of the same family ("Segoe UI Semibold") shared the body font's atlas and drew
-        /// nothing or the wrong words (the title screen lost DEEPBOUND): titles are the body face in bold.
         public static Font TitleFont => BookFont;
 
-        /// <summary>Call at the top of every OnGUI: styles that do not name a font use the book serif.</summary>
         public static void Apply()
         {
             UiScale.Begin();
             if (GUI.skin.font != BookFont)
             {
                 GUI.skin.font = BookFont;
-                // Segoe sits lower in its line than the old serif: never cut off descenders (g, p, y).
+
                 GUI.skin.label.clipping = TextClipping.Overflow;
                 GUI.skin.button.clipping = TextClipping.Overflow;
             }
@@ -41,9 +31,8 @@ namespace Deepbound.UI
 
         public static GUIStyle Button => button ??= MakeButton(18);
 
-        // ---- Menu feel (2026-11-19, the user: "more menu logic that is seen in other games") ----
         private static int hoverKey, hoverFrame = -1;
-        /// <summary>A layout button that ticks when the pointer comes onto it and clicks when pressed.</summary>
+
         public static bool Btn(string text, GUIStyle style, params GUILayoutOption[] options)
         {
             bool hit = GUILayout.Button(text, style, options);
@@ -51,7 +40,6 @@ namespace Deepbound.UI
             return hit;
         }
 
-        /// <summary>The same, at a fixed rect.</summary>
         public static bool Btn(Rect rect, string text, GUIStyle style)
         {
             bool hit = GUI.Button(rect, text, style);
@@ -98,7 +86,6 @@ namespace Deepbound.UI
             }
         }
 
-        /// <summary>A gothic rule under the title: two gold lines that taper toward a diamond, with a bead at each end.</summary>
         public static void Ornament(float x, float y, float width, float fade)
         {
             var gold = new Color(Gold.r, Gold.g, Gold.b, 0.85f * fade);
@@ -128,7 +115,6 @@ namespace Deepbound.UI
         public static readonly Color Iron = new Color(0.16f, 0.15f, 0.15f);
         public static readonly Color Leather = new Color(0.07f, 0.05f, 0.045f);
 
-        /// <summary>An ornate panel: iron edge, gold rule, dark leather, gold corner studs.</summary>
         public static void Panel(Rect r, float alpha = 0.88f)
         {
             float a = alpha;
@@ -136,7 +122,7 @@ namespace Deepbound.UI
             Rect(new Rect(r.x - 3, r.y - 3, r.width + 6, r.height + 6), new Color(Iron.r, Iron.g, Iron.b, 0.95f * a));
             Rect(new Rect(r.x - 1, r.y - 1, r.width + 2, r.height + 2), new Color(Gold.r * 0.8f, Gold.g * 0.8f, Gold.b * 0.8f, 0.85f * a));
             Rect(r, new Color(Leather.r, Leather.g, Leather.b, 0.94f * a));
-            // A faint warm sheen across the top, like lamplight on leather.
+
             Rect(new Rect(r.x, r.y, r.width, Mathf.Min(18f, r.height * 0.3f)), new Color(0.35f, 0.22f, 0.1f, 0.12f * a));
             if (r.width > 40 && r.height > 24)
             {
@@ -145,7 +131,6 @@ namespace Deepbound.UI
             }
         }
 
-        /// <summary>A small gold diamond (rotated square) centred on a point.</summary>
         public static void Stud(Vector2 at, float size, float alpha = 1f)
         {
             var m = GUI.matrix;
@@ -155,14 +140,13 @@ namespace Deepbound.UI
             GUI.matrix = m;
         }
 
-        /// <summary>A framed bar: iron frame, dark well, the fill with a highlight, and notches.</summary>
         public static void Bar(Rect r, float k, Color fill, int notches = 0, float trail = -1f)
         {
             Rect(new Rect(r.x - 2, r.y - 2, r.width + 4, r.height + 4), new Color(Iron.r, Iron.g, Iron.b, 0.95f));
             Rect(new Rect(r.x - 1, r.y - 1, r.width + 2, r.height + 2), new Color(Gold.r * 0.55f, Gold.g * 0.55f, Gold.b * 0.55f, 0.9f));
             Rect(r, new Color(0.05f, 0.03f, 0.03f, 0.95f));
             float fw = r.width * Mathf.Clamp01(k);
-            // What was just lost lingers as a pale chunk before it drains away.
+
             if (trail > k) Rect(new Rect(r.x + fw, r.y, r.width * (Mathf.Clamp01(trail) - Mathf.Clamp01(k)), r.height), new Color(1f, 0.92f, 0.75f, 0.75f));
             Rect(new Rect(r.x, r.y, fw, r.height), fill);
             Rect(new Rect(r.x, r.y, fw, Mathf.Max(1f, r.height * 0.35f)), new Color(1f, 1f, 1f, 0.18f));
@@ -171,11 +155,6 @@ namespace Deepbound.UI
                 Rect(new Rect(r.x + r.width * i / notches, r.y, 1f, r.height), new Color(0f, 0f, 0f, 0.35f));
         }
 
-        /// <summary>Text cut to fit a width on one line, ending "..." when it had to be shortened.</summary>
-        /// <summary>
-        /// A style derived from <paramref name="from"/>, made once and reused (2026-11-16 perf: the HUD built several
-        /// new GUIStyles every pass, each a native object). The colour is set on each call, so use it right away.
-        /// </summary>
         public static GUIStyle Derive(GUIStyle from, Color color, int fontSize = 0, FontStyle? fontStyle = null, TextAnchor? align = null, bool? wrap = null, Font font = null)
         {
             var key = (from, fontSize, fontStyle.HasValue ? (int)fontStyle.Value : -1, align.HasValue ? (int)align.Value : -1, wrap.HasValue ? (wrap.Value ? 1 : 0) : -1, font);
@@ -193,12 +172,10 @@ namespace Deepbound.UI
             s.normal.textColor = color;
             return s;
         }
-        private static readonly System.Collections.Generic.Dictionary<(GUIStyle, int, int, int, int, Font), GUIStyle> derived = new System.Collections.Generic.Dictionary<(GUIStyle, int, int, int, int, Font), GUIStyle>();
+        private static readonly Dictionary<(GUIStyle, int, int, int, int, Font), GUIStyle> derived = new Dictionary<(GUIStyle, int, int, int, int, Font), GUIStyle>();
 
-        /// <summary><see cref="Fit"/>, remembered for the last text and width it was asked about (it measures a lot).</summary>
         public static string FitCached(ref string lastText, ref string lastFit, string text, GUIStyle style, float width)
         {
-            // Keyed on the text and the width it must fit (the same caption is drawn on the small and the large map).
             string key = text + "" + Mathf.RoundToInt(width);
             if (key != lastText) { lastText = key; lastFit = Fit(text, style, width); }
             return lastFit;
@@ -216,7 +193,6 @@ namespace Deepbound.UI
             return text.Substring(0, lo).TrimEnd(' ', ',', '.', ':') + "...";
         }
 
-        /// <summary>A colour pushed light enough to read as text on the dark panels.</summary>
         public static Color Readable(Color c, float minLum = 0.64f)
         {
             float lum = 0.3f * c.r + 0.59f * c.g + 0.11f * c.b;
@@ -226,20 +202,17 @@ namespace Deepbound.UI
             return o;
         }
 
-        /// <summary>Text with a soft dark drop shadow, for titles over 3D scenes.</summary>
         public static void Shadowed(Rect r, string text, GUIStyle style, float alpha = 1f)
         {
-            var shadow = new GUIStyle(style) { normal = { textColor = new Color(0f, 0f, 0f, 0.85f * alpha) } };
-            GUI.Label(new Rect(r.x + 2, r.y + 2, r.width, r.height), text, shadow);
-            var main = new GUIStyle(style);
-            main.normal.textColor = new Color(style.normal.textColor.r, style.normal.textColor.g, style.normal.textColor.b, alpha);
-            GUI.Label(r, text, main);
+            var c = style.normal.textColor;
+            GUI.Label(new Rect(r.x + 2, r.y + 2, r.width, r.height), text, Derive(style, new Color(0f, 0f, 0f, 0.85f * alpha)));
+            GUI.Label(r, text, Derive(style, new Color(c.r, c.g, c.b, alpha)));
         }
 
         private static GUIStyle MakeButton(int size)
         {
             var s = new GUIStyle(GUI.skin.button) { fontSize = size, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter, clipping = TextClipping.Overflow };
-            // Buttons are little framed plaques: a gold-ruled border baked into a 3x3 texture.
+
             s.normal.background = Framed(new Color(0.09f, 0.065f, 0.05f, 0.95f), new Color(0.55f, 0.42f, 0.2f, 0.9f));
             s.hover.background = Framed(new Color(0.28f, 0.17f, 0.08f, 0.97f), new Color(0.95f, 0.75f, 0.36f, 1f));
             s.active.background = Framed(new Color(0.5f, 0.3f, 0.12f, 1f), new Color(1f, 0.85f, 0.45f, 1f));
@@ -257,7 +230,6 @@ namespace Deepbound.UI
             return s;
         }
 
-        /// <summary>A 3x3 texture: a one-pixel border round a fill (stretched with a 1px border).</summary>
         private static Texture2D Framed(Color fill, Color edge)
         {
             var t = new Texture2D(3, 3) { hideFlags = HideFlags.HideAndDontSave, filterMode = FilterMode.Point };

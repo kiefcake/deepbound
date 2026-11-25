@@ -3,11 +3,6 @@ using UnityEngine;
 
 namespace Deepbound.Art
 {
-    /// <summary>
-    /// The dead falling apart: once a creature has crumpled, its pieces come loose — bones
-    /// clatter outward, bounce on the floor, settle, and sink away. Every peer runs it locally
-    /// from the death animation; nothing is synced, nothing collides with gameplay.
-    /// </summary>
     public class BoneScatter : MonoBehaviour
     {
         private struct Piece { public Transform T; public Vector3 Velocity, Spin; public float Floor; public bool Resting; }
@@ -15,7 +10,6 @@ namespace Deepbound.Art
         private float born;
         private const float Life = 3.2f, SinkFrom = 2.2f;
 
-        /// <summary>Break <paramref name="rig"/> apart. Large creatures scatter less violently.</summary>
         public static void Break(HumanoidRig rig)
         {
             if (rig == null) return;
@@ -36,7 +30,7 @@ namespace Deepbound.Art
                 away.y = 0f;
                 var v = (away.normalized * Random.Range(0.6f, 2.4f) + Vector3.up * Random.Range(1.5f, 3.5f)) / Mathf.Sqrt(scale);
                 s.pieces.Add(new Piece { T = t, Velocity = v, Spin = Random.insideUnitSphere * 540f, Floor = floor });
-                // Glowing bits (eyes, runes) go dark as they fall.
+
                 if (r.sharedMaterial != null && r.sharedMaterial.name.Contains("Glow")) ArtLibrary.SetGlow(r, Color.black);
             }
             foreach (var l in rig.GetComponentsInChildren<Light>()) l.enabled = false;
@@ -58,7 +52,7 @@ namespace Deepbound.Art
                     if (pos.y < p.Floor + 0.03f)
                     {
                         pos.y = p.Floor + 0.03f;
-                        // Bounce once or twice, losing most of it.
+
                         p.Velocity = new Vector3(p.Velocity.x * 0.45f, -p.Velocity.y * 0.3f, p.Velocity.z * 0.45f);
                         p.Spin *= 0.4f;
                         if (p.Velocity.sqrMagnitude < 0.3f) p.Resting = true;

@@ -3,13 +3,6 @@ using UnityEngine;
 
 namespace Deepbound.World
 {
-    /// <summary>
-    /// The camp folk's rounds (2026-11-07, the user: "wander and chat"): now and then someone leaves their post for a short
-    /// errand and walks back. Hobb cools off at the well, Vey goes to pick at Silas's hood, Brann warms his hands at the fire,
-    /// Ysolde listens to the gong, Silas wanders to the tavern door. Deterministic from the server clock, so every peer sees
-    /// the same walk and the server moves the struck-body (<see cref="CampFolk"/>) with the figure. Each route is checked
-    /// once for clear ground (sphere casts round the stalls); a route that cannot be walked is dropped and that person stays home.
-    /// </summary>
     public static class FolkRounds
     {
         public const float Speed = 1.25f, Stay = 14f;
@@ -18,11 +11,11 @@ namespace Deepbound.World
         {
             public FolkId Who;
             public float Period, Offset;
-            public Vector3[] Path;   // home ... destination
+            public Vector3[] Path;
             public float Length;
             public Vector3 FaceAtDest;
             public string[] Lines;
-            public FolkId? Answer;   // someone who answers at the destination
+            public FolkId? Answer;
             public string[] Answers;
         }
 
@@ -32,28 +25,24 @@ namespace Deepbound.World
         public static double Clock => DebugShift + (Unity.Netcode.NetworkManager.Singleton != null && Unity.Netcode.NetworkManager.Singleton.IsListening
             ? Unity.Netcode.NetworkManager.Singleton.ServerTime.Time : Time.timeAsDouble);
 
-        /// <summary>Tests and the camp inspector: moves everyone's rounds clock.</summary>
         public static double DebugShift;
-        /// <summary>Tests: everyone stays home (a buy must not miss a person who just left on an errand).</summary>
+
         public static bool StayHome;
 
-        /// <summary>The people who go on rounds (a clear way was found).</summary>
         public static IEnumerable<FolkId> Walkers { get { if (rounds == null) Build(); return rounds.Keys; } }
 
-        /// <summary>Tests: shift the clock so <paramref name="who"/> stands at their errand's end (or, with <paramref name="along"/> 0.5, halfway there).</summary>
         public static void DebugArrive(FolkId who, float along = -1f)
         {
             if (rounds == null) Build();
             if (!rounds.TryGetValue(who, out var r)) return;
             DebugShift = 0;
-            double t = DungeonDirector.FolkClock(who, Clock) + r.Offset; // a person held in conversation keeps their own clock still
+            double t = DungeonDirector.FolkClock(who, Clock) + r.Offset;
             float walk = r.Length / Speed;
             float target = along < 0f ? walk + Stay * 0.5f : walk * along;
             double inPeriod = t - System.Math.Floor(t / r.Period) * r.Period;
             DebugShift = target - inPeriod;
         }
 
-        /// <summary>Forget the routes (a new camp was built).</summary>
         public static void Reset() { rounds = null; builtAt = Time.time; }
         private static float builtAt;
 
@@ -80,7 +69,7 @@ namespace Deepbound.World
             if (path == null) { Debug.Log("[FolkRounds] " + who + " stays home: no clear way to " + (dest - Lobby.Origin)); return; }
             float len = 0f;
             for (int i = 1; i < path.Length; i++) len += Flat(path[i] - path[i - 1]);
-            // Face what they came for: the person they came to talk to, else the thing nearest the errand's end.
+
             var face = (answer.HasValue ? AnswerSpot(answer.Value) : LookFor(dest)) - dest;
             face.y = 0f;
             rounds[who] = new Round { Who = who, Period = period, Offset = offset, Path = path, Length = len, FaceAtDest = face.sqrMagnitude > 0.01f ? face.normalized : front, Lines = lines, Answer = answer, Answers = answers };
@@ -100,13 +89,11 @@ namespace Deepbound.World
             return Lobby.Origin;
         }
 
-        // ---- A small grid search round the stalls (0.5 m cells): the same answer on every peer, people and players ignored ----
         private const float Cell = 0.5f, Radius = 0.3f;
         private static readonly Collider[] hits = new Collider[16];
 
         private static bool Free(Vector3 at)
         {
-            // From 15 cm up: rugs, the road kerb and floor mats are stepped over.
             int n = Physics.OverlapCapsuleNonAlloc(at + Vector3.up * (Radius + 0.15f), at + Vector3.up * 1.7f, Radius, hits, ~0, QueryTriggerInteraction.Ignore);
             for (int i = 0; i < n; i++)
                 if (!Ignored(hits[i])) return false;
@@ -138,7 +125,7 @@ namespace Deepbound.World
             var free = new bool[w, h];
             for (int x = 0; x < w; x++) for (int z = 0; z < h; z++) free[x, z] = Free(P(x, z));
             var (sx, sz) = C(home); var (gx, gz) = C(dest);
-            // Home is behind a counter and dest may be by someone: let the walk start and end there, and clear a step round them.
+
             for (int dx = -1; dx <= 1; dx++) for (int dz = -1; dz <= 1; dz++)
             {
                 if (sx + dx >= 0 && sx + dx < w && sz + dz >= 0 && sz + dz < h && Walkable(home, P(sx + dx, sz + dz))) free[sx + dx, sz + dz] = true;
@@ -157,7 +144,7 @@ namespace Deepbound.World
                 {
                     int nx = cx + ox[k], nz = cz + oz[k];
                     if (nx < 0 || nz < 0 || nx >= w || nz >= h || !free[nx, nz]) continue;
-                    if (k >= 4 && (!free[cx + ox[k], cz] || !free[cx, cz + oz[k]])) continue; // no corner cutting
+                    if (k >= 4 && (!free[cx + ox[k], cz] || !free[cx, cz + oz[k]])) continue;
                     int ni = nx + nz * w;
                     if (prev[ni] >= 0) continue;
                     prev[ni] = cur;
@@ -177,7 +164,7 @@ namespace Deepbound.World
             for (int at = goal; ; at = prev[at]) { cells.Add(P(at % w, at / w)); if (at == start) break; }
             cells.Reverse();
             cells[0] = home; cells[cells.Count - 1] = dest;
-            // Straighten: skip every corner that a clear straight line can cut.
+
             var path = new List<Vector3> { cells[0] };
             int from = 0;
             while (from < cells.Count - 1)
@@ -191,10 +178,9 @@ namespace Deepbound.World
             return path.ToArray();
         }
 
-        /// <summary>Does this person go on rounds at all (a clear route was found)?</summary>
         public static bool Walks(FolkId who)
         {
-            if (rounds == null && Time.time - builtAt < 2.5f) return false; // the stations are still spawning
+            if (rounds == null && Time.time - builtAt < 2.5f) return false;
             if (rounds == null) Build();
             return rounds.ContainsKey(who);
         }
@@ -204,16 +190,15 @@ namespace Deepbound.World
             public Vector3 Position;
             public Vector3 Facing;
             public bool Away, Walking, AtDest;
-            public int Visit;   // which errand (for picking a line)
+            public int Visit;
         }
 
-        /// <summary>Where <paramref name="who"/> is at the server clock (Away false = at home, untouched).</summary>
         public static Pose At(FolkId who)
         {
             if (rounds == null) Build();
             var pose = new Pose();
-            if (StayHome || CampWeather.KeepIn || !rounds.TryGetValue(who, out var r)) return pose; // in the rain they keep to their stalls
-            double t = DungeonDirector.FolkClock(who, Clock) + r.Offset; // a person held in conversation keeps their own clock still
+            if (StayHome || CampWeather.KeepIn || !rounds.TryGetValue(who, out var r)) return pose;
+            double t = DungeonDirector.FolkClock(who, Clock) + r.Offset;
             pose.Visit = (int)(t / r.Period);
             float tau = (float)(t - pose.Visit * (double)r.Period);
             float walk = r.Length / Speed;
@@ -225,7 +210,7 @@ namespace Deepbound.World
             else { along = r.Length - (tau - walk - Stay) * Speed; pose.Walking = true; }
             along = Mathf.Clamp(along, 0f, r.Length);
             bool goingOut = tau < walk;
-            // Along the path.
+
             float left = along;
             for (int i = 1; i < r.Path.Length; i++)
             {
@@ -243,7 +228,6 @@ namespace Deepbound.World
             return pose;
         }
 
-        /// <summary>Local, once per errand: the line said on arrival (and the answer).</summary>
         public static void Chatter(FolkId who, Pose pose)
         {
             if (!pose.AtDest || rounds == null || !rounds.TryGetValue(who, out var r)) return;

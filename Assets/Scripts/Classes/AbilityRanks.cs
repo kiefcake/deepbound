@@ -4,26 +4,14 @@ namespace Deepbound.Classes
 {
     public enum AbilitySlot : byte { Q = 0, E = 1 }
 
-    /// <summary>
-    /// Q and E each have five ranks, bought with Sigils at Ysolde's stones.
-    ///
-    /// REWORK (2026-11-20, the user: "upgrades on abilities should be unique fun and interesting, not +30 dmg or +30 size"):
-    /// every rank from 2 to 5 is a CHOICE between two options that change what the ability does (tiers 1-4; option A or B).
-    /// Choices are locked for the run (the user's call). Each rank also adds a quiet <see cref="PotencyPerRank"/> of strength,
-    /// so the ability keeps pace with the deeper floors, but the headline of every rank is the choice.
-    /// The effects live in each kit, gated by <c>PlayerProgress.A(slot, tier)</c> / <c>B(slot, tier)</c>.
-    /// </summary>
     public static class AbilityRanks
     {
         public const int MaxRank = 5, Tiers = 4;
-        /// <summary>Each rank past 1: +15% strength and 6% off the cooldown (rank 5: x1.6, x0.76). Tuned 2026-11-20 after a floor-7
-        /// Mage bot run with +10%/rank and no cooldown cut took three times the usual damage.</summary>
+
         public const float PotencyPerRank = 0.15f, CooldownPerRank = 0.06f;
 
-        /// <summary>Sigils to go from <paramref name="rank"/> to the next: 1, 1, 2, 3 (seven to master one ability).</summary>
         public static int SigilCost(int rank) => rank >= 4 ? 3 : rank >= 3 ? 2 : 1;
 
-        /// <summary>Embers a spare Sigil melts into once both abilities are mastered.</summary>
         public const int MeltEmbers = 40;
 
         public struct Option
@@ -32,7 +20,6 @@ namespace Deepbound.Classes
             public Option(string name, string text) { Name = name; Text = text; }
         }
 
-        /// <summary>The option at <paramref name="tier"/> (1-4, = rank 2-5); <paramref name="b"/> picks the second.</summary>
         public static Option Get(ClassId id, AbilitySlot slot, int tier, bool b)
         {
             if (!table.TryGetValue((id, slot), out var list) || tier < 1 || tier > Tiers) return new Option("", "");
@@ -43,7 +30,6 @@ namespace Deepbound.Classes
 
         private static readonly Dictionary<(ClassId, AbilitySlot), Option[]> table = new Dictionary<(ClassId, AbilitySlot), Option[]>
         {
-            // ---------------- KNIGHT ----------------
             { (ClassId.Knight, AbilitySlot.Q), new[] {
                 O("Ricochet", "The bash also strikes and stuns the nearest other enemy within 6 m."),
                 O("Shield Rush", "The lunge travels twice as far, driving the first enemy hit before you and knocking it back."),
@@ -64,7 +50,7 @@ namespace Deepbound.Classes
                 O("Echo", "The cry repeats after 3 s, taunting all nearby enemies again."),
                 O("Last Oath", "For the duration, a blow that would down you leaves you at 1 health and ends the cry instead."),
             } },
-            // ---------------- MAGE ----------------
+
             { (ClassId.Mage, AbilitySlot.Q), new[] {
                 O("Undertow", "The wave pulls enemies toward you instead of pushing them away."),
                 O("Floodwater", "The wave leaves a flooded strip for 5 s that chills enemies standing in it."),
@@ -85,7 +71,7 @@ namespace Deepbound.Classes
                 O("Chain of Stars", "Each kill calls a star down on the nearest other enemy (up to three)."),
                 O("Aftermath", "The crater erupts again 2 s later, with a wider blast."),
             } },
-            // ---------------- CLERIC ----------------
+
             { (ClassId.Cleric, AbilitySlot.Q), new[] {
                 O("Holy Stride", "The consecrated ground follows you for its duration."),
                 O("Thrown Blessing", "Consecrate lands at your aim point (up to 16 m) instead of at your feet."),
@@ -106,7 +92,7 @@ namespace Deepbound.Classes
                 O("Breaking Light", "A broken Aegis bursts, damaging and stunning nearby enemies."),
                 O("Echo of Grace", "An unbroken shield converts its remaining value into healing when it expires."),
             } },
-            // ---------------- ROGUE ----------------
+
             { (ClassId.Rogue, AbilitySlot.Q), new[] {
                 O("Shadow Gash", "You arrive striking, causing the enemy to bleed for 4 s."),
                 O("Double Step", "You can Shadowstep again for free within 3 s."),
@@ -127,7 +113,7 @@ namespace Deepbound.Classes
                 O("Smoke Chain", "Kills made from the smoke drop a new bomb at your feet (with a short cooldown)."),
                 O("Marked for Death", "All enemies within 8 m are Marked when the bomb bursts."),
             } },
-            // ---------------- RANGER ----------------
+
             { (ClassId.Ranger, AbilitySlot.Q), new[] {
                 O("Marking Net", "Enemies caught in the net are Marked, taking increased damage from the whole party."),
                 O("Barbed Net", "Enemies caught in the net bleed for 4 s."),
@@ -148,7 +134,7 @@ namespace Deepbound.Classes
                 O("Seeker Volley", "The volley follows the nearest snared or Marked enemy."),
                 O("Rain of Marks", "Enemies hit by three waves are Marked."),
             } },
-            // ---------------- FLAGELLANT ----------------
+
             { (ClassId.Flagellant, AbilitySlot.Q), new[] {
                 O("Dragnet", "Enemies within 3 m of the target are pulled in with it."),
                 O("Lash", "The chain damages every enemy along its path."),
@@ -169,7 +155,7 @@ namespace Deepbound.Classes
                 O("Quake", "All enemies within 6 m of the impact are stunned for 2 s."),
                 O("Afterquake", "Three ripples spread from the impact, each wider than the last."),
             } },
-            // ---------------- PLAGUE DOCTOR ----------------
+
             { (ClassId.PlagueDoctor, AbilitySlot.Q), new[] {
                 O("Creeping Cloud", "The cloud drifts toward the nearest enemy."),
                 O("Clinging Fog", "Enemies inside are chilled and slowed."),

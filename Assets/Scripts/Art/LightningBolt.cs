@@ -3,10 +3,6 @@ using UnityEngine;
 
 namespace Deepbound.Art
 {
-    /// <summary>
-    /// A jagged bolt from the ceiling into the first target, then arcing target to target.
-    /// Built from thin glowing boxes between jittered points; lives a quarter of a second.
-    /// </summary>
     public class LightningBolt : MonoBehaviour
     {
         private Light flash;
@@ -24,7 +20,6 @@ namespace Deepbound.Art
             path.AddRange(targets);
             for (int i = 0; i < path.Count - 1; i++) bolt.Arc(go.transform, path[i], path[i + 1]);
 
-            // Each strike crackles where it lands (Kenney spark sprites).
             foreach (var t in targets)
             {
                 FxSprite.Billboard("spark_01", t, Vector3.zero, 0.22f, 0.6f, 1.6f, new Color(0.75f, 0.85f, 1f, 1f), Random.Range(-500f, 500f));
@@ -65,7 +60,7 @@ namespace Deepbound.Art
             age += Time.deltaTime;
             float k = Mathf.Clamp01(1f - age / 0.3f);
             flash.intensity = 10f * k;
-            // Flicker: lightning strobes rather than fading smoothly.
+
             bool on = (int)(age * 40f) % 2 == 0 || age < 0.06f;
             foreach (var s in segments) s.enabled = on;
         }

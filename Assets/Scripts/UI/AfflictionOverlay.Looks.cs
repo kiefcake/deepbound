@@ -2,15 +2,6 @@ using UnityEngine;
 
 namespace Deepbound.UI
 {
-    /// <summary>
-    /// STATUS LOOKS (2026-11-23, the user: "each one should look different on the fov and not a copy paste different colour").
-    /// Before this, fifteen states drew the same corner smoke in a new tint. Each now has its own picture AND its own motion:
-    /// poison drips and bubbles, a turning rune ring for the curse, eyelids for the hex, a spiral for mania, grey bars and a
-    /// broken ring for silence, rising motes for a mending potion, crackling arcs for a draught surge, a thumping ring for
-    /// Bloodfury, cracked glass for a last stand, lash marks for zeal, a thorn band for martyrdom, a hexagon lattice for a ward,
-    /// a glass rim for a shield, bark plates for Ironbark, stone cracks for Grave Stillness, light rays for Inspired, rising gold
-    /// for consecrated ground, embers for Brothers in Arms and a column of light for a sanctuary. All painted in code at first use.
-    /// </summary>
     public partial class AfflictionOverlay
     {
         private static Texture2D[] runes;
@@ -32,10 +23,6 @@ namespace Deepbound.UI
             thorns = PaintThorns();
         }
 
-        // ------------------------------------------------------------------------------------------------------------
-        // Drawing
-        // ------------------------------------------------------------------------------------------------------------
-
         private static void Full(Texture2D tex, Color c)
         {
             GUI.color = c;
@@ -48,7 +35,6 @@ namespace Deepbound.UI
             GUI.DrawTexture(new Rect(at.x - size / 2f, at.y - size / 2f, size, size), blob);
         }
 
-        /// <summary>Poison: drips sliding down from the top edge with a trail, and bubbles rising from the bottom.</summary>
         private static void DrawPoison(float k, float t, float calm)
         {
             float w = UiScale.W, h = UiScale.H;
@@ -74,7 +60,6 @@ namespace Deepbound.UI
             }
         }
 
-        /// <summary>Curse (Hexer): violet runes in a slow ring round the view, flickering one by one.</summary>
         private static void DrawCurseRunes(float k, float t, float calm)
         {
             float w = UiScale.W, h = UiScale.H;
@@ -91,7 +76,6 @@ namespace Deepbound.UI
             }
         }
 
-        /// <summary>Hex (the hag's curse): dark eyelids close in from top and bottom on a slow throb, a green tinge at their edge.</summary>
         private static void DrawHexLids(float k, float t, float calm)
         {
             float w = UiScale.W, h = UiScale.H;
@@ -101,7 +85,6 @@ namespace Deepbound.UI
             GUI.DrawTextureWithTexCoords(new Rect(-w * 0.1f, h * (1f - close), w * 1.2f, h * 0.5f), lid, new Rect(0, 1, 1, -1));
         }
 
-        /// <summary>Mania: a magenta spiral turning fast over the whole view, breathing in and out.</summary>
         private static void DrawManiaSpiral(float k, float t, float calm)
         {
             float w = UiScale.W, h = UiScale.H;
@@ -109,11 +92,11 @@ namespace Deepbound.UI
             var pivot = new Vector2(w / 2f, h / 2f);
             var keep = GUI.matrix;
             UiScale.Rotate(t * 160f, pivot);
-            // 2026-11-25 (-shots): at 0.2 the spiral did not show at all and mania read as a plain magenta haze.
+
             GUI.color = new Color(0.95f, 0.25f, 0.8f, k * 0.36f * calm);
             GUI.DrawTexture(new Rect(pivot.x - s / 2f, pivot.y - s / 2f, s, s), spiral);
             GUI.matrix = keep;
-            // A second, smaller one turning the other way: the two shear against each other.
+
             float s2 = s * 0.55f;
             UiScale.Rotate(-t * 230f, pivot);
             GUI.color = new Color(1f, 0.55f, 0.9f, k * 0.22f * calm);
@@ -121,7 +104,6 @@ namespace Deepbound.UI
             GUI.matrix = keep;
         }
 
-        /// <summary>Silence: grey bars press in from top and bottom, and a broken ring sits round the crosshair (the sound cut off).</summary>
         private static void DrawSilence(float k, float t, float calm)
         {
             float w = UiScale.W, h = UiScale.H;
@@ -133,13 +115,12 @@ namespace Deepbound.UI
             var c = new Vector2(w / 2f, h / 2f);
             for (int i = 0; i < 10; i++)
             {
-                if (i % 3 == 2) continue; // the gaps
+                if (i % 3 == 2) continue;
                 float a = i * Mathf.PI * 2f / 10f + t * 0.3f;
                 Dot(c + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * r, h * 0.012f, new Color(0.75f, 0.75f, 0.88f, k * 0.6f * calm));
             }
         }
 
-        /// <summary>A mending potion: warm red-gold motes rising up the view, thick at the bottom.</summary>
         private static void DrawRising(float k, float t, float calm, Color c, int seed, int count, float height, float size = 1f)
         {
             float w = UiScale.W, h = UiScale.H;
@@ -153,7 +134,6 @@ namespace Deepbound.UI
             }
         }
 
-        /// <summary>A draught surge: short crackling arcs along both side edges, re-struck many times a second.</summary>
         private static void DrawSurge(float k, float t, float calm, Color c)
         {
             float w = UiScale.W, h = UiScale.H;
@@ -186,7 +166,6 @@ namespace Deepbound.UI
             GUI.matrix = keep;
         }
 
-        /// <summary>Bloodfury: a red ring round the view that thumps inward on every heartbeat.</summary>
         private static void DrawFuryBeat(float k, float t, float calm)
         {
             float beat = Mathf.Pow(Mathf.Abs(Mathf.Sin(t * 3.4f)), 8f);
@@ -195,7 +174,6 @@ namespace Deepbound.UI
             GUI.DrawTexture(new Rect(w / 2f - w * grow / 2f, h / 2f - h * grow / 2f, w * grow, h * grow), ring);
         }
 
-        /// <summary>Last stand: cracked glass at the edges in deep red, and the view darkening slowly round it.</summary>
         private static void DrawLastStand(float k, float t, float calm)
         {
             float beat = Mathf.Pow(Mathf.Abs(Mathf.Sin(t * 2.2f)), 4f);
@@ -203,7 +181,6 @@ namespace Deepbound.UI
             Full(cracks, new Color(0.8f, 0.12f, 0.08f, k * (0.45f + 0.25f * beat) * calm));
         }
 
-        /// <summary>Zeal: three red lash marks raked down each side, flaring on the beat.</summary>
         private static void DrawLashes(float k, float t, float calm)
         {
             float w = UiScale.W, h = UiScale.H;
@@ -218,7 +195,6 @@ namespace Deepbound.UI
                 }
         }
 
-        /// <summary>Shield: a glassy rim round the whole view, with a glint that runs round it.</summary>
         private static void DrawShieldRim(float k, float t, float calm)
         {
             float w = UiScale.W, h = UiScale.H;
@@ -229,7 +205,6 @@ namespace Deepbound.UI
             Dot(p, h * 0.08f, new Color(1f, 1f, 0.92f, k * 0.5f * calm));
         }
 
-        /// <summary>Inspired: light rays leaning down from the top, sweeping slowly.</summary>
         private static void DrawRays(float k, float t, float calm)
         {
             float w = UiScale.W, h = UiScale.H;
@@ -238,7 +213,6 @@ namespace Deepbound.UI
             GUI.DrawTexture(new Rect(sweep - w * 0.05f, 0, w * 1.1f, h * 0.75f), rays);
         }
 
-        /// <summary>A sanctuary: a soft column of gold light from straight above.</summary>
         private static void DrawColumn(float k, float t, float calm)
         {
             float w = UiScale.W, h = UiScale.H;
@@ -246,13 +220,11 @@ namespace Deepbound.UI
             GUI.DrawTexture(new Rect(w * 0.2f, -h * 0.2f, w * 0.6f, h * 1.2f), rays);
         }
 
-        /// <summary>Plague Mask ward: a faint hexagon lattice over the edges, shimmering.</summary>
         private static void DrawWard(float k, float t, float calm)
         {
             Full(lattice, new Color(0.45f, 0.95f, 0.55f, k * (0.22f + 0.08f * Mathf.Sin(t * 4f)) * calm));
         }
 
-        /// <summary>Martyrdom: a band of thorns across the top of the view, tightening on the pulse.</summary>
         private static void DrawThorns(float k, float t, float calm)
         {
             float w = UiScale.W, h = UiScale.H;
@@ -262,10 +234,6 @@ namespace Deepbound.UI
             GUI.DrawTexture(new Rect(0, 0, w, bandH), thorns, ScaleMode.StretchToFill);
         }
 
-        /// <summary>
-        /// THE TALLYMAN NEAR: the view closes in black from its edges, and his tally marks - strokes of four and a slash -
-        /// scratch themselves in round it, more the closer he is, twitching. Sickly lantern green.
-        /// </summary>
         private static void DrawDread(float k, float t, float calm)
         {
             float w = UiScale.W, h = UiScale.H;
@@ -278,7 +246,6 @@ namespace Deepbound.UI
             float jump = Mathf.Floor(t * 7f);
             for (int g = 0; g < groups; g++)
             {
-                // Round the edge of the view, never over the middle.
                 float a = Hash(g, 1, 61) * Mathf.PI * 2f;
                 float r = 0.36f + 0.1f * Hash(g, 2, 61);
                 var c = new Vector2(w / 2f + Mathf.Cos(a) * w * r, h / 2f + Mathf.Sin(a) * h * r * 1.1f);
@@ -295,7 +262,6 @@ namespace Deepbound.UI
             }
         }
 
-        /// <summary>Ironbark: bark plates growing up both sides of the view.</summary>
         private static void DrawBark(float k, float t, float calm)
         {
             float w = UiScale.W, h = UiScale.H, bw = w * 0.16f * Ease(k);
@@ -303,10 +269,6 @@ namespace Deepbound.UI
             GUI.DrawTexture(new Rect(0, 0, bw, h), bark, ScaleMode.StretchToFill);
             GUI.DrawTextureWithTexCoords(new Rect(w - bw, 0, bw, h), bark, new Rect(1, 0, -1, 1));
         }
-
-        // ------------------------------------------------------------------------------------------------------------
-        // Painting (once)
-        // ------------------------------------------------------------------------------------------------------------
 
         private static Texture2D PaintBlob()
         {
@@ -321,7 +283,6 @@ namespace Deepbound.UI
             return cv.Bake();
         }
 
-        /// <summary>One angular rune: a stave with seeded branches, and a soft glow round it.</summary>
         private static Texture2D PaintRune(int g)
         {
             var cv = new Canvas(64);
@@ -338,7 +299,6 @@ namespace Deepbound.UI
             return cv.Bake();
         }
 
-        /// <summary>An eyelid: dark at the top edge, a curved soft lower edge.</summary>
         private static Texture2D PaintLid()
         {
             var cv = new Canvas(256);
@@ -346,8 +306,8 @@ namespace Deepbound.UI
                 for (int x = 0; x < 256; x++)
                 {
                     float u = x / 255f * 2f - 1f;
-                    float edge = 0.15f + 0.55f * (1f - u * u); // lower edge curves down in the middle
-                    float v = 1f - y / 255f;                   // 0 at the top of the image (GUI draws y down: texture row 255 is top)
+                    float edge = 0.15f + 0.55f * (1f - u * u);
+                    float v = 1f - y / 255f;
                     float a = Mathf.Clamp01((edge - v) * 6f + 0.5f);
                     cv.Px[y * 256 + x] = new Color(1f, 1f, 1f, a);
                 }
@@ -370,7 +330,6 @@ namespace Deepbound.UI
             return cv.Bake();
         }
 
-        /// <summary>A soft ring hugging the edges of the view (clear in the middle).</summary>
         private static Texture2D PaintRing()
         {
             var cv = new Canvas(256);
@@ -385,7 +344,6 @@ namespace Deepbound.UI
             return cv.Bake();
         }
 
-        /// <summary>Glass cracks spreading in from the corners and edges.</summary>
         private static Texture2D PaintCracks()
         {
             var cv = new Canvas(Size);
@@ -408,14 +366,13 @@ namespace Deepbound.UI
             return cv.Bake();
         }
 
-        /// <summary>Light rays fanning down from above (bright at the top, fading out below).</summary>
         private static Texture2D PaintRays()
         {
             var cv = new Canvas(256);
             for (int y = 0; y < 256; y++)
                 for (int x = 0; x < 256; x++)
                 {
-                    float fromTop = 1f - y / 255f;                // 0 at the top
+                    float fromTop = 1f - y / 255f;
                     float u = (x / 255f - 0.5f) / Mathf.Max(0.15f, 0.25f + fromTop);
                     float beams = 0.5f + 0.5f * Mathf.Sin(u * 40f + Noise(u * 6f, 0f, 61) * 4f);
                     float a = Mathf.Pow(beams, 3f) * Mathf.Clamp01(1f - fromTop * 1.1f) * Mathf.Clamp01(1f - Mathf.Abs(x / 255f - 0.5f) * 1.6f);
@@ -424,7 +381,6 @@ namespace Deepbound.UI
             return cv.Bake();
         }
 
-        /// <summary>A hexagon lattice, strong at the edges, gone in the middle.</summary>
         private static Texture2D PaintLattice()
         {
             var cv = new Canvas(Size);
@@ -446,7 +402,6 @@ namespace Deepbound.UI
             return cv.Bake();
         }
 
-        /// <summary>Bark: long fibrous plates running up and down, darker in the furrows.</summary>
         private static Texture2D PaintBark()
         {
             var cv = new Canvas(256);
@@ -463,7 +418,6 @@ namespace Deepbound.UI
             return cv.Bake();
         }
 
-        /// <summary>A twisted band of thorny stems along the top.</summary>
         private static Texture2D PaintThorns()
         {
             int wTex = Size, hTex = Size;

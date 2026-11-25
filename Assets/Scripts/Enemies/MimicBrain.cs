@@ -6,21 +6,12 @@ using UnityEngine;
 
 namespace Deepbound.Enemies
 {
-    /// <summary>
-    /// The Mimic: a chest that was never a chest. Reach for its lock and it bites, then
-    /// scuttles after you on bony legs, lid snapping. Kill it and it coughs up a better
-    /// chest's worth of treasure than a real one — the risk is the reward.
-    ///
-    /// <para>The tell, for the attentive: now and then a mimic chest's lid lifts a finger's
-    /// width, and something breathes.</para>
-    /// </summary>
     public class MimicBrain : EnemyBrain
     {
         protected override LootTable Loot => LootTable.Chest;
 
         private float chompPhase;
 
-        /// <summary>Server: sprung by <paramref name="victim"/> reaching for it — bite at once.</summary>
         public void ServerAmbush(Health victim)
         {
             target = victim;
@@ -42,14 +33,14 @@ namespace Deepbound.Enemies
         protected override void OnDied(Health h)
         {
             base.OnDied(h);
-            // Its hoard: a real chest's gear roll on top of the chest loot table.
+
             GearDrop.ServerSpawnForParty(transform.position + transform.forward * 0.8f, 0.8f * Difficulty.DropCut, 0);
         }
 
         private void LateUpdate()
         {
             if (Rig == null || Rig.Head == null) return;
-            // The lid: snapping while it moves or bites, clamped shut when dead.
+
             float speed = IsDead ? 0f : 1f;
             chompPhase += Time.deltaTime * 11f * speed;
             float open = IsDead ? 0f : 18f + 22f * Mathf.Max(0f, Mathf.Sin(chompPhase));

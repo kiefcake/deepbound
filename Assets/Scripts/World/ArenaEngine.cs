@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Linq;
 using Deepbound.Art;
 using Deepbound.Combat;
@@ -9,24 +10,12 @@ using UnityEngine;
 
 namespace Deepbound.World
 {
-    /// <summary>
-    /// Boss-arena machinery the party can turn on the boss (2026-10-20, the user: "ways to deal damage
-    /// to the boss"):
-    /// <list type="bullet">
-    /// <item><b>Ballista</b>: crank and loose (F) a great bolt at the boss, a slice of its health, then
-    ///   wait out the reload. Phase gates still hold.</item>
-    /// <item><b>Winch</b>: a chandelier hangs over a lit circle in the arena. Cut its chain (F) when the
-    ///   boss stands under it: it crashes down, stunning and wounding whatever is beneath. Once.</item>
-    /// <item><b>Brazier</b> (the Sanctum): each lit brazier makes the boss take more damage. The boss
-    ///   snuffs one now and then (<see cref="DungeonDirector"/>); relight them (F).</item>
-    /// </list>
-    /// </summary>
     public class ArenaEngine : Interactable
     {
         public enum Kind : byte { Ballista = 0, Winch = 1, Brazier = 2 }
 
         public readonly NetworkVariable<Kind> Type = new NetworkVariable<Kind>();
-        /// <summary>Winch: where the chandelier hangs (floor point under it).</summary>
+
         public readonly NetworkVariable<Vector3> Target = new NetworkVariable<Vector3>();
         public readonly NetworkVariable<double> ReadyAt = new NetworkVariable<double>();
         public readonly NetworkVariable<bool> Lit = new NetworkVariable<bool>();
@@ -35,7 +24,7 @@ namespace Deepbound.World
         public const float BallistaReload = 18f, BallistaShare = 0.035f, ChandelierRadius = 4.5f, ChandelierShare = 0.06f, ChandelierStun = 3f;
         public const float SanctumPerBrazier = 0.06f;
 
-        public static readonly System.Collections.Generic.List<ArenaEngine> All = new System.Collections.Generic.List<ArenaEngine>();
+        public static new readonly List<ArenaEngine> All = new List<ArenaEngine>();
 
         private Transform arm, chandelier, flame;
         private Light flameLight;
@@ -80,7 +69,6 @@ namespace Deepbound.World
             base.OnNetworkDespawn();
         }
 
-        /// <summary>Server: how many sanctum braziers burn right now.</summary>
         public static int LitBraziers
         {
             get { int n = 0; foreach (var e in All) if (e != null && e.Type.Value == Kind.Brazier && e.Lit.Value) n++; return n; }
@@ -99,7 +87,7 @@ namespace Deepbound.World
                     var dir = boss.Health.Center - from;
                     float dmg = boss.Health.Max.Value * BallistaShare;
                     ulong shooter = who.NetworkObjectId;
-                    // A siege bolt punches through rubble and pillars: it always reaches the boss, after its flight.
+
                     StartCoroutine(ServerBoltLands(boss, dmg, from, shooter, dir.magnitude / 42f));
                     LooseRpc(from, dir);
                     break;
@@ -130,7 +118,6 @@ namespace Deepbound.World
             CrashRpc(at);
         }
 
-        /// <summary>Server: the boss puts one out.</summary>
         public void ServerSnuff()
         {
             if (Type.Value != Kind.Brazier || !Lit.Value) return;
@@ -138,12 +125,9 @@ namespace Deepbound.World
             SnuffRpc();
         }
 
-        // ---- Presentation ----
-
         [Rpc(SendTo.ClientsAndHost)]
         private void LooseRpc(Vector3 from, Vector3 dir)
         {
-            // It flies only as far as the boss, through whatever is in the way.
             Arrows.SpawnVisual(from, dir, ProjectileKind.Arrow, 42f, dir.magnitude + 0.5f, 0f, throughWalls: true);
             Sfx.Play(Sound.Bow, from, 1f, 0.45f);
             Sfx.Play(Sound.Slam, from, 0.7f, 1.3f);
@@ -218,7 +202,6 @@ namespace Deepbound.World
 
         private Transform vis;
 
-        /// <summary>Any peer: (re)build the look for the current kind (values arrive just after spawn).</summary>
         private void Rebuild()
         {
             if (vis != null) Destroy(vis.gameObject);
@@ -249,7 +232,7 @@ namespace Deepbound.World
                     MeshKit.Part(vis, "Drum", MeshKit.Cylinder(0.32f, 0.32f, 0.9f, 12), Mat.Wood, new Vector3(0f, 1.1f, 0f), new Vector3(0f, 0f, 90f));
                     foreach (float x in new[] { -0.55f, 0.55f }) MeshKit.Part(vis, "Frame", MeshKit.Box(new Vector3(0.12f, 1.4f, 0.5f)), Mat.Wood, new Vector3(x, 0.7f, 0f));
                     MeshKit.Part(vis, "Lever", MeshKit.Box(new Vector3(0.08f, 0.9f, 0.08f)), Mat.Steel, new Vector3(0.7f, 1.5f, 0f), new Vector3(0f, 0f, -20f));
-                    // The chandelier itself hangs over the target, and a pool of light marks where it will land.
+
                     var room = DungeonDirector.Layout?.BossRoom;
                     float ceiling = room != null ? room.Height - 1.6f : 8f;
                     chandelierTop = Target.Value + Vector3.up * ceiling;
@@ -287,7 +270,6 @@ namespace Deepbound.World
             }
         }
 
-        /// <summary>Tests: use it as this player.</summary>
         public void ServerDebugUse(PlayerProgress who) => ServerUse(who);
     }
 }

@@ -237,10 +237,10 @@ namespace Deepbound.UI
                 var allItems = Cosmetics.Of(tab);
                 int show = previewIndex >= 0 && previewIndex < allItems.Length ? previewIndex : WornNow(tab);
                 string cap = (previewIndex >= 0 ? "PREVIEW  " : "WEARING  ") + allItems[Mathf.Clamp(show, 0, allItems.Length - 1)].Name;
-                GUI.Label(new Rect(pic.x, pic.yMax + 4, pic.width, 20), cap, new GUIStyle(UiSkin.Small) { fontSize = 14, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter, normal = { textColor = previewIndex >= 0 ? new Color(0.75f, 0.85f, 1f) : UiSkin.Gold } });
+                GUI.Label(new Rect(pic.x, pic.yMax + 4, pic.width, 20), cap, UiSkin.Derive(UiSkin.Small, previewIndex >= 0 ? new Color(0.75f, 0.85f, 1f) : UiSkin.Gold, fontSize: 14, fontStyle: FontStyle.Bold, align: TextAnchor.MiddleCenter));
                 float wy = pic.yMax + 30f;
                 UiSkin.Rect(new Rect(pic.x, wy - 4, pic.width, 1), new Color(1f, 1f, 1f, 0.12f));
-                GUI.Label(new Rect(pic.x, wy, pic.width, 18), "YOU ARE WEARING", new GUIStyle(UiSkin.Small) { fontSize = 11, fontStyle = FontStyle.Bold, normal = { textColor = new Color(1f, 1f, 1f, 0.5f) } });
+                GUI.Label(new Rect(pic.x, wy, pic.width, 18), "YOU ARE WEARING", UiSkin.Derive(UiSkin.Small, new Color(1f, 1f, 1f, 0.5f), fontSize: 11, fontStyle: FontStyle.Bold));
                 wy += 20f;
                 string[] slotNames = { "Cloak", "Aura", "Heraldry", "Pattern", "Glow", "Title", "Pet" };
                 foreach (var k in TabOrder)
@@ -258,9 +258,9 @@ namespace Deepbound.UI
             if (GUI.Button(new Rect(shot.x + shot.width / 2f + 5, shot.yMax - 46, shot.width / 2f - 15, 34), "Back", UiSkin.Button)) spinTarget = Mathf.Round((spinTarget - 20f) / 360f) * 360f + 20f;
 
             UiSkin.Panel(panel, 0.95f);
-            UiSkin.Shadowed(new Rect(panel.x, panel.y + 10, pw, 40), "Mistress Vey, Tailor", new GUIStyle(UiSkin.Title) { fontSize = 28 });
+            UiSkin.Shadowed(new Rect(panel.x, panel.y + 10, pw, 40), "Mistress Vey, Tailor", UiSkin.Derive(UiSkin.Title, UiSkin.Title.normal.textColor, fontSize: 28));
             GUI.Label(new Rect(panel.x, panel.y + 50, pw, 22), Cosmetics.AllFree ? "EVERYTHING IS UNLOCKED  ·  pick and wear" : "RENOWN  " + Cosmetics.Renown + "      ·      earned at the end of every run",
-                new GUIStyle(UiSkin.Small) { alignment = TextAnchor.MiddleCenter, fontSize = 14, normal = { textColor = UiSkin.Gold } });
+                UiSkin.Derive(UiSkin.Small, UiSkin.Gold, fontSize: 14, align: TextAnchor.MiddleCenter));
 
             string[] names = { "CLOAKS", "AURAS", "HERALDRY", "PATTERNS", "GLOWS", "TITLES", "PETS" };
             float tabW = Mathf.Min(112f, (pw - 20f) / TabOrder.Length - 6f);
@@ -269,19 +269,19 @@ namespace Deepbound.UI
                 var k = TabOrder[t];
                 var r = new Rect(panel.x + pw / 2f - TabOrder.Length * (tabW + 6f) / 2f + t * (tabW + 6f), panel.y + 76, tabW, 30);
                 bool on = tab == k;
-                if (GUI.Button(r, names[(int)k], new GUIStyle(UiSkin.Button) { fontSize = TabOrder.Length > 4 ? 13 : UiSkin.Button.fontSize, fontStyle = on ? FontStyle.Bold : FontStyle.Normal, normal = { textColor = on ? UiSkin.Gold : new Color(0.7f, 0.67f, 0.62f) } }) && !on) SwitchTab(k);
+                if (GUI.Button(r, names[(int)k], UiSkin.Derive(UiSkin.Button, on ? UiSkin.Gold : new Color(0.7f, 0.67f, 0.62f), fontSize: TabOrder.Length > 4 ? 13 : UiSkin.Button.fontSize, fontStyle: on ? FontStyle.Bold : FontStyle.Normal)) && !on) SwitchTab(k);
             }
             string blurb = tab == Cosmetics.Kind.Cloak ? "The cloak on your back, and its trim." : tab == Cosmetics.Kind.Pattern ? "Bones sewn on the back of your cloak, in any dye."
                 : tab == Cosmetics.Kind.Heraldry ? "Your colours: tabard, plume, sash, hat band - on every class."
                 : tab == Cosmetics.Kind.WeaponGlow ? "A burning edge on your weapon, and the colour of your swings."
                 : tab == Cosmetics.Kind.Title ? "Worn under your name, for the party and the Hall to see."
                 : tab == Cosmetics.Kind.Pet ? "A companion at your heel: fetches gold and embers, finds hidden plates, and each kind has a trick of its own." : "Motes that drift up around you.";
-            GUI.Label(new Rect(panel.x + 12, panel.y + 108, pw - 24, 20), UiSkin.Fit(blurb, new GUIStyle(UiSkin.Small), pw - 24), new GUIStyle(UiSkin.Small) { alignment = TextAnchor.MiddleCenter });
+            GUI.Label(new Rect(panel.x + 12, panel.y + 108, pw - 24, 20), UiSkin.Fit(blurb, new GUIStyle(UiSkin.Small), pw - 24), UiSkin.Derive(UiSkin.Small, UiSkin.Small.normal.textColor, align: TextAnchor.MiddleCenter));
             int ownedN = 0;
             for (int i = 1; i < items.Length; i++) if (Cosmetics.Owns(tab, i)) ownedN++;
-            GUI.Label(new Rect(panel.x + 16, panel.y + 130, 200, 20), "Owned " + ownedN + " of " + (items.Length - 1), new GUIStyle(UiSkin.Small) { fontSize = 12, normal = { textColor = UiSkin.Gold } });
+            GUI.Label(new Rect(panel.x + 16, panel.y + 130, 200, 20), "Owned " + ownedN + " of " + (items.Length - 1), UiSkin.Derive(UiSkin.Small, UiSkin.Gold, fontSize: 12));
             string[] filters = { "Show: all", "Show: owned", "Show: can buy" };
-            if (GUI.Button(new Rect(panel.xMax - 146, panel.y + 128, 130, 22), filters[filter], new GUIStyle(UiSkin.Button) { fontSize = 12 })) { filter = (filter + 1) % 3; scroll = Vector2.zero; }
+            if (GUI.Button(new Rect(panel.xMax - 146, panel.y + 128, 130, 22), filters[filter], UiSkin.Derive(UiSkin.Button, UiSkin.Button.normal.textColor, fontSize: 12))) { filter = (filter + 1) % 3; scroll = Vector2.zero; }
 
             var shown = new System.Collections.Generic.List<int>();
             for (int i = 0; i < items.Length; i++)
@@ -295,7 +295,7 @@ namespace Deepbound.UI
             var content = new Rect(0, 0, view.width - 20, Mathf.Max(1, shown.Count) * rowH);
             int hovered = -1;
             scroll = GUI.BeginScrollView(view, scroll, content);
-            if (shown.Count == 0) GUI.Label(new Rect(0, 8, content.width, 22), filter == 1 ? "Nothing owned here yet." : "Nothing you can buy right now.", new GUIStyle(UiSkin.Small) { alignment = TextAnchor.MiddleCenter });
+            if (shown.Count == 0) GUI.Label(new Rect(0, 8, content.width, 22), filter == 1 ? "Nothing owned here yet." : "Nothing you can buy right now.", UiSkin.Derive(UiSkin.Small, UiSkin.Small.normal.textColor, align: TextAnchor.MiddleCenter));
             for (int si = 0; si < shown.Count; si++)
             {
                 int i = shown[si];
@@ -343,7 +343,7 @@ namespace Deepbound.UI
                 else if (tab == Cosmetics.Kind.Title)
                 {
                     UiSkin.Rect(new Rect(row.x + 8, row.y + 6, 38, 28), new Color(0.03f, 0.03f, 0.04f));
-                    GUI.Label(new Rect(row.x + 8, row.y + 6, 38, 28), "T", new GUIStyle(UiSkin.Body) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold, normal = { textColor = UiSkin.Gold } });
+                    GUI.Label(new Rect(row.x + 8, row.y + 6, 38, 28), "T", UiSkin.Derive(UiSkin.Body, UiSkin.Gold, fontStyle: FontStyle.Bold, align: TextAnchor.MiddleCenter));
                 }
                 else
                 {
@@ -353,15 +353,15 @@ namespace Deepbound.UI
                             UiSkin.Rect(new Rect(row.x + 12 + (m * 11) % 30, row.y + 9 + (m * 7) % 20, 4, 4), item.Cloak);
                 }
 
-                GUI.Label(new Rect(row.x + 58, row.y + 4, 260, 22), item.Name, new GUIStyle(UiSkin.Body) { fontStyle = FontStyle.Bold });
+                GUI.Label(new Rect(row.x + 58, row.y + 4, 260, 22), item.Name, UiSkin.Derive(UiSkin.Body, UiSkin.Body.normal.textColor, fontStyle: FontStyle.Bold));
                 bool owns = Cosmetics.Owns(tab, i), unlocked = Cosmetics.Unlocked(tab, i);
                 string sub = i == 0 ? (tab == Cosmetics.Kind.Cloak ? "Each class's own colours" : tab == Cosmetics.Kind.Heraldry ? "Your party colour" : tab == Cosmetics.Kind.Pattern ? "No pattern" : tab == Cosmetics.Kind.Pet ? "No companion" : "Nothing about you") : owns ? (Cosmetics.AllFree ? "Free" : "Owned")
                     : !unlocked ? "Fell " + BossName(item.NeedsBoss) + " to unlock" : item.Cost + " Renown";
                 if (tab == Cosmetics.Kind.Pet && i > 0) sub = Player.PetPerks.Short((Player.PetCompanion.Kind)i) + "   ·   " + sub;
-                GUI.Label(new Rect(row.x + 58, row.y + 22, row.width - 58 - 124, 18), sub, new GUIStyle(UiSkin.Small) { normal = { textColor = !unlocked ? new Color(0.7f, 0.45f, 0.4f) : UiSkin.Small.normal.textColor } });
+                GUI.Label(new Rect(row.x + 58, row.y + 22, row.width - 58 - 124, 18), sub, UiSkin.Derive(UiSkin.Small, !unlocked ? new Color(0.7f, 0.45f, 0.4f) : UiSkin.Small.normal.textColor));
 
                 var button = new Rect(row.xMax - 118, row.y + 6, 108, 28);
-                if (wearing) GUI.Label(button, "WEARING", new GUIStyle(UiSkin.Small) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold, normal = { textColor = UiSkin.Gold } });
+                if (wearing) GUI.Label(button, "WEARING", UiSkin.Derive(UiSkin.Small, UiSkin.Gold, fontStyle: FontStyle.Bold, align: TextAnchor.MiddleCenter));
                 else if (owns)
                 {
                     if (GUI.Button(button, "Wear", UiSkin.Button)) Wear(tab, i);
@@ -381,9 +381,9 @@ namespace Deepbound.UI
             if (Event.current.type == EventType.Repaint) previewIndex = hovered;
 
             if (Time.time < flashUntil)
-                GUI.Label(new Rect(panel.x, panel.yMax - 40, pw, 20), flash, new GUIStyle(UiSkin.Small) { alignment = TextAnchor.MiddleCenter, fontSize = 14, normal = { textColor = UiSkin.Gold } });
+                GUI.Label(new Rect(panel.x, panel.yMax - 40, pw, 20), flash, UiSkin.Derive(UiSkin.Small, UiSkin.Gold, fontSize: 14, align: TextAnchor.MiddleCenter));
             else
-                GUI.Label(new Rect(panel.x, panel.yMax - 40, pw, 20), "F or Esc to close", new GUIStyle(UiSkin.Small) { alignment = TextAnchor.MiddleCenter });
+                GUI.Label(new Rect(panel.x, panel.yMax - 40, pw, 20), "F or Esc to close", UiSkin.Derive(UiSkin.Small, UiSkin.Small.normal.textColor, align: TextAnchor.MiddleCenter));
         }
 
         private void DrawPatternIcon(Rect r, Cosmetics.Item item, int i)

@@ -4,20 +4,13 @@ using UnityEngine.AI;
 
 namespace Deepbound.World
 {
-    /// <summary>
-    /// Server: where things may land. A drop flung from a corpse, a chest or an urn must stay on
-    /// this side of the wall, on floor you can walk to, and out of the pillars and crates; a chest
-    /// must not be spawned inside a column. Both search outward from where they wanted to be.
-    /// </summary>
     public static class DropSpots
     {
         private static readonly RaycastHit[] hits = new RaycastHit[16];
         private static readonly Collider[] overlaps = new Collider[16];
 
-        /// <summary>A loot drop thrown from <paramref name="origin"/> toward <paramref name="want"/>: where it actually lands.</summary>
         public static Vector3 Settle(Vector3 origin, Vector3 want)
         {
-            // 1. Never through a wall: stop short of the first solid thing between the source and the spot.
             var o = origin + Vector3.up * 0.6f;
             var t = new Vector3(want.x, origin.y, want.z) + Vector3.up * 0.6f;
             var dir = t - o;
@@ -35,11 +28,11 @@ namespace Deepbound.World
                 }
                 if (nearest < len) want = origin + new Vector3(dir.x, 0f, dir.z) * Mathf.Max(0f, nearest - 0.4f);
             }
-            // 2. Onto floor someone can walk to (not the top of a shelf, a ledge or a wall).
+
             if (NavMesh.SamplePosition(want, out var nh, 2.5f, NavMesh.AllAreas)) want = nh.position;
-            // Died somewhere no one walks (a breach tunnel, a perch): the nearest floor anyone can reach.
+
             else if (NavMesh.SamplePosition(want, out var far, 9f, NavMesh.AllAreas)) want = far.position;
-            // 3. Out of props (a crate, a statue): nudge round in a small ring until it is clear.
+
             if (Blocked(want, 0.22f))
                 for (int ring = 1; ring <= 4; ring++)
                     for (int k = 0; k < 8; k++)
@@ -53,14 +46,8 @@ namespace Deepbound.World
             return want + Vector3.up * 0.05f;
         }
 
-        /// <summary>
-        /// A spot for a chest-sized thing near <paramref name="want"/> (facing <paramref name="facing"/>) that is
-        /// clear of walls, pillars and dressing, inside <paramref name="room"/> when given.
-        /// </summary>
         public static Vector3 ClearForChest(Vector3 want, Quaternion facing, DungeonLayout.Room room = null)
         {
-            // A room's centrepiece (the hearth is a networked Interactable the box test skips) keeps its middle clear
-            // (2026-11-22: a chest spawned inside a lit hearth).
             room ??= DungeonDirector.Layout?.RoomAt(want, 0.5f);
             float keep = room != null ? Centrepieces.Radius(Centrepieces.Of(room)) + 0.9f : 0f;
             bool InMiddle(Vector3 p) { if (keep <= 0f) return false; var d = p - room.Center; d.y = 0f; return d.magnitude < keep; }
@@ -78,15 +65,6 @@ namespace Deepbound.World
             return want;
         }
 
-        /// <summary>
-        /// Server: where something brought in near <paramref name="anchor"/> (a summon round its caster, a healing pylon or a
-        /// ballista round the arena's middle, an ambusher in its room) actually stands (2026-11-20, the user: "work on
-        /// placement of where things spawn"; the floor-5 pylons stood outside the arena because a fixed 11.5 m ring and a
-        /// 2 m navmesh search found floor on the far side of the wall, or none and kept the spot in the stone). It stays in the
-        /// anchor's room (a margin off its walls), on this side of any wall between it and the anchor, on floor that can be
-        /// walked to from the anchor, and out of the props; failing that it comes in toward the anchor, and at worst stands
-        /// on the anchor's own floor.
-        /// </summary>
         public static Vector3 Stand(Vector3 anchor, Vector3 want, float clearance = 0.35f, float wallMargin = 1.3f)
         {
             var layout = DungeonDirector.Layout;
@@ -113,7 +91,6 @@ namespace Deepbound.World
 
         private static readonly NavMeshPath standPath = new NavMeshPath();
 
-        /// <summary>A walk from one to the other, not much longer than the straight line (the far side of a wall is a long way round).</summary>
         public static bool Reachable(Vector3 from, Vector3 to)
         {
             if (!NavMesh.CalculatePath(from, to, NavMesh.AllAreas, standPath) || standPath.status != NavMeshPathStatus.PathComplete) return false;
@@ -133,13 +110,12 @@ namespace Deepbound.World
 
         private static bool BoxBlocked(Vector3 at, Quaternion facing)
         {
-            // The chest's footprint (1.16 x 0.76), from just above the floor to lid height.
             int n = Physics.OverlapBoxNonAlloc(at + Vector3.up * 0.6f, new Vector3(0.62f, 0.44f, 0.42f), overlaps, facing, ~0, QueryTriggerInteraction.Ignore);
             for (int i = 0; i < n; i++)
             {
                 var c = overlaps[i];
                 if (c == null || c.GetComponentInParent<Health>() != null || c.GetComponentInParent<CharacterController>() != null) continue;
-                if (c.GetComponentInParent<Interactable>() != null) continue; // another station is a networked object, judged elsewhere
+                if (c.GetComponentInParent<Interactable>() != null) continue;
                 return true;
             }
             return false;

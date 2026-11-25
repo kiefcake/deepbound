@@ -6,17 +6,10 @@ using UnityEngine;
 
 namespace Deepbound.World
 {
-    /// <summary>
-    /// THE BOARD OF THE FALLEN on the tavern's south wall (2026-11-08, the activities plan: "the names of the dead go on a
-    /// memorial wall after a wipe"). Local to each machine, like the Hall of Records it reads from
-    /// (<see cref="Records.Fallen"/>, the last <see cref="Records.FallenKept"/> parties that wiped): one brass plate and
-    /// one lit candle per lost party; walk up to it and the names show over it. Nothing is networked or written here.
-    /// The transform stands on the wall face, forward = into the room.
-    /// </summary>
     public class MemorialBoard : MonoBehaviour
     {
         public const float ReadRange = 3.2f;
-        /// <summary>Screenshots only: names to show instead of this machine's records (nothing is saved).</summary>
+
         public static string[] DebugLines;
 
         private readonly Renderer[] plates = new Renderer[Records.FallenKept];
@@ -34,7 +27,7 @@ namespace Deepbound.World
             var plank = new Color(0.2f, 0.13f, 0.09f);
             var timber = new Color(0.12f, 0.08f, 0.05f);
             Tint(MeshKit.Part(transform, "Backing", MeshKit.Box(new Vector3(1.15f, 0.82f, 0.05f)), Mat.Wood, new Vector3(0f, 0f, 0.025f)).transform, plank);
-            // A frame, a carved lintel with a little gable, and the shelf of candles below.
+
             Tint(MeshKit.Part(transform, "FrameTop", MeshKit.Box(new Vector3(1.27f, 0.07f, 0.08f)), Mat.Wood, new Vector3(0f, 0.44f, 0.04f)).transform, timber);
             Tint(MeshKit.Part(transform, "FrameLow", MeshKit.Box(new Vector3(1.27f, 0.07f, 0.08f)), Mat.Wood, new Vector3(0f, -0.44f, 0.04f)).transform, timber);
             foreach (float s in new[] { -1f, 1f })
@@ -49,7 +42,7 @@ namespace Deepbound.World
                 int col = i % 2, row = i / 2;
                 var plate = MeshKit.Part(transform, "Plate", MeshKit.Box(new Vector3(0.46f, 0.11f, 0.012f)), Mat.Gold, new Vector3(col == 0 ? -0.26f : 0.26f, 0.24f - row * 0.24f, 0.056f));
                 plates[i] = plate.GetComponent<Renderer>();
-                // Candle stubs of uneven height along the shelf; the flame only burns for a lost party.
+
                 float x = -0.5f + i * 0.2f, hgt = 0.06f + (i * 37 % 5) * 0.012f;
                 MeshKit.Part(transform, "Candle", MeshKit.Cylinder(0.022f, 0.022f, hgt, 6), Mat.Bone, new Vector3(x, -0.535f, 0.12f));
                 var f = MeshKit.Part(transform, "Flame", MeshKit.Ball(0.018f, 6, 4), Mat.Glow, new Vector3(x, -0.535f + hgt + 0.025f, 0.12f), default, new Vector3(1f, 1.7f, 1f));
@@ -83,7 +76,6 @@ namespace Deepbound.World
 
         private void Update()
         {
-            // A wipe is written on the run summary, by which time this camp may already stand: look again now and then.
             if (Time.time >= nextRead) { nextRead = Time.time + 4f; Refresh(); }
             if (lines.Length == 0) return;
             float t = Time.time;
@@ -92,7 +84,6 @@ namespace Deepbound.World
             if (glow != null) glow.intensity = (0.35f + 0.12f * lines.Length) * (0.9f + Mathf.PerlinNoise(t * 3f, 0.3f) * 0.2f);
         }
 
-        /// <summary>Close and facing it: the names over the board.</summary>
         private void OnGUI()
         {
             useGUILayout = false;

@@ -3,11 +3,6 @@ using UnityEngine;
 
 namespace Deepbound.World
 {
-    /// <summary>
-    /// Playing cards drawn in code (2026-11-07, the 3D blackjack table): one point-filtered atlas of 52 faces and a back,
-    /// pixel ranks from a 5x7 font and pixel suits, so they sit with the retro look. <see cref="Mesh"/> gives a flat card
-    /// (long side along +Z, the face's top toward +Z) with its cell's UVs.
-    /// </summary>
     public static class CardArt
     {
         public const byte Back = 52;
@@ -79,7 +74,6 @@ namespace Deepbound.World
                     Color32 c = border || corner ? edge : paper;
                     if (back && !border)
                     {
-                        // Oxblood with a gold rule and a diamond lattice.
                         bool rule = x == 3 || y == 3 || x == CW - 4 || y == CH - 4;
                         bool lattice = ((x + y) % 6 == 0 || (x - y + 600) % 6 == 0) && x > 4 && y > 4 && x < CW - 5 && y < CH - 5;
                         c = rule ? new Color32(196, 150, 70, 255) : lattice ? new Color32(150, 40, 44, 255) : new Color32(100, 20, 26, 255);
@@ -93,14 +87,13 @@ namespace Deepbound.World
             var ink = red ? new Color32(176, 26, 30, 255) : new Color32(26, 22, 24, 255);
             var glyph = suit == 0 ? SpadeG : suit == 1 ? HeartG : suit == 2 ? DiamondG : ClubG;
             string rank = RankText(card);
-            // JUMBO INDEX (2026-11-13, the user could not read the cards from the stool): the rank big across the top (three
-            // times the old corner glyph; "10" twice), the suit big beneath it, and a small suit in the top-left corner.
+
             int rs = rank.Length > 1 ? 2 : 3, gap = rs, rw = rank.Length * 5 * rs + (rank.Length - 1) * gap;
             int tx = (CW - rw) / 2 + 2, ty = CH - 5;
             foreach (char ch in rank) { Stamp(px, ox, oy, Font[ch], tx, ty, rs, ink, false); tx += 5 * rs + gap; }
             Stamp(px, ox, oy, glyph, 3, CH - 3, 1, ink, false);
             int s = 3, w = 7 * s;
-            // Picture cards: a gold rule round the big suit.
+
             if (BlackjackTable.Rank(card) > 10)
             {
                 var gold = new Color32(190, 140, 50, 255);
@@ -111,7 +104,6 @@ namespace Deepbound.World
             Stamp(px, ox, oy, glyph, (CW - w) / 2, 6 + w, s, ink, false);
         }
 
-        /// <summary>Draws a glyph with its top-left at (x, y) (y counts up from the bottom), or rotated 180 degrees about that point.</summary>
         private static void Stamp(Color32[] px, int ox, int oy, string[] g, int x, int y, int scale, Color32 ink, bool flipped)
         {
             for (int row = 0; row < g.Length; row++)
@@ -129,7 +121,6 @@ namespace Deepbound.World
                 }
         }
 
-        /// <summary>A flat card for <paramref name="card"/> (0..51, or <see cref="Back"/>), centred on its origin.</summary>
         public static Mesh Mesh(byte card)
         {
             if (meshes.TryGetValue(card, out var m) && m != null) return m;

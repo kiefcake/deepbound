@@ -2,18 +2,12 @@ using UnityEngine;
 
 namespace Deepbound.World
 {
-    /// <summary>
-    /// Flickers a point light and its flame mesh.
-    ///
-    /// Each torch gets its own noise offset so a corridor of them does not pulse in
-    /// unison — synchronised flicker is the fastest way to make firelight look fake.
-    /// </summary>
     public class Torch : MonoBehaviour
     {
         public Light Light;
         public Transform Flame;
         public float BaseIntensity = 6f;
-        /// <summary>Scales the light (a boss's death gutters every fire for a moment).</summary>
+
         public float Dim = 1f;
         private static Mesh emberMesh;
         private static Mesh EmberMesh => emberMesh ??= Art.MeshKit.Box(Vector3.one);
@@ -25,9 +19,8 @@ namespace Deepbound.World
         private float nextEmber;
         private Transform[] tongues;
 
-        // Crackle (2026-10-24): the few fires nearest the listener crackle, each from its own looped voice.
         private static readonly System.Collections.Generic.List<Torch> all = new System.Collections.Generic.List<Torch>();
-        /// <summary>Every live torch (the Tallyman makes the near ones gutter).</summary>
+
         public static System.Collections.Generic.IReadOnlyList<Torch> All => all;
         private static AudioSource[] crackle;
         private static Torch[] crackleOn;
@@ -63,7 +56,7 @@ namespace Deepbound.World
             }
             var cam = Art.ViewCamera.Current;
             var ear = cam != null ? cam.transform.position : Vector3.zero;
-            // The nearest few lit fires in range.
+
             var pick = new Torch[CrackleVoices];
             var dist = new float[CrackleVoices];
             for (int i = 0; i < CrackleVoices; i++) dist[i] = CrackleRange * CrackleRange;
@@ -80,7 +73,7 @@ namespace Deepbound.World
                             break;
                         }
                 }
-            // Keep a voice on a fire it already serves; hand free voices to the new ones.
+
             for (int v = 0; v < CrackleVoices; v++)
                 if (crackleOn[v] != null && System.Array.IndexOf(pick, crackleOn[v]) < 0) crackleOn[v] = null;
             foreach (var t in pick)
@@ -125,21 +118,21 @@ namespace Deepbound.World
             if (Light != null)
             {
                 Light.intensity = BaseIntensity * (0.75f + n * 0.45f) * Dim;
-                // The flame wanders, so its shadows breathe a little.
+
                 Light.transform.localPosition = lightRest + new Vector3(Mathf.PerlinNoise(t * 0.6f, offset + 9f) - 0.5f, 0f, Mathf.PerlinNoise(offset + 3f, t * 0.6f) - 0.5f) * 0.06f;
             }
             if (Flame != null)
             {
                 Flame.localScale = new Vector3(flameScale.x * (0.9f + n * 0.2f), flameScale.y * (0.8f + n * 0.45f), flameScale.z * (0.9f + n * 0.2f));
                 Flame.localRotation = flameRest * Quaternion.Euler((Mathf.PerlinNoise(t * 0.8f, offset + 1f) - 0.5f) * 14f, 0f, (Mathf.PerlinNoise(offset + 2f, t * 0.8f) - 0.5f) * 14f);
-                // Each tongue leaps and sinks on its own rhythm.
+
                 if (tongues != null)
                     for (int i = 0; i < tongues.Length; i++)
                     {
                         float k = Mathf.PerlinNoise(t * 1.3f + i * 3.1f, offset + i);
                         tongues[i].localScale = new Vector3(1f, 0.5f + k * 0.9f, 1f);
                     }
-                // Now and then a spark lifts off (only near the viewer: cheap).
+
                 if (Time.time >= nextEmber)
                 {
                     nextEmber = Time.time + Random.Range(0.35f, 1.2f);

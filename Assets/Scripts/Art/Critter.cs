@@ -2,18 +2,12 @@ using UnityEngine;
 
 namespace Deepbound.Art
 {
-    /// <summary>
-    /// Small life in the world, local to each peer and never networked: rats that nose along the
-    /// dungeon walls and bolt from you, bats looping under high ceilings, and the ravens of Castle
-    /// Ravenhold, perched on the walls and the road, that take off when you come close. Built by
-    /// <see cref="AmbientLife"/>; asleep whenever the viewer is far away.
-    /// </summary>
     public class Critter : MonoBehaviour
     {
         public enum Kind { Rat, Bat, Raven }
 
         public Kind Type;
-        /// <summary>Rats: the floor rect they keep to (x/z); bats: the loop centre; ravens: their perches.</summary>
+
         public Rect Bounds;
         public float Floor, LoopRadius, LoopHeight;
         public Vector3[] Perches;
@@ -21,7 +15,7 @@ namespace Deepbound.Art
         private Transform body, head, tail, wingL, wingR;
         private Vector3 target;
         private float stateUntil, seed, speed;
-        private int state; // rat: 0 idle, 1 scurry, 2 flee, 3 hidden | raven: 0 perched, 1 flying
+        private int state;
         private Vector3 flyFrom, flyTo;
         private float flyStart, flyTime, nextCaw = 5f;
 
@@ -108,10 +102,10 @@ namespace Deepbound.Art
                     }
                     tail = MeshKit.Pivot(body, "Tail", new Vector3(0f, 0f, -0.15f));
                     P(tail, box, new Vector3(0f, 0f, -0.07f), new Vector3(0.08f, 0.01f, 0.14f), black);
-                    // Legs.
+
                     foreach (float s in new[] { -1f, 1f }) P(transform, stick, new Vector3(s * 0.03f, 0.04f, 0f), new Vector3(0.012f, 0.08f, 0.012f), new Color(0.15f, 0.15f, 0.15f));
                     stateUntil = Time.time + Random.Range(3f, 20f);
-                    // A raven is a big bird: size it up, and let the feathers catch the light.
+
                     transform.localScale = Vector3.one * 1.6f;
                     foreach (var r in GetComponentsInChildren<Renderer>()) if (r.sharedMaterial != null && r.sharedMaterial.name.StartsWith("Cloth")) r.sharedMaterial = ArtLibrary.Get(Mat.Leather);
                     foreach (var r in GetComponentsInChildren<Renderer>()) if (r.sharedMaterial != null && r.sharedMaterial.name.StartsWith("Leather")) ArtLibrary.Tint(r, black);
@@ -122,7 +116,6 @@ namespace Deepbound.Art
             MeshKit.MergeParts(transform);
         }
 
-        /// <summary>Screenshots: hold still and in view (out of hiding, perched), optionally at a spot.</summary>
         public void DebugHold(Vector3? at = null)
         {
             if (at.HasValue) transform.position = at.Value;
@@ -138,7 +131,6 @@ namespace Deepbound.Art
             return cam == null || (cam.transform.position - transform.position).sqrMagnitude > range * range;
         }
 
-        /// <summary>The nearest standing player (or the camera), flat distance.</summary>
         private float Threat(out Vector3 from)
         {
             float best = float.MaxValue; from = transform.position;
@@ -162,18 +154,17 @@ namespace Deepbound.Art
             }
         }
 
-        // ---------------- Rats ----------------
         private void PickRatSpot(bool teleport)
         {
             var p = transform.position;
             for (int tries = 0; tries < 8; tries++)
             {
                 p = new Vector3(Random.Range(Bounds.xMin, Bounds.xMax), Floor, Random.Range(Bounds.yMin, Bounds.yMax));
-                // Rats keep to the edges: snap toward the nearest wall of the rect.
+
                 float dl = p.x - Bounds.xMin, dr = Bounds.xMax - p.x, db = p.z - Bounds.yMin, dt = Bounds.yMax - p.z;
                 float m = Mathf.Min(Mathf.Min(dl, dr), Mathf.Min(db, dt));
                 if (m == dl) p.x = Bounds.xMin; else if (m == dr) p.x = Bounds.xMax; else if (m == db) p.z = Bounds.yMin; else p.z = Bounds.yMax;
-                // ...but never inside a crate, a barrel or a pillar.
+
                 if (!Physics.CheckSphere(p + Vector3.up * 0.15f, 0.14f, ~0, QueryTriggerInteraction.Ignore)) break;
             }
             target = p;
@@ -186,7 +177,6 @@ namespace Deepbound.Art
             float t = Time.time;
             if (state == 3)
             {
-                // In a crack in the wall; out again once the coast is clear.
                 if (t >= stateUntil && near > 7f) { PickRatSpot(true); body.gameObject.SetActive(true); state = 0; stateUntil = t + Random.Range(1f, 3f); }
                 return;
             }
@@ -201,7 +191,6 @@ namespace Deepbound.Art
             }
             if (state == 0)
             {
-                // Sniffing: the head bobs, the tail twitches.
                 head.localRotation = Quaternion.Euler(Mathf.Sin(t * 9f + seed) * 10f, Mathf.Sin(t * 2.3f + seed) * 25f, 0f);
                 tail.localRotation = Quaternion.Euler(0f, Mathf.Sin(t * 3f + seed) * 25f, 0f);
                 if (t >= stateUntil) { state = 1; PickRatSpot(false); }
@@ -222,12 +211,11 @@ namespace Deepbound.Art
             tail.localRotation = Quaternion.Euler(0f, Mathf.Sin(t * 14f) * 18f, 0f);
         }
 
-        // ---------------- Bats ----------------
         private void UpdateBat()
         {
             float t = Time.time * 0.55f + seed;
             var c = new Vector3(Bounds.center.x, LoopHeight, Bounds.center.y);
-            // A wandering figure-of-eight under the ceiling, with the odd dip.
+
             var p = c + new Vector3(Mathf.Sin(t) * LoopRadius, Mathf.Sin(t * 2.3f) * 0.6f - Mathf.Max(0f, Mathf.Sin(t * 0.37f) - 0.8f) * 6f, Mathf.Sin(t * 2f) * LoopRadius * 0.6f);
             var v = p - transform.position;
             transform.position = p;
@@ -237,13 +225,11 @@ namespace Deepbound.Art
             wingR.localRotation = Quaternion.Euler(0f, 0f, -flap);
         }
 
-        // ---------------- Ravens ----------------
         private void UpdateRaven()
         {
             float t = Time.time;
             if (state == 0)
             {
-                // Perched: the head jerks about, now and then a little hop.
                 float jerk = Mathf.Floor(t * 1.3f + seed);
                 head.localRotation = Quaternion.Euler(Mathf.Sin(jerk * 7.1f) * 15f, Mathf.Sin(jerk * 3.7f) * 60f, 0f);
                 wingL.localRotation = Quaternion.Euler(0f, 0f, -10f);

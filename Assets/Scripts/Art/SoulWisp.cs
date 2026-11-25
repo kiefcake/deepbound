@@ -2,10 +2,6 @@ using UnityEngine;
 
 namespace Deepbound.Art
 {
-    /// <summary>
-    /// What leaves a broken skeleton: a small light in the colour of its eyes that spirals up out
-    /// of the bones, sheds a few motes, and goes out. Local, short-lived.
-    /// </summary>
     public class SoulWisp : MonoBehaviour
     {
         private const float Seconds = 1.5f;
@@ -33,7 +29,7 @@ namespace Deepbound.Art
         {
             float t = (Time.time - start) / Seconds;
             if (t >= 1f) { Destroy(gameObject); return; }
-            // Rises, slowing; circles wider as it goes.
+
             float up = 2.6f * (1f - (1f - t) * (1f - t));
             float a = spin * Mathf.Deg2Rad + t * 9f;
             float r = 0.08f + t * 0.3f;

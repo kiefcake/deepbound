@@ -6,13 +6,6 @@ using UnityEngine;
 
 namespace Deepbound.Enemies
 {
-    /// <summary>
-    /// EMBERBOUND (2026-11-22, elite affix 12): the elite trails fire. Every <see cref="EmberStep"/> m it walks it leaves a
-    /// burning patch (<see cref="EmberRadius"/> m, <see cref="EmberSeconds"/> s) that hurts players standing in it every
-    /// half second. Readable at a glance - glowing coals and rising embers on the floor, a warm light - so the counterplay
-    /// is positional: kite it in a loop away from where you fight, or chill it (frost slows the trail). Embers rise off
-    /// the elite itself (EnemyStatusFx).
-    /// </summary>
     public partial class EnemyBrain
     {
         public const float EmberStep = 1.6f, EmberRadius = 1.15f, EmberSeconds = 4.5f, EmberShare = 0.22f;
@@ -21,10 +14,8 @@ namespace Deepbound.Enemies
         private Vector3 lastEmberAt = new Vector3(float.MaxValue, 0f, 0f);
         private float nextEmberTick;
 
-        /// <summary>Server, for tests.</summary>
         public int EmberPatchCount => emberPatches.Count;
 
-        /// <summary>Server, every frame from <see cref="Update"/>.</summary>
         private void ServerTickEmberbound()
         {
             if (AffixKind == EliteAffix.Emberbound && !IsDead)
@@ -49,7 +40,6 @@ namespace Deepbound.Enemies
             }
         }
 
-        /// <summary>Server: leave a burning patch (public for tests).</summary>
         public void ServerDropEmber(Vector3 at)
         {
             emberPatches.Add(new EmberPatch { At = at, Until = Time.time + EmberSeconds });
@@ -66,7 +56,6 @@ namespace Deepbound.Enemies
         }
     }
 
-    /// <summary>The look of an Emberbound patch: a ring that warns as it lands, coals glowing in a disc, embers rising, a low warm light.</summary>
     public class EmberPatchFx : MonoBehaviour
     {
         private float radius, life, born, nextEmber;

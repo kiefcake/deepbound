@@ -6,34 +6,21 @@ using UnityEngine;
 
 namespace Deepbound.World
 {
-    /// <summary>
-    /// THE CINDER PIT (2026-11-14, the user: "try to recreate a new floor copying the abyss" - the classic lava-and-demons
-    /// dungeon reached through a rare portal, made our own). On floors 5-8 an EMBER RIFT (<see cref="EmberRift"/>) may burn in a
-    /// quiet room ( <see cref="RiftChance"/>): step in and the party abandons the floor and drops into the Pit at the same depth -
-    /// red-black stone, pools of lava that burn the living (never the dead), charred dead with ember eyes, and VHAROTH, the
-    /// Ember Archon, at the bottom (<see cref="VharothBrain"/>). Clear it and the road goes on as if the floor were done.
-    /// A Pit floor is marked by a NEGATIVE seed (normal and daily seeds are always positive), so every peer knows from
-    /// <see cref="Floor"/> alone - no extra sync, no ordering race.
-    /// </summary>
     public partial class DungeonDirector
     {
         [SerializeField] private NetworkObject pitBossPrefab;
         [SerializeField] private NetworkObject riftPrefab;
         public const float RiftChance = 0.22f;
         public const int RiftMinDepth = 4, RiftMaxDepth = 7;
-        /// <summary>Tests: a rift on every floor in range.</summary>
+
         public static bool ForceRift;
 
-        /// <summary>Any peer: this floor is the Cinder Pit.</summary>
         public static bool InPit => Instance != null && !InLobby && Instance.Floor.Value.x < 0;
-
-        // ---- Lava: pools placed from the seed on every peer, burning players who stand in them ----
 
         public struct LavaPool { public Vector3 At; public float Radius; }
         public static readonly List<LavaPool> Lava = new List<LavaPool>();
         public const float LavaDps = 0.09f;
 
-        /// <summary>Any peer: the Pit's pools for <paramref name="layout"/> (deterministic), and their looks under <paramref name="parent"/>.</summary>
         public static void BuildLava(DungeonLayout layout, Transform parent)
         {
             Lava.Clear();
@@ -49,7 +36,7 @@ namespace Deepbound.World
                     float hx = r.Size.x / 2f - rad - 2.2f, hz = r.Size.y / 2f - rad - 2.2f;
                     if (hx < 1f || hz < 1f) continue;
                     var at = r.Center + new Vector3(((float)rng.NextDouble() * 2f - 1f) * hx, 0.03f, ((float)rng.NextDouble() * 2f - 1f) * hz);
-                    // Keep the middle walkable, and the pools apart.
+
                     if (new Vector2(at.x - r.Center.x, at.z - r.Center.z).magnitude < 3f) continue;
                     bool clash = false;
                     foreach (var p in Lava) if (Vector3.Distance(p.At, at) < p.Radius + rad + 1.5f) clash = true;
@@ -94,7 +81,6 @@ namespace Deepbound.World
 
         private float nextLavaTick;
 
-        /// <summary>Server: the lava burns whoever stands in it.</summary>
         private void TickLava()
         {
             if (Lava.Count == 0 || !InPit || Time.time < nextLavaTick) return;
@@ -114,9 +100,6 @@ namespace Deepbound.World
             Art.Vfx.Embers(at + Vector3.up * 0.2f, 5, new Color(1f, 0.45f, 0.12f), 2.5f, 0.05f, 0.5f);
         }
 
-        // ---- The rift ----
-
-        /// <summary>Server, with the floor's objects: maybe an ember rift in a quiet room.</summary>
         private void MaybeSpawnRift(DungeonLayout layout)
         {
             if (riftPrefab == null || InPit || layout.Depth < RiftMinDepth || layout.Depth > RiftMaxDepth) return;
@@ -130,7 +113,6 @@ namespace Deepbound.World
             Debug.Log("[Director] an ember rift burns in room " + room.Id);
         }
 
-        /// <summary>Server: someone stepped into the rift - the party drops into the Pit, this floor abandoned.</summary>
         public void ServerEnterPit(string who)
         {
             if (Phase.Value != RunPhase.Exploring || InPit || BossSealed) return;
@@ -152,7 +134,6 @@ namespace Deepbound.World
             UI.GameHud.Feed(who + " steps into the ember rift. The floor gives way to fire.", new Color(1f, 0.55f, 0.25f));
         }
 
-        /// <summary>Tests: into the Pit now, at this depth.</summary>
         public void ServerDebugPit() => StartFloor(Mathf.Max(RiftMinDepth, Floor.Value.y), pit: true);
     }
 }

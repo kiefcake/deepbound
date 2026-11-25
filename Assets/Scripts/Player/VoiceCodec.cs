@@ -2,16 +2,10 @@ using UnityEngine;
 
 namespace Deepbound.Player
 {
-    /// <summary>
-    /// The voice codec: IMA ADPCM, 4 bits a sample at 16 kHz (64 kbps a speaker). Written here
-    /// rather than pulled in as a plugin, so voice needs no outside code or service. Every frame
-    /// carries its own decoder state, so a lost packet costs only its own 40 ms.
-    /// Frame layout: [predictor lo, predictor hi, step index, nibbles...].
-    /// </summary>
     public static class VoiceCodec
     {
         public const int SampleRate = 16000;
-        public const int FrameSamples = 640;            // 40 ms
+        public const int FrameSamples = 640;
         public const int FrameBytes = 3 + FrameSamples / 2;
 
         private static readonly int[] IndexTable = { -1, -1, -1, -1, 2, 4, 6, 8, -1, -1, -1, -1, 2, 4, 6, 8 };
@@ -24,7 +18,6 @@ namespace Deepbound.Player
             27086, 29794, 32767,
         };
 
-        /// <summary>The encoder's running state (kept between frames for continuity; each frame also stores it).</summary>
         public struct State { public int Predictor, Index; }
 
         public static byte[] Encode(float[] samples, int offset, ref State state)
@@ -56,7 +49,6 @@ namespace Deepbound.Player
             return frame;
         }
 
-        /// <summary>Decode one frame into <paramref name="output"/> (FrameSamples floats). False if malformed.</summary>
         public static bool Decode(byte[] frame, float[] output)
         {
             if (frame == null || frame.Length != FrameBytes || output.Length < FrameSamples) return false;
@@ -86,7 +78,6 @@ namespace Deepbound.Player
             return Mathf.Sqrt((float)(sum / Mathf.Max(1, count)));
         }
 
-        /// <summary>Self-test for the smoke test: signal-to-noise of a round trip, in dB.</summary>
         public static float RoundTripSnr()
         {
             var tone = new float[FrameSamples * 4];
@@ -99,7 +90,7 @@ namespace Deepbound.Player
             {
                 var frame = Encode(tone, f * FrameSamples, ref state);
                 Decode(frame, outBuf);
-                if (f == 0) continue; // the first frame is the encoder settling in
+                if (f == 0) continue;
                 for (int i = 0; i < FrameSamples; i++)
                 {
                     float a = tone[f * FrameSamples + i];

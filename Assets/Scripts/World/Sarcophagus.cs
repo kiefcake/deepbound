@@ -7,11 +7,6 @@ using UnityEngine.AI;
 
 namespace Deepbound.World
 {
-    /// <summary>
-    /// A stone sarcophagus in a crypt. Get close and the lid grinds aside and its occupant
-    /// climbs out to meet you. A crypt is quiet until it is not — and you choose the pace by
-    /// how you walk through it.
-    /// </summary>
     public class Sarcophagus : NetworkBehaviour
     {
         private const float WakeRange = 4.5f;
@@ -28,10 +23,8 @@ namespace Deepbound.World
 
         public bool HasOccupant => occupantPrefab != null;
 
-        /// <summary>Server: already queued to open (its crypt has woken).</summary>
         public bool Scheduled => wakeAt >= 0f;
 
-        /// <summary>Tests: why a coffin did or did not wake.</summary>
         public string DebugState()
         {
             string players = "";
@@ -63,10 +56,6 @@ namespace Deepbound.World
             base.OnDestroy();
         }
 
-        /// <summary>
-        /// Server: the first coffin to open wakes the crypt. The rest follow two at a time,
-        /// nearest first, lids rattling a moment before they go — a rising tide, not a wall.
-        /// </summary>
         private void WakeTheCrypt()
         {
             var rest = All.FindAll(s => s != null && s != this && s.roomId == roomId && !s.Opened.Value && s.wakeAt < 0f);

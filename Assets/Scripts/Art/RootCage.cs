@@ -3,10 +3,6 @@ using UnityEngine;
 
 namespace Deepbound.Art
 {
-    /// <summary>
-    /// Client-side: roots coiled round a held player's legs (an Entling has them). Gnarled, twisting
-    /// tendrils rise from the floor around the feet, tighten in, and shudder; gone when it lets go.
-    /// </summary>
     public class RootCage : MonoBehaviour
     {
         private static readonly Dictionary<Transform, RootCage> On = new Dictionary<Transform, RootCage>();
@@ -29,7 +25,7 @@ namespace Deepbound.Art
                 float a = i * 360f / 7f + Random.Range(-12f, 12f);
                 var pivot = MeshKit.Pivot(go.transform, "Tendril" + i, Quaternion.Euler(0f, a, 0f) * Vector3.forward * 0.42f);
                 pivot.localRotation = Quaternion.Euler(-28f, a + 180f, Random.Range(-15f, 15f));
-                // Three segments, each a little thinner and bent further in.
+
                 var parent = pivot;
                 float r = 0.07f;
                 for (int sgm = 0; sgm < 3; sgm++)
@@ -66,7 +62,7 @@ namespace Deepbound.Art
         {
             if (player == null || source == null) { if (player != null) On.Remove(player); Destroy(gameObject); return; }
             transform.position = player.position;
-            // Grow up out of the floor, then keep squeezing.
+
             float grow = Mathf.Clamp01((Time.time - born) / 0.35f);
             float squeeze = 1f + Mathf.Sin(Time.time * 6f) * 0.04f;
             transform.localScale = new Vector3(squeeze, grow, squeeze);

@@ -2,7 +2,6 @@ using UnityEngine;
 
 namespace Deepbound.Art
 {
-    /// <summary>A Cinder Pit lava pool's life (local): embers spitting up, a slow heat shimmer of smoke, a breathing light.</summary>
     public class LavaBubbles : MonoBehaviour
     {
         public float Radius = 2f;

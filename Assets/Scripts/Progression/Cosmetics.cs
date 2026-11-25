@@ -1,4 +1,5 @@
 using UnityEngine;
+using Deepbound.Core;
 
 namespace Deepbound.Progression
 {
@@ -187,18 +188,18 @@ namespace Deepbound.Progression
 
         public static bool TestMode;
 
-        public static int Renown => TestMode ? 0 : PlayerPrefs.GetInt(KeyRenown, 0);
-        public static int RunsFinished => PlayerPrefs.GetInt(KeyRuns, 0);
-        private static int BossMask => PlayerPrefs.GetInt(KeyBosses, 0);
+        public static int Renown => TestMode ? 0 : Prefs.GetInt(KeyRenown, 0);
+        public static int RunsFinished => Prefs.GetInt(KeyRuns, 0);
+        private static int BossMask => Prefs.GetInt(KeyBosses, 0);
 
         public static int ActsBeaten => BossMask;
 
-        public static int Worn(Kind kind) => TestMode ? 0 : Mathf.Clamp(PlayerPrefs.GetInt(KeyWorn(kind), 0), 0, Of(kind).Length - 1);
+        public static int Worn(Kind kind) => TestMode ? 0 : Mathf.Clamp(Prefs.GetInt(KeyWorn(kind), 0), 0, Of(kind).Length - 1);
         public static int Equipped => Worn(Kind.Cloak);
 
         public const bool AllFree = true;
 
-        public static bool Owns(Kind kind, int i) => AllFree || i == 0 || (PlayerPrefs.GetInt(KeyOwned(kind), 0) & (1 << i)) != 0;
+        public static bool Owns(Kind kind, int i) => AllFree || i == 0 || (Prefs.GetInt(KeyOwned(kind), 0) & (1 << i)) != 0;
         public static bool BossFelled(int depth) => (BossMask & (1 << depth)) != 0;
         public static bool Unlocked(Kind kind, int i) => AllFree || Of(kind)[i].NeedsBoss < 0 || BossFelled(Of(kind)[i].NeedsBoss);
 
@@ -210,25 +211,25 @@ namespace Deepbound.Progression
         {
             var items = Of(kind);
             if (TestMode || Owns(kind, i) || !Unlocked(kind, i) || Renown < items[i].Cost) return false;
-            PlayerPrefs.SetInt(KeyRenown, Renown - items[i].Cost);
-            PlayerPrefs.SetInt(KeyOwned(kind), PlayerPrefs.GetInt(KeyOwned(kind), 0) | (1 << i));
-            PlayerPrefs.Save();
+            Prefs.SetInt(KeyRenown, Renown - items[i].Cost);
+            Prefs.SetInt(KeyOwned(kind), Prefs.GetInt(KeyOwned(kind), 0) | (1 << i));
+            Prefs.Save();
             return true;
         }
 
         public static bool SpendRenown(int amount)
         {
             if (TestMode || amount < 0 || Renown < amount) return false;
-            PlayerPrefs.SetInt(KeyRenown, Renown - amount);
-            PlayerPrefs.Save();
+            Prefs.SetInt(KeyRenown, Renown - amount);
+            Prefs.Save();
             return true;
         }
 
         public static bool Wear(Kind kind, int i)
         {
             if (TestMode || !Owns(kind, i)) return false;
-            PlayerPrefs.SetInt(KeyWorn(kind), i);
-            PlayerPrefs.Save();
+            Prefs.SetInt(KeyWorn(kind), i);
+            Prefs.Save();
             return true;
         }
 
@@ -245,15 +246,15 @@ namespace Deepbound.Progression
         {
             if (TestMode) return -1;
             string key = runKey.ToString("F3");
-            if (PlayerPrefs.GetString(KeyLastRun, "") == key) return -1;
+            if (Prefs.GetString(KeyLastRun, "") == key) return -1;
             int earned = Mathf.RoundToInt(RenownFor(bossesFelled, kills, combos, cleared, difficulty) * bonus) + TitheFor(goldLeft);
-            PlayerPrefs.SetString(KeyLastRun, key);
-            PlayerPrefs.SetInt(KeyRenown, Renown + earned);
-            PlayerPrefs.SetInt(KeyRuns, RunsFinished + 1);
+            Prefs.SetString(KeyLastRun, key);
+            Prefs.SetInt(KeyRenown, Renown + earned);
+            Prefs.SetInt(KeyRuns, RunsFinished + 1);
             int mask = BossMask;
             for (int i = 0; i < bossesFelled; i++) mask |= 1 << i;
-            PlayerPrefs.SetInt(KeyBosses, mask);
-            PlayerPrefs.Save();
+            Prefs.SetInt(KeyBosses, mask);
+            Prefs.Save();
             return earned;
         }
     }

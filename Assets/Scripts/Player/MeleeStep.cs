@@ -3,21 +3,11 @@ using UnityEngine;
 
 namespace Deepbound.Player
 {
-    /// <summary>
-    /// The melee STEP-IN (2026-11-13, the user: "i want there to be timings where i can weave into enemy range, hit them and
-    /// go back before another hit", for the Flagellant, Knight and Rogue). When a swing starts and the nearest foe ahead is
-    /// just out of reach, the swing carries you a short step toward it, so you can stand off, read its wind-up, and dart
-    /// in on its recovery (the dead now slump visibly after each blow: RigAction.Recover, PUNISH x1.2) and back out.
-    /// Owner side only (movement is owner-authoritative); no step when nothing is ahead, when it is already in reach, or
-    /// when the gap is too wide to close.
-    /// </summary>
     public static class MeleeStep
     {
-        /// <summary>How far past your reach a foe can be and still be stepped to.</summary>
         public const float Extra = 2.2f, Cone = 40f;
         private static float nextStep;
 
-        /// <summary>Owner: step toward the foe ahead if it is just out of <paramref name="reach"/>. True if it stepped.</summary>
         public static bool TryStepIn(FirstPersonMotor motor, Transform me, Vector3 aimForward, float reach, float speed, float cooldown = 0.35f)
         {
             if (motor == null || Time.time < nextStep) return false;

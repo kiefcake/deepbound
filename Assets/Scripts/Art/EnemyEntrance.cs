@@ -4,11 +4,6 @@ using UnityEngine;
 
 namespace Deepbound.Art
 {
-    /// <summary>
-    /// Plays an enemy's way in on its rig (<see cref="EnemyBrain.Entrance"/>), from server time so every peer sees the
-    /// same moment: up through the floor, out of a wall (low, pitched forward, then standing), or through a violet rift.
-    /// Visual only: the body is already where it will stand, and the server holds it still until it is through.
-    /// </summary>
     public class EnemyEntrance : MonoBehaviour
     {
         private EnemyBrain brain;
@@ -50,7 +45,6 @@ namespace Deepbound.Art
             return seconds <= 0f ? 1f : Mathf.Clamp01((float)((now - at - tell) / seconds));
         }
 
-        /// <summary>0..1 through the tell (1 once it is over).</summary>
         private float TellProgress()
         {
             var nm = NetworkManager.Singleton;
@@ -74,7 +68,6 @@ namespace Deepbound.Art
 
         private static readonly Color Ember = new Color(1f, 0.45f, 0.15f);
 
-        /// <summary>The tell: a glowing crack with a bulge of stone on the wall, a split in the floor, or the rift opening.</summary>
         private void BuildTell()
         {
             var root = transform.parent != null ? transform.parent.position : transform.position;
@@ -86,7 +79,7 @@ namespace Deepbound.Art
             outward.Normalize();
             if (wall) crack.SetPositionAndRotation(from - outward * 0.25f + Vector3.up * 0.9f, Quaternion.LookRotation(-outward));
             else crack.SetPositionAndRotation(root + Vector3.up * 0.03f, Quaternion.identity);
-            // Jagged glowing seams.
+
             var rng = new System.Random((int)(at * 1000.0) & 0x7fffffff);
             for (int i = 0; i < 6; i++)
             {
@@ -97,7 +90,7 @@ namespace Deepbound.Art
                 r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
                 ArtLibrary.SetGlow(r, Ember * 1.6f);
             }
-            // The bulge: a lump of the wall (or floor) pushed out from behind.
+
             var lump = MeshKit.Part(crack, "Bulge", MeshKit.Ball(0.5f, 8, 6), Mat.Rubble, Vector3.zero, Vector3.zero, new Vector3(1.2f, wall ? 1.4f : 0.5f, wall ? 0.5f : 1.2f));
             lump.name = "Bulge";
             if (near) Sfx.Play(Sound.Creak, crack.position, 0.8f, 0.6f);
@@ -106,7 +99,7 @@ namespace Deepbound.Art
         private void TickTell(float k)
         {
             if (crack == null) return;
-            // Swells and shakes harder as it comes, the seams brighten.
+
             var lump = crack.Find("Bulge");
             if (lump != null)
             {
@@ -168,7 +161,6 @@ namespace Deepbound.Art
             {
                 case EnemyBrain.EntranceKind.Floor:
                 {
-                    // Lurching: fast at first, a stall, then the last heave.
                     float k = 1f - Mathf.Pow(1f - t, 2.4f) - Mathf.Sin(t * Mathf.PI * 3f) * 0.05f * (1f - t);
                     transform.localPosition = restPos + Vector3.down * 1.7f * (1f - k) + new Vector3(Mathf.Sin(t * 40f) * 0.02f * (1f - t), 0f, 0f);
                     transform.localRotation = restRot;
@@ -176,7 +168,6 @@ namespace Deepbound.Art
                 }
                 case EnemyBrain.EntranceKind.Wall:
                 {
-                    // Out of the stone on all fours for the first two thirds, then up onto its feet.
                     var parent = transform.parent;
                     if (parent == null) break;
                     float crawl = Mathf.Clamp01(t / 0.7f), stand = Mathf.Clamp01((t - 0.55f) / 0.45f);
@@ -190,7 +181,6 @@ namespace Deepbound.Art
                 }
                 case EnemyBrain.EntranceKind.Portal:
                 {
-                    // It walks out of the rift: from a pace behind it to where it stands.
                     float k = Mathf.Clamp01((t - 0.2f) / 0.8f);
                     transform.localPosition = restPos + Vector3.back * 1.1f * (1f - k);
                     transform.localRotation = restRot;

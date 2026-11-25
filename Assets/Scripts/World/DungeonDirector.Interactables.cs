@@ -5,23 +5,10 @@ using UnityEngine.AI;
 
 namespace Deepbound.World
 {
-    /// <summary>
-    /// DUNGEON INTERACTABLES (2026-11-08, the user: "more interactive things to do ... in the dungeons"; the plan in
-    /// docs/ACTIVITIES_PLAN.md section 3). Placed once per floor on the server with their own seeded stream (so the older
-    /// placements keep their seeds):
-    /// <list type="bullet">
-    /// <item>OIL: in some combat rooms, oil jars by the walls and a fire bowl (<see cref="Breakable"/>, <see cref="OilSlick"/>).</item>
-    /// <item>CHANDELIERS: over the middle of some combat rooms, the rope to a wall cleat (<see cref="Chandelier"/>).</item>
-    /// <item>CRACKED PILLARS: one or two standing clear of the walls (<see cref="Breakable.Kind.CrackedPillar"/>).</item>
-    /// <item>A VIGIL: four cold candles round one combat room (<see cref="VigilCandle"/>), more likely in the Black Cathedral.</item>
-    /// <item>A PRISONER: from floor 2, sometimes, in a plain side room (<see cref="PrisonerCage"/>).</item>
-    /// </list>
-    /// </summary>
     public partial class DungeonDirector
     {
         [SerializeField] private NetworkObject oilSlickPrefab, chandelierPrefab, vigilCandlePrefab, prisonerPrefab, hearthPrefab;
 
-        /// <summary>Server: a hearth brazier here (the centrepiece's networked part; tests call it too).</summary>
         public HearthBrazier ServerSpawnHearth(Vector3 at)
         {
             if (hearthPrefab == null) return null;
@@ -31,17 +18,13 @@ namespace Deepbound.World
         }
         private byte nextVigil;
 
-        /// <summary>What the camp shows: trophies and keepsakes (<see cref="CampMemory"/>), set by the host at camp.</summary>
         public readonly NetworkVariable<uint> CampKeeps = new NetworkVariable<uint>();
 
-        /// <summary>The camp's weather this visit (<see cref="CampWeather.Kind"/>), rolled by the host on each return.</summary>
         public readonly NetworkVariable<byte> Weather = new NetworkVariable<byte>();
 
-        /// <summary>Rooms where props on the floor would fight the room's own mechanic.</summary>
         private static bool PlainEnough(DungeonLayout.Room r) =>
             r.Feature == RoomFeature.None || r.Feature == RoomFeature.GreatHall || r.Feature == RoomFeature.Crypt || r.Feature == RoomFeature.Ritual || r.Feature == RoomFeature.Lightless;
 
-        /// <summary>Server: a slick of oil here (lit at once if <paramref name="lit"/>).</summary>
         public OilSlick ServerSpawnOil(Vector3 at, bool lit, ulong by, bool coals = false)
         {
             if (oilSlickPrefab == null) return null;
@@ -59,19 +42,18 @@ namespace Deepbound.World
             nextVigil = 0;
             var combat = layout.Rooms.FindAll(r => r.Kind == RoomKind.Combat && PlainEnough(r) && !r.Peaceful && !IsAmbushRoom(r));
             int act = Act(layout.Depth);
-            // Hearth centrepieces (World/Centrepieces): the builder laid the hearthstone, the brazier is networked.
+
             foreach (var room in layout.Rooms)
                 if (Centrepieces.Of(room) == Centrepieces.Kind.Hearth) ServerSpawnHearth(room.Center + Vector3.up * 0.12f);
             foreach (var room in combat)
             {
-                // Oil: two or three jars and, mostly, a fire bowl to light them with.
                 if (breakablePrefab != null && !TestMode && rng.NextDouble() < 0.35)
                 {
                     int jars = 2 + rng.Next(2);
                     for (int i = 0; i < jars; i++) SpawnBreakable(Breakable.Kind.OilJar, WallSpot(room, rng));
                     if (rng.NextDouble() < 0.75) SpawnBreakable(Breakable.Kind.FireBowl, WallSpot(room, rng));
                 }
-                // A chandelier over the middle, its rope to a wall.
+
                 if (chandelierPrefab != null && !TestMode && rng.NextDouble() < 0.3 && room.Feature != RoomFeature.Lightless)
                 {
                     var hang = room.Center + new Vector3((float)rng.NextDouble() * 4f - 2f, 0f, (float)rng.NextDouble() * 4f - 2f);
@@ -82,7 +64,7 @@ namespace Deepbound.World
                     obj.GetComponent<Chandelier>().HangAt.Value = hang;
                     obj.Spawn(destroyWithScene: true);
                 }
-                // Cracked pillars, standing clear of the walls so they have somewhere to fall.
+
                 if (breakablePrefab != null && !TestMode && rng.NextDouble() < 0.35)
                 {
                     int n = 1 + (room.Size.x > 24f && room.Size.y > 24f ? rng.Next(2) : 0);
@@ -96,7 +78,7 @@ namespace Deepbound.World
                     }
                 }
             }
-            // One vigil a floor (often, deep in the Cathedral; never in the ambush room).
+
             if (vigilCandlePrefab != null && combat.Count > 0 && !TestMode && (rng.NextDouble() < (act == 3 ? 0.85 : 0.45)))
             {
                 var room = combat[rng.Next(combat.Count)];
@@ -110,7 +92,7 @@ namespace Deepbound.World
                     obj.Spawn(destroyWithScene: true);
                 }
             }
-            // A prisoner, from floor 2, in a plain side room.
+
             if (prisonerPrefab != null && !TestMode && layout.Depth >= 1 && rng.NextDouble() < 0.35)
             {
                 var sides = layout.Rooms.FindAll(r => r.Kind == RoomKind.Side && !r.Special && !r.Peaceful && r.Feature == RoomFeature.None);
@@ -125,7 +107,6 @@ namespace Deepbound.World
             }
         }
 
-        // ---- Tests ----
         public Chandelier ServerDebugChandelier(Vector3 cleat, Vector3 hang)
         {
             if (chandelierPrefab == null) return null;

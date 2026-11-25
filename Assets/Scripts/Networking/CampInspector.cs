@@ -7,19 +7,6 @@ using UnityEngine;
 
 namespace Deepbound.Networking
 {
-    /// <summary>
-    /// The camp inspector (2026-11-07, the user: "send a bot in and gather screenshots of anything that looks off, for
-    /// example not enough light, stations facing wrong way"). Run by <see cref="CampTour"/> with <c>-tourbot</c>. For every
-    /// station and person in camp it stands where a player would to use it and photographs it with the game's own light
-    /// (no brightening), walks back 7 m and looks again, and checks by measurement:
-    /// <list type="bullet">
-    /// <item>LIGHT: mean brightness of the middle of the use view (DARK under <see cref="DarkLevel"/>, DIM under <see cref="DimLevel"/>);</item>
-    /// <item>FACING: does the front point into a wall or prop within 2.5 m, and how far does it turn from the way players come (the fire / plaza);</item>
-    /// <item>STANDING: is there room for a player at the use spot, and a clear line from it to the station;</item>
-    /// <item>NEIGHBOURS: the nearest other station, flagged when closer than <see cref="Crowded"/>.</item>
-    /// </list>
-    /// Writes <c>inspect.txt</c> (one line per station, flags first) and <c>insp_*.jpg</c>.
-    /// </summary>
     public static class CampInspector
     {
         public const float DarkLevel = 0.07f, DimLevel = 0.12f, Crowded = 2.6f;
@@ -27,10 +14,10 @@ namespace Deepbound.Networking
         public struct Station
         {
             public string Name;
-            public Vector3 At;      // the thing itself (feet)
-            public Vector3 Front;   // the side a player uses it from
-            public float Look;      // height to look at
-            public float Stand;     // how far in front the player stands
+            public Vector3 At;
+            public Vector3 Front;
+            public float Look;
+            public float Stand;
         }
 
         public static List<Station> Stations()
@@ -92,21 +79,20 @@ namespace Deepbound.Networking
                 var eye = standAt + Vector3.up * 1.65f;
                 var look = s.At + Vector3.up * s.Look;
 
-                // Room to stand: a player's capsule at the use spot.
                 bool room = !Physics.CheckCapsule(standAt + Vector3.up * 0.45f, standAt + Vector3.up * 1.6f, 0.3f, mask, QueryTriggerInteraction.Ignore);
                 if (!room) flags.Add("NO-ROOM-TO-STAND");
-                // A clear line from the eye to the thing (something between hides it).
+
                 bool seen = !Physics.Linecast(eye, look + (eye - look).normalized * 0.6f, out var hitLine, mask, QueryTriggerInteraction.Ignore);
                 if (!seen) flags.Add("BLOCKED-BY " + Clean(hitLine.collider.name));
-                // Does its front run into something close?
+
                 if (Physics.Raycast(s.At + Vector3.up * 1f + front * 0.6f, front, out var hitFront, 1.9f, mask, QueryTriggerInteraction.Ignore))
                     flags.Add("FRONT-INTO " + Clean(hitFront.collider.name) + " at " + (hitFront.distance + 0.6f).ToString("F1") + "m");
-                // How it turns from the way players arrive.
+
                 var toFire = Lobby.FirePit - s.At; toFire.y = 0f;
                 var toPlaza = Lobby.Origin - s.At; toPlaza.y = 0f;
                 float turn = Mathf.Min(Vector3.Angle(front, toFire), Vector3.Angle(front, toPlaza));
                 if (turn > 100f && s.Name != "fire_logs") flags.Add("FACES-AWAY " + turn.ToString("F0") + "deg");
-                // Neighbours.
+
                 string near = ""; float nearD = 99f;
                 foreach (var o in all)
                 {
@@ -116,7 +102,6 @@ namespace Deepbound.Networking
                 }
                 if (nearD < Crowded && !s.Name.StartsWith("tent_") && !s.Name.StartsWith("carriage")) flags.Add("CROWDED by " + near);
 
-                // The use view, as the player sees it.
                 cam.transform.position = eye;
                 cam.transform.rotation = Quaternion.LookRotation(look - eye);
                 yield return render(cam, "insp_" + s.Name + "_use", 1280, 720);
@@ -124,7 +109,7 @@ namespace Deepbound.Networking
                 thumbs.Add(Half(lastShot[0]));
                 if (lum < DarkLevel) flags.Add("DARK");
                 else if (lum < DimLevel) flags.Add("DIM");
-                // Walking up to it: 7 m out along its front (or from the fire's side if that is a wall).
+
                 var far = s.At + front * 7f;
                 if (Physics.Linecast(s.At + Vector3.up * 1.6f, far + Vector3.up * 1.6f, mask, QueryTriggerInteraction.Ignore))
                 {
@@ -144,7 +129,7 @@ namespace Deepbound.Networking
                   .Append(", at ").Append((s.At - Lobby.Origin).ToString("F1")).Append(" front ").Append(front.ToString("F1"))
                   .AppendLine();
             }
-            // Rounds: each walker fast-forwarded to halfway out and to their errand's end, seen from 4 m.
+
             foreach (var who in new List<FolkId>(FolkRounds.Walkers))
             {
                 foreach (var (along, tag) in new[] { (0.5f, "walking"), (-1f, "there") })
@@ -165,7 +150,6 @@ namespace Deepbound.Networking
             FolkRounds.DebugShift = 0;
             yield return new WaitForSeconds(0.6f);
 
-            // Faces: every named camp person from 1.4 m in front, at the height of their eyes (portraits, two sheets).
             var faces = new List<Color32[]>();
             var faceNames = new List<string>();
             foreach (var f in Art.FolkIdle.All)
@@ -200,7 +184,6 @@ namespace Deepbound.Networking
                 sb.Append(fname).Append(": ").AppendLine(string.Join(" | ", faceNames.GetRange(first, n)) + "   (left to right, top to bottom)");
             }
 
-            // Contact sheets: three stations a sheet, the use view left and the approach right (cheap to look through).
             int per = 3;
             for (int first = 0; first < all.Count; first += per)
             {
@@ -230,7 +213,6 @@ namespace Deepbound.Networking
 
         private const int ThumbW = 640, ThumbH = 360;
 
-        /// <summary>A 1280x720 shot at half size.</summary>
         private static Color32[] Half(Texture2D tex)
         {
             var src = tex.GetPixels32();
@@ -245,7 +227,6 @@ namespace Deepbound.Networking
         private static float Flat(Vector3 v) { v.y = 0f; return v.magnitude; }
         private static string Clean(string n) => n.Replace("(Clone)", "").Trim();
 
-        /// <summary>Mean perceived brightness (0..1, gamma) of the middle third of a shot.</summary>
         public static float Brightness(Texture2D tex)
         {
             if (tex == null) return -1f;

@@ -3,30 +3,24 @@ using UnityEngine;
 
 namespace Deepbound.Loot
 {
-    /// <summary>
-    /// What a loot drop is. APPEND ONLY, like StatType. 0 and 1 are the health and mana potions
-    /// that go in the potion pouch (Amount = how many). 2-7 and 9 are retired stat potions,
-    /// kept so later values keep their numbers; nothing drops them any more.
-    /// </summary>
     public enum LootKind : byte
     {
         PotionHP = 0, PotionMP = 1, PotionATT = 2, PotionDEF = 3,
         PotionSPD = 4, PotionDEX = 5, PotionVIT = 6, PotionWIS = 7,
         Gold = 8,
-        PotionAll = 9, // one potion's worth of every stat; boss-only
-        Relic = 10,    // Amount carries the Relic id
-        Embers = 11,   // weapon upgrade material
-        Sigil = 12,    // ability rank-up, spent at Ysolde's stones
-        Rune = 13,     // weapon enchantment; Amount carries the Rune id
-        RareItem = 14, // the pouch's fifth slot; Amount carries the RareItem id
-        Bone = 15,     // crafting parts (2026-11-07): Amount = how many
+        PotionAll = 9,
+        Relic = 10,
+        Embers = 11,
+        Sigil = 12,
+        Rune = 13,
+        RareItem = 14,
+        Bone = 15,
         Cloth = 16,
         Iron = 17,
     }
 
     public static class LootInfo
     {
-        /// <summary>One colour per stat, used wherever a stat is drawn (stat bars, gear lines).</summary>
         public static Color StatColor(StatType stat)
         {
             switch (stat)

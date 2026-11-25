@@ -7,14 +7,6 @@ using UnityEngine;
 
 namespace Deepbound.Player
 {
-    /// <summary>
-    /// The Tome of the Phoenix's bird (2026-10-24, the user: "summon a phoenix with a scroll, that will fight for us for
-    /// 30 seconds scorching enemies flying around, rebirthing on death"). Server-driven: it wheels round its summoner
-    /// and dives at the nearest of the dead, burning and scorching what it strikes (frost on them is then a Thermal
-    /// Shock). It is on the players' side (<see cref="Team.Allies"/>): the dead's blows and bolts can bring it down,
-    /// and then it bursts into flame, lies as a glowing egg for a moment and is reborn at full strength.
-    /// Position is synced as a variable; every peer builds and flaps its own bird.
-    /// </summary>
     public class Phoenix : NetworkBehaviour
     {
         public static readonly List<Phoenix> All = new List<Phoenix>();
@@ -24,8 +16,6 @@ namespace Deepbound.Player
         public readonly NetworkVariable<bool> Egg = new NetworkVariable<bool>();
         public readonly NetworkVariable<double> EndsAt = new NetworkVariable<double>();
 
-        // 2026-11-20 (the user: "make the phoenix stronger"): dives hit almost twice as hard, twice as often, from
-        // further; the splash is wider; the bird is tougher, hatches faster and burns hotter when it falls.
         public const float OrbitRadius = 2.6f, OrbitHeight = 2.8f, SeekRange = 18f, DiveSpeed = 20f, DiveEvery = 0.8f;
         public const float DiveDamage = 40f, BurstDamage = 70f, BurstRadius = 5f, EggSeconds = 1.8f, HealthShare = 0.6f;
         public const float SplashRadius = 2.4f, SplashShare = 0.6f;
@@ -57,7 +47,6 @@ namespace Deepbound.Player
 
         public override void OnNetworkDespawn() => All.Remove(this);
 
-        /// <summary>Server: a fresh phoenix for <paramref name="who"/>.</summary>
         public void ServerInit(PlayerProgress who)
         {
             owner = who;
@@ -73,7 +62,7 @@ namespace Deepbound.Player
         private void Update()
         {
             if (IsServer) ServerTick();
-            // Everyone: glide to the synced spot and flap.
+
             var moveDir = Pos.Value - transform.position;
             transform.position = Vector3.Lerp(transform.position, Pos.Value, 1f - Mathf.Exp(-Time.deltaTime * 18f));
             if (moveDir.sqrMagnitude > 0.0004f) transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(moveDir), 1f - Mathf.Exp(-Time.deltaTime * 10f));
@@ -152,7 +141,6 @@ namespace Deepbound.Player
             StrikeFxRpc(Pos.Value);
         }
 
-        /// <summary>Server: struck down - it bursts, then lies as an egg until it is reborn.</summary>
         private void ServerFall()
         {
             if (Egg.Value) return;
@@ -166,7 +154,7 @@ namespace Deepbound.Player
                 foe.Tag("Phoenix").ServerDamage(BurstDamage * att, Pos.Value, by);
                 if (foe.IsAlive) foe.ServerScorch(5f, by);
             }
-            // The egg settles where it fell (a little above the floor).
+
             var floor = Vfx.Floor(Pos.Value);
             Pos.Value = floor + Vector3.up * 0.4f;
             BurstFxRpc(Pos.Value, true);

@@ -3,12 +3,6 @@ using UnityEngine;
 
 namespace Deepbound.Art
 {
-    /// <summary>
-    /// Downloaded CC0 models (2026-11-20, the user: "replace all poorly code generated assets with ones downloaded if available
-    /// in the same look"). Poly Haven meshes live at Resources/Models/&lt;slug&gt;/&lt;slug&gt;.fbx; ArtBaker bakes a URP material per
-    /// texture set into Resources/Materials/Models, swapped on here by material name. <see cref="Place"/> returns null when a
-    /// model is missing, so every caller keeps its procedural build as the fallback. No colliders: callers keep their own.
-    /// </summary>
     public static class ModelKit
     {
         private static readonly Dictionary<string, GameObject> cache = new Dictionary<string, GameObject>();
@@ -59,7 +53,6 @@ namespace Deepbound.Art
             int bestLen = 0;
             foreach (var kv in mats)
             {
-                // The longest baked stem the source name contains (or that contains it) wins: "kite_shield_body" over "kite_shield".
                 bool match = n.Length > 0 && (n.Contains(kv.Key) || kv.Key.Contains(n));
                 if (match && kv.Key.Length > bestLen) { best = kv.Value; bestLen = kv.Key.Length; }
             }
@@ -70,10 +63,6 @@ namespace Deepbound.Art
             return null;
         }
 
-        /// <summary>
-        /// <paramref name="slug"/> under <paramref name="parent"/>, its base centred on local <paramref name="localPos"/>, turned
-        /// <paramref name="yaw"/>, scaled to stand <paramref name="height"/> m tall. Null if the model is not in the build.
-        /// </summary>
         public static Transform Place(string slug, Transform parent, Vector3 localPos, float yaw, float height, bool shadows = true)
         {
             var p = Prefab(slug);
@@ -102,11 +91,6 @@ namespace Deepbound.Art
             return holder;
         }
 
-        /// <summary>
-        /// Static dressing: every sub-mesh of <paramref name="slug"/>, sized to <paramref name="height"/> and placed by
-        /// <paramref name="at"/> (its base centre), handed to <paramref name="add"/> with its baked material, for
-        /// <see cref="MeshKit.Batcher.AddModel"/>. False if the model is missing.
-        /// </summary>
         public static bool Batch(string slug, float height, Matrix4x4 at, System.Action<Mesh, int, Material, Matrix4x4> add)
         {
             var p = Prefab(slug);
@@ -129,14 +113,12 @@ namespace Deepbound.Art
             return true;
         }
 
-        /// <summary>A baked model material by name (the batcher's "@name" keys).</summary>
         public static Material Baked(string name)
         {
             MaterialFor("", name);
             return mats.TryGetValue(name.ToLowerInvariant(), out var m) ? m : null;
         }
 
-        /// <summary>The model's footprint (x, z) when it stands <paramref name="height"/> m tall; zero if missing.</summary>
         public static Vector2 Footprint(string slug, float height)
         {
             if (Prefab(slug) == null) return Vector2.zero;

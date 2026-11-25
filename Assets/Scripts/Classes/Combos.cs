@@ -7,25 +7,8 @@ using UnityEngine;
 
 namespace Deepbound.Classes
 {
-    /// <summary>APPEND ONLY: synced as a byte for the popup.</summary>
     public enum ComboKind : byte { Shatter, Exposed, Distracted, AegisBurst, MarkSpread, Blessed, Hallowed, WardBroken, ThermalShock, Pincer, Punish, Purge, PlagueCrash, Convergence }
 
-    /// <summary>
-    /// How the classes play off each other. Each class leaves a state on enemies or allies
-    /// that someone else cashes in:
-    /// <list type="bullet">
-    /// <item><b>Chill</b> (Mage): any class's heavy hit Shatters it for x1.5 (the Mage's own fire x1.75).</item>
-    /// <item><b>Stun</b> (Knight bash, Rogue opener, Ranger trap): the enemy is Exposed, +25% damage from everyone.</item>
-    /// <item><b>Taunt</b> (Knight War Cry): the enemy is Distracted, +15% damage from everyone but the Knight.</item>
-    /// <item><b>Mark</b> (Ranger): +25% from everyone, and killing a marked enemy spreads the mark.</item>
-    /// <item><b>Consecration</b> (Cleric): allies standing in it are Blessed, +20% damage.</item>
-    /// <item><b>Aegis</b> (Cleric): when a shield is broken it bursts, hurting enemies nearby.</item>
-    /// <item><b>Blight</b> (Plague Doctor, 2026-11-22): the Cleric's holy hits PURGE it (x1.25 on a blighted enemy), and the
-    ///   Flagellant's crash on a blighted enemy is a PLAGUE CRASH: the blight spreads to everything round the landing.
-    ///   The two newer classes had no part in the combo web; the supports now feed each other, and the bruiser spreads rot.</item>
-    /// </list>
-    /// Server-side only; popups go out through <see cref="World.DungeonDirector.ComboFxRpc"/>.
-    /// </summary>
     public static class Combos
     {
         public const float PunishMultiplier = 1.2f;
@@ -33,14 +16,9 @@ namespace Deepbound.Classes
         public const float AegisBurstDamage = 35f, AegisBurstRadius = 3.5f;
         public const float PurgeMultiplier = 1.25f, PlagueCrashSeconds = 4f;
 
-        /// <summary>Server: the Cleric's holy damage on a blighted enemy (any Cleric hit: smites, Consecrate, the Hymn).</summary>
         public static float PurgeFor(Classes.ClassId attacker, Health target) =>
             attacker == Classes.ClassId.Cleric && target != null && target.Blighted.Value ? PurgeMultiplier : 1f;
 
-        /// <summary>
-        /// Server: the Flagellant's crash landed on <paramref name="struck"/>: if any of them is blighted, the blight spreads
-        /// (same source, so the Doctor's Contagion still follows it) to every enemy within <paramref name="radius"/>. Returns how many caught it.
-        /// </summary>
         public static int ServerPlagueCrash(System.Collections.Generic.IEnumerable<Health> struck, Vector3 at, float radius, PlayerProgress by = null)
         {
             Health carrier = null;
@@ -99,7 +77,6 @@ namespace Deepbound.Classes
             }
         }
 
-        /// <summary>One line, shown in the feed the first time a combo fires each run.</summary>
         public static string Explain(ComboKind kind)
         {
             switch (kind)
@@ -121,17 +98,11 @@ namespace Deepbound.Classes
             }
         }
 
-        // One popup per target per kind per second, so a flurry of stabs is not a word cloud.
         private static readonly Dictionary<(ulong, ComboKind), float> lastPopup = new Dictionary<(ulong, ComboKind), float>();
         private static readonly HashSet<ComboKind> seenThisRun = new HashSet<ComboKind>();
 
-        /// <summary>Server: a new run — combos explain themselves again.</summary>
         public static void ResetRun() => seenThisRun.Clear();
 
-        /// <summary>
-        /// Server: show a combo over a target, credited to <paramref name="by"/> (may be null).
-        /// False if throttled (so callers do not double-count).
-        /// </summary>
         public static bool Popup(Health at, ComboKind kind, PlayerProgress by = null)
         {
             var key = (at.NetworkObjectId, kind);
@@ -144,10 +115,6 @@ namespace Deepbound.Classes
             return true;
         }
 
-        /// <summary>
-        /// Server: a heavy hit (Knight bash, full-draw arrow, Rogue ambush) on a chilled
-        /// enemy consumes the chill. Returns the damage multiplier to apply.
-        /// </summary>
         public static float TryShatter(Health target, PlayerProgress by = null)
         {
             if (!target.ServerConsumeChill()) return 1f;
@@ -155,7 +122,6 @@ namespace Deepbound.Classes
             return ShatterMultiplier;
         }
 
-        /// <summary>Server: every player hit on an enemy passes through here.</summary>
         public static float ServerMultiplier(Health target, PlayerProgress attacker)
         {
             float m = 1f;
@@ -179,7 +145,7 @@ namespace Deepbound.Classes
                 }
             }
             m *= Player.Teamwork.ServerPincer(target, attacker);
-            // Plague Censer (2026-11-22): hits on the Blighted restore a sliver of health.
+
             if (target.Blighted.Value && attacker.HasRelic(Loot.Relic.PlagueCenser) && attacker.TryGetComponent<Health>(out var censerHp) && censerHp.IsAlive)
                 censerHp.ServerHeal(censerHp.Max.Value * 0.006f * attacker.RelicPower(Loot.Relic.PlagueCenser));
             float purge = PurgeFor(attacker.ClassId.Value, target);
@@ -200,7 +166,6 @@ namespace Deepbound.Classes
             Health.ThermalShock = OnThermalShock;
         }
 
-        /// <summary>Thermal Shock: a flat crack that grows with the attacker's power, plus a slice of the target's health (much less on bosses).</summary>
         public const float ShockFlat = 18f, ShockFraction = 0.05f, ShockBossFraction = 0.01f;
 
         private static void OnThermalShock(Health target, ulong by)
@@ -208,9 +173,7 @@ namespace Deepbound.Classes
             PlayerProgress p = null;
             var net = Unity.Netcode.NetworkManager.Singleton;
             if (net != null && by != ulong.MaxValue && net.SpawnManager.SpawnedObjects.TryGetValue(by, out var o)) o.TryGetComponent(out p);
-            // The boss slice is of the health it would have alone. Taken from the party-scaled total it grew with the party and
-            // the depth, then went through every damage multiplier: 29,000 a hit on floor 10 against a Knight's 580 swing, and
-            // over half of the Mage's damage (2026-11-05, by-source tally). Alone this is what it always was.
+
             bool boss = target.TryGetComponent<BossBrain>(out var bossBrain);
             float dmg = ShockFlat * (p != null ? p.AttackMultiplier : 1f) + (boss ? target.Max.Value / bossBrain.PartyHealthScale * ShockBossFraction : target.Max.Value * ShockFraction);
             Popup(target, ComboKind.ThermalShock, p);
@@ -229,7 +192,6 @@ namespace Deepbound.Classes
 
         private static void OnAnyDamaged(Health target, float dealt, ulong attackerId)
         {
-            // A marked enemy's death passes the mark to the nearest enemy close by.
             if (target.Team != Team.Enemies || target.IsAlive || !target.Marked.Value) return;
             Health next = null;
             float best = 7f;

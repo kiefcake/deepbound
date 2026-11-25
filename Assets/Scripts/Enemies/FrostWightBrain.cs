@@ -6,11 +6,6 @@ using UnityEngine;
 
 namespace Deepbound.Enemies
 {
-    /// <summary>
-    /// The Frost Wight: a skeleton rimed in ice. Its blows Frostbite you (40% slower), and
-    /// every few seconds it gathers a Frost Nova — a ring around it that frostbites and hurts
-    /// anyone still inside when it breaks. Stun it to snuff the nova.
-    /// </summary>
     public class FrostWightBrain : EnemyBrain
     {
         [SerializeField] private float novaCooldown = 8f, novaWindup = 1.1f, novaRadius = 3.6f;
@@ -52,7 +47,7 @@ namespace Deepbound.Enemies
                     if (victim.TryGetComponent<PlayerDebuffs>(out var deb))
                     {
                         deb.ServerFrostbite(4f);
-                        // From the Hollow Throne down, the nova freezes your feet as well.
+
                         if (World.DungeonDirector.Act(depthForLoot) >= 2) deb.ServerRoot(0.8f);
                     }
                 }

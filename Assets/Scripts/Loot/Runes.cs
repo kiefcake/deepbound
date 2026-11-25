@@ -7,15 +7,8 @@ using UnityEngine;
 
 namespace Deepbound.Loot
 {
-    /// <summary>APPEND ONLY: synced as a byte. 0 = empty socket.</summary>
     public enum Rune : byte { None = 0, Frost = 1, Storm = 2, Hunter = 3, Holy = 4, Ember = 5, Keen = 6, Farsight = 7 }
 
-    /// <summary>
-    /// Weapon enchantments. Runes drop as loot; at the anvil you set them into the class
-    /// weapon's sockets (one at +1, a second at +3). Each adds an on-hit effect — and most
-    /// of those feed a class combo, so a Rogue with a Frost rune sets up Shatter for the
-    /// Knight, or a Mage with a Storm rune leaves enemies Exposed for everyone.
-    /// </summary>
     public static class Runes
     {
         public const int Count = 7;
@@ -24,17 +17,16 @@ namespace Deepbound.Loot
         public static readonly int[] SocketLevels = { 1, 3, 6 };
         public static int SocketsAt(int weaponLevel) => weaponLevel >= 6 ? 3 : weaponLevel >= 3 ? 2 : weaponLevel >= 1 ? 1 : 0;
 
-        // ---- Tiers: a rune byte is its kind (low four bits) and its tier (I, II, III) above that ----
         public const int MaxTier = 2;
         public static Rune Kind(Rune r) => (Rune)((byte)r & 15);
         public static int Tier(Rune r) => ((byte)r >> 4) & 3;
         public static Rune Make(Rune kind, int tier) => (Rune)((byte)Kind(kind) | (Mathf.Clamp(tier, 0, MaxTier) << 4));
-        /// <summary>How hard a tier hits: I x1, II x1.5, III x2.</summary>
+
         public static float Power(int tier) => 1f + 0.5f * Mathf.Clamp(tier, 0, MaxTier * 2 + 2);
-        /// <summary>The MAJOR socket (2026-11-13, the user: "Rune specialisation ... a rune's effect doubles"): the first.</summary>
+
         public const int MajorSocket = 0;
         public static string TierName(int tier) => tier == 2 ? " III" : tier == 1 ? " II" : "";
-        /// <summary>Embers Ysolde asks to meld three runes of one tier into one of the next.</summary>
+
         public static int MeldCost(int tier) => 25 + 35 * tier;
 
         public static string Name(Rune r) => BaseName(Kind(r)) + (Kind(r) == Rune.None ? "" : TierName(Tier(r)));
@@ -95,12 +87,8 @@ namespace Deepbound.Loot
 
         public static Rune Random() => (Rune)UnityEngine.Random.Range(1, Count + 1);
 
-        // ------------------------------------------------------------------
-        // Server effects
-        // ------------------------------------------------------------------
-
         private static bool hooked, resolving;
-        /// <summary>Hit counts start again each run.</summary>
+
         public static void ResetRun() => hunterCounts.Clear();
 
         private static readonly Dictionary<ulong, (ulong target, int hits)> hunterCounts = new Dictionary<ulong, (ulong, int)>();
@@ -112,7 +100,6 @@ namespace Deepbound.Loot
             Health.ServerAnyDamaged += OnDamaged;
         }
 
-        /// <summary>Keen: applied before damage, through the outgoing multiplier.</summary>
         public static float OutgoingMultiplier(Health target, PlayerProgress p) =>
             p.HasRune(Rune.Keen) && target.Fraction > 0.8f ? 1f + 0.15f * Power(p.RuneTier(Rune.Keen)) : 1f;
 

@@ -2,10 +2,6 @@ using UnityEngine;
 
 namespace Deepbound.Art
 {
-    /// <summary>
-    /// The descent: a column of light comes down on a player, motes stream up it, and they are
-    /// taken; on arrival the same column sets them down and fades. Local only, follows the player.
-    /// </summary>
     public class TeleportBeam : MonoBehaviour
     {
         private float born, life;
@@ -15,7 +11,6 @@ namespace Deepbound.Art
         private float nextMote;
         private static readonly Color Holy = new Color(1f, 0.9f, 0.65f);
 
-        /// <summary>A beam on <paramref name="who"/>: departing (it grows) or arriving (it fades).</summary>
         public static void On(Transform who, bool arrive, float seconds)
         {
             if (who == null) return;
@@ -48,7 +43,7 @@ namespace Deepbound.Art
         private void Update()
         {
             float k = Mathf.Clamp01((Time.time - born) / life);
-            // Departing: the column narrows onto you and brightens. Arriving: it starts bright and lifts away.
+
             float strength = arriving ? 1f - k : Mathf.SmoothStep(0.2f, 1f, k);
             float radius = arriving ? Mathf.Lerp(0.7f, 1.4f, k) : Mathf.Lerp(1.6f, 0.75f, k);
             float height = 40f;

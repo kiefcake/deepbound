@@ -7,20 +7,6 @@ using UnityEngine;
 
 namespace Deepbound.Enemies
 {
-    // =====================================================================================================================
-    // THE OSSUARY - MOTHER MARROW, who knits the dead
-    // =====================================================================================================================
-
-    /// <summary>
-    /// Mother Marrow: a crone who knits bone. The sequence:
-    /// <list type="number">
-    /// <item><b>The Lash</b>: she whips bone lashes down lanes at each of you (red lanes, then a crack), and rains marrow
-    /// in circles round whoever keeps away.</item>
-    /// <item><b>The Cocoon</b> (at 70% and 40%): she shuts herself in a cage of bone and her knitters climb out of the floor;
-    /// the cage stands while any knitter lives (one more each time). The threads between them and her show which.</item>
-    /// <item><b>Unknit</b> (at 15%): the cage falls apart for good - she goes into a fury, lashing twice as often.</item>
-    /// </list>
-    /// </summary>
     public class MotherMarrowBrain : LairBrain
     {
         public override string DisplayName => "Mother Marrow";
@@ -39,7 +25,7 @@ namespace Deepbound.Enemies
         private readonly List<Lash> lashes = new List<Lash>();
         private struct Fall { public Vector3 At; public float When; }
         private readonly List<Fall> falls = new List<Fall>();
-        /// <summary>For tests.</summary>
+
         public int LashesCracked { get; private set; }
 
         protected override void OnEngaged() { nextLash = Time.time + 2.5f; nextRain = Time.time + 6f; }
@@ -131,7 +117,6 @@ namespace Deepbound.Enemies
             BoneBurst.Spawn(at + Vector3.up * 0.2f, 0.6f, false, Mat.Bone);
         }
 
-        // The cocoon: ribs of bone closing round her while she is warded (any peer, from the stance).
         private Transform cage;
         private void UpdateCage()
         {
@@ -157,7 +142,7 @@ namespace Deepbound.Enemies
         protected override void DressRig(HumanoidRig rig)
         {
             if (rig.Torso == null || rig.Head == null) return;
-            // A shawl of knitted vertebrae, and long bone needles in her hands.
+
             for (int i = 0; i < 12; i++)
             {
                 float a = (-75f + i * 13.6f) * Mathf.Deg2Rad;
@@ -166,8 +151,7 @@ namespace Deepbound.Enemies
             foreach (var arm in new[] { rig.ArmL, rig.ArmR })
                 if (arm != null) MeshKit.Part(arm, "Needle", MeshKit.Cylinder(0.02f, 0f, 0.9f, 5), Mat.Bone, new Vector3(0f, -0.75f, 0.12f), new Vector3(70f, 0f, 0f));
             GlowPart(MeshKit.Part(rig.Head, "Eyes", MeshKit.Box(new Vector3(0.14f, 0.025f, 0.01f)), Mat.Glow, new Vector3(0f, 0.08f, 0.15f)), BoneLight * 1.6f);
-            // 2026-11-20 visual pass (a keeper should not read as a thin hag): a hump of woven bone, a headdress of
-            // finger bones, and a cradle of small skulls in her arms.
+
             GuardianKit.Marrow(rig, BoneLight);
         }
     }

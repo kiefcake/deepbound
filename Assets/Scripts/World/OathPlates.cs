@@ -5,14 +5,6 @@ using UnityEngine;
 
 namespace Deepbound.World
 {
-    /// <summary>
-    /// The Oath Room (2026-10-20, a co-op side room): two worn pressure plates at either end of the room
-    /// and a sealed coffer at the back. Both plates must be held down at once for <see cref="HoldSeconds"/>:
-    /// two players, or one player and the <see cref="OathStone"/> set down on the other plate (a solo
-    /// player carries it over). Kept, the coffer opens (a chest and a Sigil, from the director).
-    /// <para>Server checks the plates; every peer draws them, lit while pressed, with a line of light
-    /// between them that fills as the oath is held.</para>
-    /// </summary>
     public class OathPlates : NetworkBehaviour
     {
         public const float PlateRadius = 1.15f, HoldSeconds = 1.6f;
@@ -20,7 +12,7 @@ namespace Deepbound.World
         public readonly NetworkVariable<Vector3> PlateA = new NetworkVariable<Vector3>();
         public readonly NetworkVariable<Vector3> PlateB = new NetworkVariable<Vector3>();
         public readonly NetworkVariable<Vector3> Coffer = new NetworkVariable<Vector3>();
-        /// <summary>Bit 0: plate A pressed, bit 1: plate B.</summary>
+
         public readonly NetworkVariable<byte> Pressed = new NetworkVariable<byte>();
         public readonly NetworkVariable<float> Held = new NetworkVariable<float>();
         public readonly NetworkVariable<bool> Kept = new NetworkVariable<bool>();
@@ -35,7 +27,6 @@ namespace Deepbound.World
         private byte lastPressed;
         private static readonly Color Oath = new Color(0.55f, 0.75f, 1f);
 
-        /// <summary>Server: place the plates and the coffer (after spawn).</summary>
         public void ServerSetup(Vector3 a, Vector3 b, Vector3 coffer)
         {
             PlateA.Value = Vfx.Floor(a);
@@ -94,7 +85,6 @@ namespace Deepbound.World
             byte p = Pressed.Value;
             if (p != lastPressed)
             {
-                // A stone click as a plate goes down.
                 if ((p & 1) != 0 && (lastPressed & 1) == 0) Sfx.Play(Sound.Creak, PlateA.Value, 0.7f, 1.5f);
                 if ((p & 2) != 0 && (lastPressed & 2) == 0) Sfx.Play(Sound.Creak, PlateB.Value, 0.7f, 1.5f);
                 lastPressed = p;
@@ -120,7 +110,7 @@ namespace Deepbound.World
                 line.localScale = new Vector3(1f, 1f, dir.magnitude);
                 ArtLibrary.SetGlow(lineRenderer, Oath * (1.2f + k));
             }
-            // The plates sink a finger's width when pressed.
+
             vis.GetChild(0).position = PlateA.Value + Vector3.up * ((p & 1) != 0 ? -0.03f : 0f);
             vis.GetChild(1).position = PlateB.Value + Vector3.up * ((p & 2) != 0 ? -0.03f : 0f);
         }
@@ -145,7 +135,6 @@ namespace Deepbound.World
             BuildCoffer();
         }
 
-        /// <summary>The sealed coffer at the back: what the oath opens (the real chest takes its place).</summary>
         private void BuildCoffer()
         {
             coffer = new GameObject("Coffer").transform;
@@ -157,7 +146,7 @@ namespace Deepbound.World
             MeshKit.Part(coffer, "Plinth", MeshKit.Box(new Vector3(1.6f, 0.25f, 1.1f)), Mat.StoneWall, new Vector3(0f, 0.125f, 0f));
             MeshKit.Part(coffer, "Body", MeshKit.Box(new Vector3(1.2f, 0.62f, 0.75f)), Mat.Marble, new Vector3(0f, 0.56f, 0f));
             MeshKit.Part(coffer, "Lid", MeshKit.Box(new Vector3(1.28f, 0.14f, 0.82f)), Mat.StoneWall, new Vector3(0f, 0.94f, 0f));
-            // Two chains crossed over it, and a lock carved with the same hand as the plates.
+
             foreach (float side in new[] { -1f, 1f })
                 MeshKit.Part(coffer, "Chain", MeshKit.Box(new Vector3(0.05f, 0.05f, 0.95f)), Mat.Steel, new Vector3(side * 0.32f, 1.02f, 0f), new Vector3(0f, side * 22f, 0f));
             MeshKit.Part(coffer, "Hasp", MeshKit.Box(new Vector3(0.24f, 0.28f, 0.06f)), Mat.Steel, new Vector3(0f, 0.72f, 0.4f));
@@ -172,7 +161,7 @@ namespace Deepbound.World
             var plate = new GameObject("Plate" + tag).transform;
             plate.SetParent(vis, false);
             plate.position = at;
-            // A round, worn stone plate in a stone ring, a glyph ring and two hands carved in the face.
+
             MeshKit.Part(plate, "Ring", MeshKit.Cylinder(1.25f, 1.2f, 0.08f, 20), Mat.StoneWall, Vector3.zero);
             MeshKit.Part(plate, "Face", MeshKit.Cylinder(1.02f, 1f, 0.1f, 20), Mat.Marble, Vector3.zero);
             var runes = new Renderer[9];

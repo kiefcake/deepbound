@@ -7,13 +7,6 @@ using UnityEngine;
 
 namespace Deepbound.Enemies
 {
-    /// <summary>
-    /// The Orbweaver (2026-10-20): a lantern-eyed caster that keeps its distance and conjures ORBS, slow
-    /// floating lights that drift toward you and then hang in the air spitting bolts in patterns you
-    /// have to read: a turning spiral, rings with a gap to slip through, or aimed bursts. At most two
-    /// orbs at once; killing the Orbweaver pops every orb it made. Orbs move on the server clock, so
-    /// every peer draws them in the same place without syncing anything but their birth.
-    /// </summary>
     public class OrbweaverBrain : EnemyBrain
     {
         [SerializeField] private float preferredRange = 12f, orbCooldown = 8.5f, orbLife = 9f;
@@ -26,7 +19,6 @@ namespace Deepbound.Enemies
         private int nextId;
         private byte nextPattern;
 
-        /// <summary>Tests: orbs alive and volleys fired.</summary>
         public int OrbsAlive => orbs.Count;
         public int VolleysFired { get; private set; }
 
@@ -58,11 +50,10 @@ namespace Deepbound.Enemies
             return true;
         }
 
-        /// <summary>Server: conjure an orb now (tests).</summary>
         public void ServerConjure(Vector3 toward)
         {
             var from = transform.position + Vector3.up * 2.2f + transform.forward * 0.6f;
-            // It drifts most of the way to its quarry, then hangs at head height and fires.
+
             var to = Vector3.Lerp(from, toward + Vector3.up * 1.6f, 0.7f);
             to.y = Mathf.Max(to.y, transform.position.y + 1.4f);
             var orb = new Orb { Id = nextId++, From = from, To = to, Start = NetworkManager.ServerTime.Time, Life = orbLife, Pattern = nextPattern, NextShot = Time.time + 1.6f, Angle = Random.Range(0f, 360f) };
@@ -86,7 +77,7 @@ namespace Deepbound.Enemies
         protected override void OnDied(Health h)
         {
             base.OnDied(h);
-            // Its orbs die with it.
+
             double now = NetworkManager.ServerTime.Time;
             foreach (var o in orbs) PopRpc(o.Id, OrbPosition(o.From, o.To, o.Start, now));
             orbs.Clear();
@@ -103,7 +94,7 @@ namespace Deepbound.Enemies
             float t = (float)(now - start);
             float k = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(t / 1.8f));
             var p = Vector3.Lerp(from, to, k);
-            // Once there, it circles slowly and bobs, so you cannot hide behind one spot.
+
             float s = Mathf.Max(0f, t - 1.8f);
             p += new Vector3(Mathf.Cos(s * 0.9f), 0f, Mathf.Sin(s * 0.9f)) * (1.3f * Mathf.Clamp01(s)) + Vector3.up * Mathf.Sin(t * 2.2f) * 0.18f;
             return p;
@@ -119,18 +110,17 @@ namespace Deepbound.Enemies
                 if (now - o.Start >= o.Life || IsDead) { orbs.RemoveAt(i); PopRpc(o.Id, OrbPosition(o.From, o.To, o.Start, now)); continue; }
                 if (Time.time < o.NextShot) continue;
                 var at = OrbPosition(o.From, o.To, o.Start, now);
-                float dmg = damage * 0.85f;   // 0.5 until 2026-11-13 (the user: bullets "way too little damage")
+                float dmg = damage * 0.85f;
                 switch (o.Pattern)
                 {
                     case 0:
-                        // A turning spiral: two arms, a little faster deeper down.
+
                         o.NextShot = Time.time + 0.16f;
                         o.Angle += 21f;
                         Volley(at, o.Angle, 2, dmg, BoltSpeed);
                         break;
                     case 1:
                     {
-                        // Rings of twelve with a three-bolt gap that faces somewhere new each time.
                         o.NextShot = Time.time + 1.05f;
                         o.Angle += 67f;
                         for (int a = 0; a < 12; a++)
@@ -145,7 +135,6 @@ namespace Deepbound.Enemies
                     }
                     default:
                     {
-                        // Aimed: three quick shots leading the nearest player, then a short breath.
                         o.NextShot = Time.time + 1.2f;
                         Health nearest = null;
                         float best = 30f;
@@ -177,8 +166,6 @@ namespace Deepbound.Enemies
             SpiralRpc(at, angle, (byte)arms, speed);
             VolleysFired++;
         }
-
-        // ---- Presentation ----
 
         private static readonly Color Amber = new Color(1f, 0.62f, 0.2f);
 
@@ -222,7 +209,6 @@ namespace Deepbound.Enemies
             Sfx.Play(Sound.Fire, at, 0.5f, 1.4f);
         }
 
-        /// <summary>READABILITY (2026-11-19): the orb's aimed bursts were the only volley with no sound.</summary>
         [Rpc(SendTo.ClientsAndHost)]
         private void AimedFxRpc(Vector3 at) => Sfx.Play(Sound.Fire, at, 0.45f, 1.6f);
 

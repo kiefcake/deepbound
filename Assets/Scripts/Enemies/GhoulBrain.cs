@@ -4,14 +4,6 @@ using UnityEngine;
 
 namespace Deepbound.Enemies
 {
-    /// <summary>
-    /// Ghoul: fast, fragile, comes in packs, and closes distance with a pounce. It is the
-    /// enemy that punishes standing still at range — and the Mage's natural predator.
-    ///
-    /// The pounce is short-telegraphed (a crouch and a hiss), crosses a few metres in a
-    /// blink, and hits whoever is at the landing spot. Sidestep the crouch and it lands on
-    /// nothing, wide open.
-    /// </summary>
     public class GhoulBrain : EnemyBrain
     {
         [SerializeField] private float pounceRangeMin = 3.5f, pounceRangeMax = 7.5f;
@@ -71,8 +63,7 @@ namespace Deepbound.Enemies
             nextPounce = Time.time + pounceCooldown;
             PlayActionRpc(RigAction.Windup, pounceWindup);
             HissRpc();
-            // READABILITY (2026-11-19): the pounce had only a crouch and a hiss; now its lane shows on the floor too
-            // (as wide as the bite it carries: 1.3 m either side).
+
             PounceLaneRpc(transform.position, pounceDir, pounceLength + 1.3f, pounceWindup);
             return true;
         }
@@ -98,7 +89,7 @@ namespace Deepbound.Enemies
             if (pounceTravelled >= pounceLength || moved < step * 0.3f || pounceHit)
             {
                 pouncing = false;
-                // A miss leaves it sprawled and open.
+
                 busyUntil = Time.time + (pounceHit ? 0.5f : 1.1f);
             }
         }

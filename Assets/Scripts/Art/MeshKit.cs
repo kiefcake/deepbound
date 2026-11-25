@@ -4,32 +4,12 @@ using UnityEngine.Rendering;
 
 namespace Deepbound.Art
 {
-    /// <summary>
-    /// Procedural mesh primitives the whole game is built from.
-    ///
-    /// <para>
-    /// Two shapes cover almost everything. <see cref="Box"/> gives walls, floors, crates,
-    /// blades and armour plates, with UVs in world units so a 12m wall and a 1m crate show
-    /// stone at the same scale instead of one stretched texture. <see cref="Lathe"/> spins a
-    /// 2D profile around the Y axis for anything round: helmets, pauldrons, pillars, skulls,
-    /// barrels, torch sconces.
-    /// </para>
-    ///
-    /// Meshes are cached by their parameters, so a dungeon with 200 identical crates holds
-    /// one crate mesh.
-    /// </summary>
     public static class MeshKit
     {
-        /// <summary>Texture repeats per metre. The baked textures are authored for ~2m tiles.</summary>
         public const float UvPerMetre = 0.5f;
 
         private static readonly Dictionary<string, Mesh> Cache = new Dictionary<string, Mesh>();
 
-        // ------------------------------------------------------------------
-        // Box
-        // ------------------------------------------------------------------
-
-        /// <summary>A box centred on the origin with per-face, world-scaled UVs and hard edges.</summary>
         public static Mesh Box(Vector3 size)
         {
             string key = "box" + size.x.ToString("F3") + "_" + size.y.ToString("F3") + "_" + size.z.ToString("F3");
@@ -78,18 +58,6 @@ namespace Deepbound.Art
             return mesh;
         }
 
-        // ------------------------------------------------------------------
-        // Lathe
-        // ------------------------------------------------------------------
-
-        /// <summary>
-        /// Revolves a profile of (radius, height) points around Y. Low segment counts are a
-        /// style choice, not a budget one: 6-10 sides reads as hand-made and chunky, which
-        /// suits the art direction better than smooth cylinders.
-        /// Profiles run bottom to top; that ordering is what makes the faces point outward.
-        /// </summary>
-        /// <param name="flat">Faceted (hard-edged) shading instead of smooth.</param>
-        /// <param name="sweepDegrees">Less than 360 for partial shells, e.g. a pauldron.</param>
         public static Mesh Lathe(string key, Vector2[] profile, int segments, bool flat = true, float sweepDegrees = 360f)
         {
             key = "lathe_" + key + "_" + segments + "_" + flat + "_" + sweepDegrees;
@@ -100,7 +68,6 @@ namespace Deepbound.Art
             var tris = new List<int>();
             bool closed = sweepDegrees >= 359.9f;
 
-            // Profile length, so v runs in world units like the boxes.
             var vCoord = new float[profile.Length];
             for (int i = 1; i < profile.Length; i++)
                 vCoord[i] = vCoord[i - 1] + Vector2.Distance(profile[i], profile[i - 1]);
@@ -119,7 +86,6 @@ namespace Deepbound.Art
 
             if (flat)
             {
-                // Unshared vertices per quad give faceted normals once recalculated.
                 for (int s = 0; s < segments; s++)
                 for (int p = 0; p < profile.Length - 1; p++)
                 {
@@ -156,8 +122,6 @@ namespace Deepbound.Art
 
             if (!closed)
             {
-                // Partial shells are seen from both sides (the inside of a pauldron), so
-                // duplicate the triangles reversed rather than relying on a two-sided shader.
                 int count = tris.Count;
                 int vCount = verts.Count;
                 for (int i = 0; i < vCount; i++) { verts.Add(verts[i]); uvs.Add(uvs[i]); }
@@ -179,7 +143,6 @@ namespace Deepbound.Art
             return mesh;
         }
 
-        /// <summary>A simple n-sided cylinder (or cone, with different radii).</summary>
         public static Mesh Cylinder(float bottomRadius, float topRadius, float height, int segments = 8)
         {
             return Lathe("cyl" + bottomRadius + "_" + topRadius + "_" + height, new[]
@@ -189,7 +152,6 @@ namespace Deepbound.Art
             }, segments);
         }
 
-        /// <summary>A faceted ball, built as a lathe of a semicircle.</summary>
         public static Mesh Ball(float radius, int segments = 8, int rings = 6)
         {
             var profile = new Vector2[rings + 1];
@@ -201,11 +163,6 @@ namespace Deepbound.Art
             return Lathe("ball" + radius + "_" + rings, profile, segments);
         }
 
-        // ------------------------------------------------------------------
-        // Scene helpers
-        // ------------------------------------------------------------------
-
-        /// <summary>Creates a child object rendering <paramref name="mesh"/>. No collider.</summary>
         public static GameObject Part(Transform parent, string name, Mesh mesh, string material,
             Vector3 localPos, Vector3 localEuler = default, Vector3? localScale = null)
         {
@@ -222,13 +179,6 @@ namespace Deepbound.Art
         private static readonly int MergeBaseColorId = Shader.PropertyToID("_BaseColor");
         private static readonly int MergeEmissionId = Shader.PropertyToID("_EmissionColor");
 
-        /// <summary>
-        /// Draw-call diet for a built character: under every pivot, the plain leaf parts that share a
-        /// material, tint, glow and shadow mode become one mesh. Animation only ever moves pivots, so
-        /// nothing looks different, but a detailed skeleton drops from ~100 renderers to ~15. Leaves
-        /// with any other component (weak points, lights, scripts) are left alone. Returns old -> new
-        /// renderer, so references (glowing eyes) can be pointed at the merged ones.
-        /// </summary>
         public static Dictionary<Renderer, Renderer> MergeParts(Transform root)
         {
             var map = new Dictionary<Renderer, Renderer>();
@@ -246,7 +196,7 @@ namespace Deepbound.Art
                 foreach (var c in leaves)
                 {
                     if (c.childCount > 0 || !c.gameObject.activeSelf) continue;
-                    if (c.GetComponents<Component>().Length != 3) continue; // Transform + MeshFilter + MeshRenderer only
+                    if (c.GetComponents<Component>().Length != 3) continue;
                     var mr = c.GetComponent<MeshRenderer>();
                     var mf = c.GetComponent<MeshFilter>();
                     if (mr == null || mf == null || mf.sharedMesh == null || mr.sharedMaterial == null) continue;
@@ -292,7 +242,6 @@ namespace Deepbound.Art
             return map;
         }
 
-        /// <summary>Merge a rig's parts and keep its glow references pointing at the merged renderers.</summary>
         public static void MergeRig(HumanoidRig rig)
         {
             if (rig == null) return;
@@ -307,7 +256,6 @@ namespace Deepbound.Art
             rig.GlowRenderers = glows.ToArray();
         }
 
-        /// <summary>An empty transform, for animation pivots (shoulders, hips, weapon grips).</summary>
         public static Transform Pivot(Transform parent, string name, Vector3 localPos, Vector3 localEuler = default)
         {
             var t = new GameObject(name).transform;
@@ -317,12 +265,6 @@ namespace Deepbound.Art
             return t;
         }
 
-        /// <summary>
-        /// Accumulates static geometry per material and emits one combined mesh per material.
-        ///
-        /// A generated dungeon is thousands of boxes. As separate objects that is thousands
-        /// of draw calls and renderers to cull; combined per material it is about ten.
-        /// </summary>
         public class Batcher
         {
             private readonly Dictionary<string, List<CombineInstance>> parts = new Dictionary<string, List<CombineInstance>>();
@@ -338,13 +280,11 @@ namespace Deepbound.Art
                 Add(Box(size), material, Matrix4x4.TRS(center, rotation ?? Quaternion.identity, Vector3.one));
             }
 
-            /// <summary>A box in a tinted variant of a material: each colour is its own combined mesh ("Leather#6B1A14").</summary>
             public void AddBox(Vector3 center, Vector3 size, string material, Color tint, Quaternion? rotation = null)
             {
                 AddBox(center, size, material + "#" + ColorUtility.ToHtmlStringRGB(tint), rotation);
             }
 
-            /// <summary>A downloaded model (2026-11-20, <see cref="ModelKit"/>) merged into the batch; false if it is missing.</summary>
             public bool AddModel(string slug, float height, Vector3 floor, float yaw)
             {
                 return ModelKit.Batch(slug, height, Matrix4x4.TRS(floor, Quaternion.Euler(0f, yaw, 0f), Vector3.one), (mesh, sub, mat, m) =>
@@ -355,7 +295,6 @@ namespace Deepbound.Art
                 });
             }
 
-            /// <summary>A downloaded model at any pose (tilted, leaning): <paramref name="at"/> places its base centre.</summary>
             public bool AddModel(string slug, float height, Matrix4x4 at)
             {
                 return ModelKit.Batch(slug, height, at, (mesh, sub, mat, m) =>
@@ -366,9 +305,6 @@ namespace Deepbound.Art
                 });
             }
 
-            /// <summary>Builds the combined meshes under <paramref name="parent"/>.</summary>
-            /// <param name="collide">Add MeshColliders, so the geometry is walkable and navmesh-bakeable.</param>
-            /// <param name="tint">Optional per-material tint (a theme recolouring stone, say). Null or white = none.</param>
             public void Build(Transform parent, string name, bool collide, System.Func<string, Color> tint = null)
             {
                 foreach (var pair in parts)

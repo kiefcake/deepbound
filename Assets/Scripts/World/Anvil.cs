@@ -5,58 +5,40 @@ using UnityEngine;
 
 namespace Deepbound.World
 {
-    /// <summary>
-    /// The anvil beside the merchant in every start room (G opens the forge). Embers go in,
-    /// your class weapon comes out a level stronger; at +2 you choose its path. Weapons are
-    /// never found — each class always carries its own — so this is where the run's steady
-    /// power comes from (relics are the spikes).
-    /// </summary>
     public class Anvil : NetworkBehaviour
     {
-        /// <summary>Ten levels for ten floors. From +6 Hobb wants gold as well as embers (good steel is dear).</summary>
         public const int MaxLevel = 10;
         public const float UseRange = 3f;
         private static readonly int[] Costs = { 15, 25, 40, 60, 85, 110, 140, 175, 215, 260 };
-        /// <summary>+8: Ascended, the weapon's damage up a tenth. +10: Masterwork, a better chance to crit.</summary>
+
         public const int AscendedLevel = 8, MasterworkLevel = 10;
         public const float AscendedDamage = 1.1f, MasterworkCrit = 0.08f;
 
-        /// <summary>
-        /// Past +10 (2026-10-23): up to five hones, +3% damage each, for embers and gold. A full run
-        /// reached +10 by floor 9 and then sat on 500-700 embers and 2000 gold with nothing to buy.
-        /// </summary>
         public const int MaxHones = 5;
         public const float HoneDamage = 0.03f;
-        /// <summary>1,250 embers and 2,000 gold for all five (the first run bought four in one visit at 90 + 30n).</summary>
+
         public static int HoneEmbers(int hones) => 150 + 50 * hones;
         public static int HoneGold(int hones) => 200 + 100 * hones;
 
-        /// <summary>Gold to go from <paramref name="level"/> to the next (none below +6).</summary>
         public static int GoldCost(int level) => level >= 5 && level < MaxLevel ? 60 + 40 * (level - 5) : 0;
 
         public static readonly List<Anvil> All = new List<Anvil>();
 
-        /// <summary>Embers to go from <paramref name="level"/> to the next. 0 at max.</summary>
         public static int Cost(int level) => level >= 0 && level < MaxLevel ? Costs[level] : 0;
 
-        /// <summary>The anvil within reach of <paramref name="at"/>, or null.</summary>
         public static Anvil Near(Vector3 at)
         {
             foreach (var a in All)
                 if (a != null && Vector3.Distance(a.transform.position, at) <= UseRange) return a;
-            // At camp the smithy is more than the anvil (2026-11-12): the grindstone and the forge do their share of the
-            // work, so standing at either counts as being at Hobb's anvil (CampStations).
+
             if (DungeonDirector.InLobby && CampStations.AtSmithy(at))
                 foreach (var a in All)
                     if (a != null && Vector3.Distance(a.transform.position, Lobby.AnvilSpot) < 2f) return a;
             return null;
         }
 
-        /// <summary>Which part of the smithy did the work: the anvil, the grindstone or the forge's hearth.</summary>
         public enum Work : byte { Anvil, Grindstone, Hearth }
 
-        /// <summary>Everyone sees the work done where it was done: at camp the grindstone spins and sparks, the forge's coals
-        /// roar; anywhere else (a start room's lone anvil) it all happens at the anvil.</summary>
         [Rpc(SendTo.ClientsAndHost)]
         public void WorkFxRpc(Work where, float k)
         {
@@ -79,12 +61,11 @@ namespace Deepbound.World
             }
         }
 
-        /// <summary>Everyone sees and hears the hammer fall.</summary>
         [Rpc(SendTo.ClientsAndHost)]
         public void ForgeFxRpc(int level)
         {
             HammerFx(level);
-            // At camp the forge's coals lift too: the steel came out of them.
+
             if (DungeonDirector.InLobby && SmithyFx.Instance != null) SmithyFx.Instance.Flare(0.5f);
         }
 
@@ -112,7 +93,6 @@ namespace Deepbound.World
 
         private void BuildVisual()
         {
-            // A stone block, the iron anvil on top, and a brazier of coals beside it.
             MeshKit.Part(transform, "Block", MeshKit.Box(new Vector3(0.7f, 0.55f, 0.55f)), Mat.StoneWall, new Vector3(0f, 0.275f, 0f));
             MeshKit.Part(transform, "Waist", MeshKit.Box(new Vector3(0.35f, 0.18f, 0.3f)), Mat.Steel, new Vector3(0f, 0.64f, 0f));
             MeshKit.Part(transform, "Face", MeshKit.Box(new Vector3(0.75f, 0.16f, 0.36f)), Mat.Steel, new Vector3(0.05f, 0.81f, 0f));

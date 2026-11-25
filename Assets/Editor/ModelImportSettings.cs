@@ -2,11 +2,6 @@ using UnityEditor;
 
 namespace Deepbound.EditorTools
 {
-    /// <summary>
-    /// Downloaded CC0 models (2026-11-20, Poly Haven, Assets/Resources/Models, see docs/CREDITS.md): meshes only (no animation,
-    /// cameras, lights or colliders; Art.ModelKit sizes and places them and swaps in the materials ArtBaker bakes). Textures are
-    /// capped at 512 px (the retro filter never shows more) and normal maps typed as such.
-    /// </summary>
     public class ModelImportSettings : AssetPostprocessor
     {
         private bool Ours => assetPath.Replace('\\', '/').Contains("/Resources/Models/");
@@ -20,7 +15,7 @@ namespace Deepbound.EditorTools
             m.importLights = false;
             m.importBlendShapes = false;
             m.addCollider = false;
-            m.isReadable = true; // static dressing merges them (MeshKit.Batcher.AddModel)
+            m.isReadable = true;
             m.animationType = ModelImporterAnimationType.None;
             m.meshCompression = ModelImporterMeshCompression.Medium;
             m.materialImportMode = ModelImporterMaterialImportMode.ImportStandard;

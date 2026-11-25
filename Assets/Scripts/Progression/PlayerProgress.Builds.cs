@@ -7,34 +7,17 @@ using UnityEngine;
 
 namespace Deepbound.Progression
 {
-    /// <summary>
-    /// BUILD IDENTITY (2026-11-13, the user's list): the small multipliers that steer a build, gathered in one place and
-    /// folded into the existing ones (<see cref="AttackMultiplier"/>, <see cref="SpeedMultiplier"/>, <see cref="CooldownMultiplier"/>,
-    /// <see cref="GoldMultiplier"/>, max health, incoming damage, crits, potions, VIT regen, the Knight's block cost).
-    /// <list type="bullet">
-    /// <item>GEAR SETS: an armour and a charm of one family (<see cref="Sets"/>) unlock a small bonus.</item>
-    /// <item>BRANN'S MASTERIES: six drills in one stat (<see cref="Mastered(StatType)"/>) add a mastery.</item>
-    /// <item>BARGAINS: a hidden altar's cursed offer (<see cref="Bargain"/>), something for something, for the run.</item>
-    /// <item>CLASS GIFTS: what each class does that the others do not (<see cref="ClassGift"/>).</item>
-    /// <item>TOOLS: Tinker's Picks (jam a spike plate) and the Hooded Lantern (a light that goes with you).</item>
-    /// </list>
-    /// </summary>
     public partial class PlayerProgress
     {
-        // ---------------------------------------------------------------- tools
-
-        /// <summary>Tinker's Picks left (each jams one spike plate; a Rogue needs none).</summary>
         public readonly NetworkVariable<byte> Picks = new NetworkVariable<byte>();
         public const int PicksPerSet = 3;
-        /// <summary>The Hooded Lantern: a small light round you for the run (<see cref="Art.CarriedLantern"/>).</summary>
+
         public readonly NetworkVariable<bool> Lantern = new NetworkVariable<bool>();
 
-        /// <summary>The Knight's Bulwark shield charge, 0..1 (server-written, for the HUD).</summary>
         public readonly NetworkVariable<float> ShieldCharge = new NetworkVariable<float>();
-        /// <summary>Blood given at altars this run: each is -10% max health and +4% damage, for the run (2026-11-13).</summary>
+
         public readonly NetworkVariable<byte> BloodOffered = new NetworkVariable<byte>();
 
-        /// <summary>Server: one offering at a blood altar.</summary>
         public void ServerOfferBlood()
         {
             if (!IsServer) return;
@@ -42,13 +25,9 @@ namespace Deepbound.Progression
             ApplyToHealth(false);
         }
 
-        /// <summary>How much less damage the survival path (path 3) takes right now, in percent (server-written, for the HUD).</summary>
         public readonly NetworkVariable<byte> SurvivalCut = new NetworkVariable<byte>();
 
-        /// <summary>Can this delver jam a spike plate (a Rogue's hands, or picks)?</summary>
         public bool CanDisarm => ClassId.Value == Classes.ClassId.Rogue || Picks.Value > 0;
-
-        // ---------------------------------------------------------------- gear sets
 
         public struct GearSet { public string Name, Bonus; public GearId Armour, Charm; }
         public static readonly GearSet[] Sets =
@@ -61,7 +40,6 @@ namespace Deepbound.Progression
         };
         public const float SetWallTaken = 0.88f, SetHungerDamage = 1.1f, SetRoadSpeed = 1.08f, SetChoirPotion = 1.25f, SetGraveCooldown = 0.92f;
 
-        /// <summary>The set this delver wears whole, or -1.</summary>
         public int WornSet
         {
             get
@@ -71,7 +49,6 @@ namespace Deepbound.Progression
             }
         }
 
-        /// <summary>For the gear card: the set a piece belongs to (or null) and what it gives.</summary>
         public static string SetLine(GearId id)
         {
             foreach (var s in Sets)
@@ -79,8 +56,6 @@ namespace Deepbound.Progression
                     return "SET " + s.Name + " (" + Gear.BaseName(s.Armour) + " + " + Gear.BaseName(s.Charm) + "): " + s.Bonus;
             return null;
         }
-
-        // ---------------------------------------------------------------- masteries
 
         public const int MasteryDrills = 6;
         public bool Mastered(StatType s) => DrillCount(s) >= MasteryDrills;
@@ -97,17 +72,15 @@ namespace Deepbound.Progression
             _ => null,
         };
 
-        // ---------------------------------------------------------------- bargains
-
         public enum Bargain : byte { BloodForSteel = 0, GlassStride = 1, MisersOath = 2, HollowVigil = 3, BitterRoot = 4, EmberTithe = 5, GravePact = 6, ThornCrown = 7 }
         public const int BargainCount = 8;
-        /// <summary>The Gravedigger's Pact: a kill mends this share of max health (potions mend nothing).</summary>
+
         public const float GravePactHeal = 0.03f;
-        /// <summary>The Thorned Crown: this share of a blow goes back into the nearest foe (within <see cref="ThornCrownReach"/> of the blow's origin).</summary>
+
         public const float ThornCrownBack = 0.5f, ThornCrownReach = 6f, ThornCrownMendCut = 0.3f;
         public readonly NetworkVariable<ushort> Bargains = new NetworkVariable<ushort>();
         public bool HasBargain(Bargain b) => (Bargains.Value & (1 << (int)b)) != 0;
-        /// <summary>A Cleric's faith blunts a bargain's price (half the curse).</summary>
+
         public float CurseScale => ClassId.Value == Classes.ClassId.Cleric ? 0.5f : 1f;
 
         public static string BargainName(Bargain b) => b switch
@@ -134,7 +107,6 @@ namespace Deepbound.Progression
             _ => "+50% embers for the run, -10% damage",
         };
 
-        /// <summary>Server: strike the bargain (once each a run). False if already struck.</summary>
         public bool ServerStrikeBargain(Bargain b)
         {
             if (!IsServer || HasBargain(b)) return false;
@@ -143,8 +115,6 @@ namespace Deepbound.Progression
             ApplyToHealth(false);
             return true;
         }
-
-        // ---------------------------------------------------------------- class gifts
 
         public static string ClassGift(ClassId c) => c switch
         {
@@ -156,8 +126,6 @@ namespace Deepbound.Progression
             Classes.ClassId.Flagellant => "SCARRED HIDE: traps bite 30% less",
             _ => "APOTHECARY: potions mend 25% more",
         };
-
-        // ---------------------------------------------------------------- the scales
 
         public float BuildAttackScale
         {
@@ -175,11 +143,10 @@ namespace Deepbound.Progression
 
         public float BuildSpeedScale => (WornSet == 2 ? SetRoadSpeed : 1f) * (HasBargain(Bargain.GlassStride) ? 1.12f : 1f);
 
-        /// <summary>The set and the WIS mastery: counted under the one cooldown cap (2026-11-24; they used to multiply past it).</summary>
         public float BuildCooldownCut => (WornSet == 4 ? 1f - SetGraveCooldown : 0f) + (Mastered(StatType.WIS) ? 0.06f : 0f);
-        /// <summary>A bargain is a trade with a curse attached: it shortens cooldowns on top of the cap.</summary>
+
         public float BuildCooldownScale => HasBargain(Bargain.BitterRoot) ? 0.85f : 1f;
-        /// <summary>MP MASTERY (2026-11-24, was a second copy of WIS's cooldowns): mana returns faster.</summary>
+
         public float ManaRegenScale => Mastered(StatType.MP) ? 1.25f : 1f;
 
         public float BuildGoldBonus => HasBargain(Bargain.MisersOath) ? 0.4f : 0f;
@@ -202,7 +169,6 @@ namespace Deepbound.Progression
 
         private static bool bargainHooked;
 
-        /// <summary>Server: listen for kills (the Gravedigger's Pact), once.</summary>
         public static void EnsureBargainHook()
         {
             if (bargainHooked) return;
@@ -218,7 +184,6 @@ namespace Deepbound.Progression
             };
         }
 
-        /// <summary>Server: the Thorned Crown sends part of a blow back into the nearest foe. Returns what it sent.</summary>
         public float ServerThornCrown(float damage, Vector3 attackerPosition)
         {
             if (!HasBargain(Bargain.ThornCrown) || damage <= 0f) return 0f;
@@ -237,7 +202,6 @@ namespace Deepbound.Progression
         }
         public float BuildBlockCostScale => Mastered(StatType.DEF) ? 0.7f : 1f;
 
-        /// <summary>A trap's bite on this delver: the Knight's shield halves it, the Flagellant's scars take a third off.</summary>
         public float TrapScale
         {
             get
@@ -248,7 +212,6 @@ namespace Deepbound.Progression
             }
         }
 
-        /// <summary>Server: the run is over: tools and bargains go.</summary>
         private void ResetBuildRun()
         {
             Picks.Value = 0;
@@ -258,7 +221,6 @@ namespace Deepbound.Progression
             ApplyToHealth(false);
         }
 
-        /// <summary>Server: after a drill: the sixth of one stat earns Brann's mastery.</summary>
         private void CheckMastery(StatType s)
         {
             if (DrillCount(s) != MasteryDrills) return;

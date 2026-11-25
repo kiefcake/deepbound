@@ -5,11 +5,6 @@ using UnityEngine.AI;
 
 namespace Deepbound.World
 {
-    /// <summary>
-    /// An iron portcullis in a doorway. Raised, it hides in the lintel; lowered, it blocks the
-    /// doorway for players (collider) and for enemy pathing (a carving NavMeshObstacle).
-    /// Boss arenas and ambush rooms drop them to lock a fight in.
-    /// </summary>
     public class Portcullis : NetworkBehaviour
     {
         public readonly NetworkVariable<bool> Closed = new NetworkVariable<bool>();
@@ -40,7 +35,6 @@ namespace Deepbound.World
 
         private void Update()
         {
-            // Slams down fast; grinds up slowly.
             drop = Mathf.MoveTowards(drop, Closed.Value ? 1f : 0f, Time.deltaTime * (Closed.Value ? 6f : 1.2f));
             if (bars != null) bars.localPosition = new Vector3(0f, Mathf.Lerp(DungeonLayout.CorridorHeight, 0f, drop), 0f);
         }

@@ -8,25 +8,6 @@ using UnityEngine;
 
 namespace Deepbound.Player
 {
-    /// <summary>
-    /// PET PERKS (2026-11-22, the user: "let pets help out in small ways, each pet has a little gimmick, where they pick up
-    /// gold, heal you a tiny little bit, gives off light, etc. think of more be creative"). Every pet still fetches gold and
-    /// embers and sits on hidden plates; on top of that each kind has ONE small trick that fits the animal. All are small
-    /// on purpose (no pet fights in earnest) and none works at camp.
-    /// <list type="bullet">
-    /// <item>RAVEN, sharp eyes: caws and calls out ELITE over each elite within <see cref="RavenSight"/> the first time it is near.</item>
-    /// <item>RAT, scavenger: when a room is cleared it noses out a few extra coins at your feet (<see cref="RatCoins"/>).</item>
-    /// <item>BONE HOUND, guard dog: snaps at an enemy that is on you, within 2.8 m, every <see cref="HoundEvery"/> s (small damage).</item>
-    /// <item>KITTEN, purring: out of a fight (nothing within <see cref="QuietRadius"/>) you mend <see cref="PurrPerSecond"/> of your health a second.</item>
-    /// <item>WISP, lantern: a soft cold light round you that everyone sees, best in the lightless halls.</item>
-    /// <item>BAT, echolocation: squeaks BEHIND! when one of the dead closes on your back, and finds hidden plates from twice as far.</item>
-    /// <item>TOAD, antidote: gulps the poison off you, once every <see cref="ToadEvery"/> s.</item>
-    /// <item>CANDLE IMP, kindler: lights an unlit hearth you pass within <see cref="ImpReach"/>, and carries a warm candle light.</item>
-    /// <item>MOTH, drawn to treasure: flutters over the nearest closed chest in reach - and never settles on a mimic.</item>
-    /// </list>
-    /// Gameplay parts run on the server from the synced <see cref="NetworkPlayer.PetKind"/>; cues (words over things, the
-    /// pet running out) go to everyone through <see cref="NetworkPlayer.PetCueRpc"/>.
-    /// </summary>
     public class PetPerks : MonoBehaviour
     {
         public const float RavenSight = 22f, HoundEvery = 5f, HoundReach = 2.8f, QuietRadius = 12f, PurrPerSecond = 0.004f,
@@ -36,7 +17,6 @@ namespace Deepbound.Player
         public const float SalamanderEvery = 3f, MimicPupChance = 0.35f;
         private float nextScorch;
 
-        /// <summary>The pet's one-line trick, for Mistress Vey's wardrobe.</summary>
         public static string Short(PetCompanion.Kind k) => k switch
         {
             PetCompanion.Kind.Raven => "Reveals elites at range",
@@ -71,7 +51,7 @@ namespace Deepbound.Player
             life = owner.GetComponent<PlayerLife>();
             debuffs = owner.GetComponent<PlayerDebuffs>();
             pet = owner.GetComponent<PetCompanion>();
-            // Ember Salamander: an enemy that strikes you is scorched (setting up Thermal Shock for the party's frost).
+
             if (owner.TryGetComponent<Health>(out var hp))
                 hp.DamagedServer += (lost, by) =>
                 {
@@ -85,7 +65,6 @@ namespace Deepbound.Player
                 };
         }
 
-        /// <summary>Server: a chest was opened; a Mimic Pup owner nearby may get a Health Potion coughed up.</summary>
         public static void ServerChestOpened(Vector3 at)
         {
             var dd = DungeonDirector.Instance;
@@ -101,7 +80,6 @@ namespace Deepbound.Player
             }
         }
 
-        /// <summary>Tests: perks with a chance always fire.</summary>
         public static bool ForceChance;
 
         private void Update()
@@ -114,8 +92,6 @@ namespace Deepbound.Player
             if (np.IsServer && Time.time >= nextTick) { nextTick = Time.time + 0.5f; ServerTick(k, 0.5f); }
             if (np.IsOwner && Time.time >= nextLocal) { nextLocal = Time.time + 0.4f; OwnerTick(k); }
         }
-
-        // ---------------------------------------------------------------- the light pets
 
         private void BuildLamp(PetCompanion.Kind k)
         {
@@ -131,8 +107,6 @@ namespace Deepbound.Player
             lamp.range = wisp ? 9f : 7f;
             lamp.intensity = wisp ? 1.3f : 1.1f;
         }
-
-        // ---------------------------------------------------------------- server
 
         private void ServerTick(PetCompanion.Kind k, float dt)
         {
@@ -175,7 +149,6 @@ namespace Deepbound.Player
             }
         }
 
-        /// <summary>Server, from the room-clear check: every Rat owner near the room digs up a few coins.</summary>
         public static void ServerRoomCleared(Vector3 roomAt)
         {
             var dd = DungeonDirector.Instance;
@@ -203,8 +176,6 @@ namespace Deepbound.Player
             }
             return best;
         }
-
-        // ---------------------------------------------------------------- owner (warnings only you need)
 
         private void OwnerTick(PetCompanion.Kind k)
         {
@@ -249,9 +220,6 @@ namespace Deepbound.Player
             }
         }
 
-        // ---------------------------------------------------------------- cues
-
-        /// <summary>Any peer: show a pet's cue (from <see cref="NetworkPlayer.PetCueRpc"/> or the owner's own checks).</summary>
         public void Show(Cue cue, Vector3 at)
         {
             if (Application.isBatchMode) return;

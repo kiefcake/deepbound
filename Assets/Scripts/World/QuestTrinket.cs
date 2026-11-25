@@ -5,16 +5,6 @@ using UnityEngine;
 
 namespace Deepbound.World
 {
-    /// <summary>
-    /// A GATHER quest's find (2026-11-08): several of them lie in different rooms of the floor, each tucked against a
-    /// wall, each with its own tell so a party can hunt for them -
-    /// <list type="bullet">
-    /// <item>Aldric's saint's knucklebones: in little gilt reliquary niches, a faint gold glow and a whisper nearby.</item>
-    /// <item>Brann's fallen standards: his lost squad's banners, a broken pole stood in the floor, torn red cloth.</item>
-    /// <item>Ysolde's rune shards: violet crystal splinters that hum (a toll, softly) when you are near.</item>
-    /// </list>
-    /// F picks one up for the party.
-    /// </summary>
     public class QuestTrinket : Interactable
     {
         public readonly NetworkVariable<byte> Giver = new NetworkVariable<byte>();
@@ -34,7 +24,6 @@ namespace Deepbound.World
 
         public override string Prompt(PlayerProgress who) => taken ? null : "Take " + NameOf(Who) + "  (" + UI.Dialogue.NameOf(Who) + "'s quest)";
 
-        /// <summary>Server, tests: take it from anywhere.</summary>
         public void ServerTake(PlayerProgress who) => ServerUse(who);
 
         protected override void ServerUse(PlayerProgress who)
@@ -79,7 +68,7 @@ namespace Deepbound.World
                     }
                     MeshKit.Part(v, "Stone", MeshKit.Box(new Vector3(0.4f, 0.3f, 0.35f)), Mat.StoneWall, new Vector3(0f, 0.15f, 0f), new Vector3(0f, 20f, 0f));
                     break;
-                default: // Aldric's knucklebone in a niche
+                default:
                     glow = new Color(1f, 0.82f, 0.45f);
                     MeshKit.Part(v, "Plinth", MeshKit.Box(new Vector3(0.36f, 0.7f, 0.3f)), Mat.StoneWall, new Vector3(0f, 0.35f, 0f));
                     MeshKit.Part(v, "Casket", MeshKit.Box(new Vector3(0.24f, 0.14f, 0.18f)), Mat.Gold, new Vector3(0f, 0.77f, 0f));
@@ -101,7 +90,7 @@ namespace Deepbound.World
         private void Update()
         {
             if (spin != null) spin.Rotate(Vector3.up, 40f * Time.deltaTime, Space.Self);
-            // Its tell: a hum / whisper when the local player is near (hunt it by ear).
+
             var me = Player.NetworkPlayer.Local;
             if (me == null || Time.time < nextHum) return;
             float d = Vector3.Distance(me.transform.position, transform.position);

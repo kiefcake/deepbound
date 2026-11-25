@@ -9,31 +9,18 @@ using UnityEngine.AI;
 
 namespace Deepbound.World
 {
-    /// <summary>
-    /// A HEARTH BRAZIER (2026-11-13, a room centrepiece; the user: "braziers to light also", every centrepiece must
-    /// serve a purpose). A great iron bowl of cold coals on a hearthstone in the middle of a combat room. F lights it.
-    /// Lit, it burns for the rest of the floor and:
-    /// <list type="bullet">
-    /// <item>lights the room (a big warm light);</item>
-    /// <item>WARMS whoever stands within <see cref="WarmRadius"/>: frostbite melts off (a Rime Magus's blizzard cannot slow
-    ///   you there) and you mend <see cref="MendPerSecond"/> of your health a second while no living foe is within
-    ///   <see cref="QuietRadius"/>;</item>
-    /// <item>SCORCHES any of the dead within <see cref="BurnRadius"/> - kick or bash them into it.</item>
-    /// </list>
-    /// </summary>
     public class HearthBrazier : Interactable
     {
-        public static readonly List<HearthBrazier> All = new List<HearthBrazier>();
+        public static new readonly List<HearthBrazier> All = new List<HearthBrazier>();
         public const float WarmRadius = 4.5f, BurnRadius = 1.6f, MendPerSecond = 0.015f, QuietRadius = 9f;
         public static readonly Color Fire = new Color(1f, 0.6f, 0.25f);
         public readonly NetworkVariable<bool> Lit = new NetworkVariable<bool>();
         private Torch flame;
-        private Transform ring; // the lit ember bed (2026-11-22: was an opaque glowing disc over the floor, the user: "very visually impairing")
+        private Transform ring;
         private readonly List<GameObject> licks = new List<GameObject>();
         private float nextTick;
         public override float Range => 2.6f;
 
-        /// <summary>Is <paramref name="at"/> warmed by a lit hearth (any peer)?</summary>
         public static bool Warms(Vector3 at)
         {
             foreach (var h in All)
@@ -93,7 +80,7 @@ namespace Deepbound.World
         {
             base.OnNetworkSpawn();
             All.Add(this);
-            // A heavy iron bowl on three legs, banded, full of cold black coals; its flame and light wake when lit.
+
             for (int i = 0; i < 3; i++)
             {
                 float a = i * 120f;
@@ -108,15 +95,13 @@ namespace Deepbound.World
                 ArtLibrary.Tint(MeshKit.Part(transform, "Coal", MeshKit.Ball(0.13f, 6, 4), Mat.Rubble, new Vector3(r.x, 1.22f, r.y)).GetComponent<Renderer>(), new Color(0.12f, 0.1f, 0.09f));
             }
             MeshKit.MergeParts(transform);
-            // 2026-11-22 (the user: "remove or rework whatever the hell this is, its very visually impairing"): a coal fire,
-            // not one giant solid flame - a low glowing ember bed in the bowl and a few hand-high flames licking over it,
-            // with a modest warm light (it lights the room, it does not blind you across it).
+
             flame = Props.AddFlame(transform, Vector3.up * 1.26f, 1.25f, Fire, 2.2f, 11f, true);
             for (int i = 0; i < 4; i++)
             {
                 var off = Quaternion.Euler(0f, i * 90f + 20f, 0f) * new Vector3(0f, 0f, 0.36f);
                 Props.AddFlame(transform, Vector3.up * 1.24f + off, 0.6f + 0.12f * (i % 2), Fire, 0f, 1f, false, light: false);
-                licks.Add(transform.GetChild(transform.childCount - 1).gameObject); // the flame pivot it just added
+                licks.Add(transform.GetChild(transform.childCount - 1).gameObject);
             }
             ring = MeshKit.Part(transform, "EmberBed", MeshKit.Cylinder(0.62f, 0.62f, 0.03f, 14), Mat.Glow, Vector3.up * 1.2f).transform;
             ArtLibrary.SetGlow(ring.GetComponent<Renderer>(), Fire * 0.6f);

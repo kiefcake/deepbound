@@ -428,3 +428,17 @@ The economy section expects about 5,700 gold a run, so three quests a floor add 
 - The Plague Doctor now sits level with the Knight on guardians; its lead is on crowds (floor 3: 23.6k on non-boss enemies
   against the Knight's 12.8k), which is its role. No further change. Sources: vials ~45%, Blight ~45%, the rest small.
 - The Cleric deals the least, as the support class. Near-downs stayed low (0-9 per member per floor).
+
+## Party run B2, 2026-11-25 (Rogue host, Ranger, Flagellant, Knight; floors 1-3)
+
+| Floor | Rogue | Ranger | Flagellant | Knight | Guardian |
+|---|---|---|---|---|---|
+| 1 | 11.7k (boss 8.7k) | 9.4k (7.4k) | 16.5k (10.6k) | 6.7k (3.9k) | 1.0 min |
+| 2 | 24.5k (21.9k) | 11.7k (9.1k) | 10.6k (8.2k) | 9.3k (6.2k) | 1.1 min |
+| 3 | 46.8k (29.6k) | 27.4k (16.5k) | 19.5k (11.4k) | 27.7k (15.4k) | 1.0 min |
+
+- The Rogue (Duelist) did 2.4x the Ranger on the floor-2 guardian, mostly plain stabs (15.9k of 21.9k). The Duelist still
+  carried its old flat x1.25 from the front on top of the Flourish (every 5th stab x2.5 + a stagger that feeds BREAK) and
+  two targets: about x1.63 base face to face, x1.72 mastered. The flat x1.25 is gone (`RogueKit`, path text); the Flourish
+  and two targets stay, which leaves the Duelist near the Knight's single-target line.
+- Guardians fall in about a minute to a party of four on floors 1-3; near-downs 0-14. Watch this on deeper floors.

@@ -3,11 +3,6 @@ using UnityEngine;
 
 namespace Deepbound.UI
 {
-    /// <summary>
-    /// Steam friends inside the game's own menus (2026-10-26), so inviting and joining work even where the Steam
-    /// overlay does not: JOIN on a friend hosting a Deepbound party (title screen), INVITE on an online friend
-    /// (the host's pause menu), and any invites waiting for an answer. GUILayout pieces for an open area.
-    /// </summary>
     public static class FriendsPanel
     {
         private static Vector2 scroll;
@@ -21,7 +16,6 @@ namespace Deepbound.UI
             dim = new GUIStyle(UiSkin.Small) { alignment = TextAnchor.MiddleLeft, wordWrap = false };
         }
 
-        /// <summary>Invites from friends with a JOIN button each. Returns true if any were drawn.</summary>
         public static bool DrawInvites()
         {
             if (!SteamPlatform.Ready || SteamPlatform.Instance.Invites.Count == 0) return false;
@@ -29,14 +23,13 @@ namespace Deepbound.UI
             foreach (var inv in SteamPlatform.Instance.Invites.ToArray())
             {
                 GUILayout.BeginHorizontal();
-                GUILayout.Label(inv.Name + " invited you", new GUIStyle(row) { normal = { textColor = UiSkin.Gold } }, GUILayout.Height(30));
+                GUILayout.Label(inv.Name + " invited you", UiSkin.Derive(row, UiSkin.Gold), GUILayout.Height(30));
                 if (GUILayout.Button("JOIN", UiSkin.Button, GUILayout.Width(90), GUILayout.Height(30))) SteamPlatform.Join(inv.Lobby);
                 GUILayout.EndHorizontal();
             }
             return true;
         }
 
-        /// <summary>Title screen: friends hosting a Deepbound party first (JOIN), then who else is about.</summary>
         public static void DrawJoinList(float height)
         {
             Styles();
@@ -58,10 +51,9 @@ namespace Deepbound.UI
             }
             if (list.Count == 0) GUILayout.Label("No Steam friends to show.", dim);
             GUILayout.EndScrollView();
-            if (hosting == 0) GUILayout.Label("Nobody is hosting yet: ask a friend to press PLAY, then invite you from their pause menu.", new GUIStyle(UiSkin.Small) { wordWrap = true });
+            if (hosting == 0) GUILayout.Label("Nobody is hosting yet: ask a friend to press PLAY, then invite you from their pause menu.", UiSkin.Derive(UiSkin.Small, UiSkin.Small.normal.textColor, wrap: true));
         }
 
-        /// <summary>Host's pause menu: online friends with an INVITE button each.</summary>
         public static void DrawInviteList(float height)
         {
             Styles();

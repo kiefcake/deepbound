@@ -3,16 +3,10 @@ using Deepbound.Progression;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using Deepbound.UI;
 
 namespace Deepbound.Player
 {
-    /// <summary>
-    /// GIVE WHEEL (2026-11-07, the user: "interact with other players, for giving potions and a small set amount of gold
-    /// or ember that can be repeatedly given"; they chose a hold-key wheel). Look at an ally within <see cref="Reach"/> and
-    /// HOLD the give key (G by default; the old ping slot): a wheel of potions from your pouch, 25 gold, 10 embers, your
-    /// rare draught, and a high five / salute / bow aimed at them. Flick toward a slice and let go to give; held on gold
-    /// or embers it keeps giving every <see cref="RepeatSeconds"/>. The server checks reach, stock and room every time.
-    /// </summary>
     public class GiveWheel : NetworkBehaviour
     {
         public const float Reach = 4.5f, RepeatSeconds = 1f;
@@ -20,7 +14,6 @@ namespace Deepbound.Player
 
         public enum Gift : byte { None, Health, Draught, Frost, Holy, Gold, Embers, Rare, HighFive, Salute, Bow }
 
-        /// <summary>Clockwise from the top.</summary>
         public static readonly Gift[] Wheel = { Gift.Health, Gift.Frost, Gift.Holy, Gift.Gold, Gift.Embers, Gift.Rare, Gift.HighFive, Gift.Salute, Gift.Bow };
 
         public static bool WheelOpenLocal { get; private set; }
@@ -48,7 +41,6 @@ namespace Deepbound.Player
             Gift.Health => Flasks.Kind.Health, Gift.Draught => Flasks.Kind.Mana, Gift.Frost => Flasks.Kind.Frost, Gift.Holy => Flasks.Kind.Holy, _ => null,
         };
 
-        /// <summary>The ally under the crosshair, standing and in reach (owner side).</summary>
         private NetworkPlayer AllyAimed()
         {
             var me = GetComponent<NetworkPlayer>();
@@ -82,12 +74,12 @@ namespace Deepbound.Player
 
             var choice = Choice();
             if (choice != lastSlice) { lastSlice = choice; onSliceSince = Time.time; nextRepeat = Time.time + 0.6f; }
-            // Money repeats while you hold on its slice.
+
             if (held && (choice == Gift.Gold || choice == Gift.Embers) && Time.time >= nextRepeat)
             {
                 nextRepeat = Time.time + RepeatSeconds;
                 GiveRpc(target.NetworkObjectId, (byte)choice);
-                onSliceSince = -2f; // already given: letting go does not give again
+                onSliceSince = -2f;
             }
             if (!held)
             {
@@ -111,11 +103,9 @@ namespace Deepbound.Player
             return Wheel[Mathf.RoundToInt(Mathf.Repeat(ang, 360f) / step) % Wheel.Length];
         }
 
-        /// <summary>Owner -> server: give <paramref name="what"/> to the player <paramref name="to"/>.</summary>
         [Rpc(SendTo.Server)]
         private void GiveRpc(ulong to, byte what) => ServerGive(to, (Gift)what);
 
-        /// <summary>Server: one gift, checked. Public for the smoke test.</summary>
         public bool ServerGive(ulong to, Gift g)
         {
             if (!IsServer || life == null || life.Downed.Value) return false;
@@ -247,8 +237,8 @@ namespace Deepbound.Player
                 GUI.Label(new Rect(pos.x - 80, pos.y - 18, 160, 36), Label(g),
                     new GUIStyle(UI.UiSkin.Body) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold, wordWrap = false, clipping = TextClipping.Clip, normal = { textColor = col } });
             }
-            GUI.Label(new Rect(c.x - 160, c.y - 24, 320, 24), "GIVE TO " + target.name.ToUpperInvariant(), new GUIStyle(UI.UiSkin.Small) { alignment = TextAnchor.MiddleCenter, normal = { textColor = new Color(1f, 1f, 1f, 0.75f) } });
-            GUI.Label(new Rect(c.x - 160, c.y + 2, 320, 22), "hold on gold or embers to keep giving", new GUIStyle(UI.UiSkin.Small) { alignment = TextAnchor.MiddleCenter, fontSize = 12, normal = { textColor = new Color(1f, 1f, 1f, 0.45f) } });
+            GUI.Label(new Rect(c.x - 160, c.y - 24, 320, 24), "GIVE TO " + target.name.ToUpperInvariant(), UiSkin.Derive(UI.UiSkin.Small, new Color(1f, 1f, 1f, 0.75f), align: TextAnchor.MiddleCenter));
+            GUI.Label(new Rect(c.x - 160, c.y + 2, 320, 22), "hold on gold or embers to keep giving", UiSkin.Derive(UI.UiSkin.Small, new Color(1f, 1f, 1f, 0.45f), fontSize: 12, align: TextAnchor.MiddleCenter));
             var dot = c + new Vector2(aim.x, -aim.y) * 0.8f;
             UI.UiSkin.Rect(new Rect(dot.x - 4, dot.y - 4, 8, 8), Color.white);
         }

@@ -3,35 +3,22 @@ using Deepbound.Art;
 using Deepbound.Progression;
 using Unity.Netcode;
 using UnityEngine;
+using Deepbound.UI;
 
 namespace Deepbound.World
 {
-    /// <summary>
-    /// The Bone Reels, in the gambling tent: pull the lever for a flat stake; three reels of
-    /// skulls, bones, candles, coins and crowns spin and stop one by one. Three of a kind pays
-    /// big (crowns most), any pair pays double (crowns triple), skulls pay nothing. The server
-    /// rolls; every peer watches the reels land on the same symbols. Returns about 86%.
-    /// 2026-11-08 rework (the user: "work on every casino game except blackjack"):
-    /// <list type="bullet">
-    /// <item>THE POT: a progressive jackpot shown on the machine. Every losing pull feeds it 40% of the stake; three crowns
-    /// win the whole pot (it starts again at <see cref="PotSeed"/>).</item>
-    /// <item>THE NUDGE: after a pull that paid nothing, for <see cref="NudgeSeconds"/> you may pull again for
-    /// <see cref="NudgeCost"/>: the reel with your best symbol is HELD and the other two spin; only three of a kind
-    /// pays on a nudge.</item>
-    /// </list>
-    /// </summary>
     public class SlotMachine : Interactable
     {
         public const int Stake = 10;
         public const int PotSeed = 250, PotCap = 4000, NudgeCost = 5;
         public const float NudgeSeconds = 6f, PotShare = 0.4f;
-        /// <summary>The progressive pot (three crowns win it).</summary>
+
         public readonly NetworkVariable<int> Pot = new NetworkVariable<int>(PotSeed);
-        // Server: who may nudge, until when, and the three symbols they are nudging from.
+
         private ulong nudgeFor = ulong.MaxValue;
         private float nudgeUntil;
         private readonly Symbol[] nudgeFrom = new Symbol[3];
-        // Local: a nudge offer for the local player (prompt text).
+
         private float localNudgeUntil;
         private int localHeld = -1;
         public enum Symbol : byte { Skull, Bone, Candle, Coin, Crown }
@@ -40,7 +27,6 @@ namespace Deepbound.World
 
         private float busyUntil;
 
-        // What the reels show, for the on-screen card: each reel's symbol, and whether it has stopped yet.
         private readonly byte[] shown = new byte[3];
         private readonly bool[] landed = new bool[3];
         private float cardUntil = -1f;
@@ -64,7 +50,6 @@ namespace Deepbound.World
             return who.Gold.Value < Stake ? "Bone Reels: you need " + Stake + " gold" : "Pull the Bone Reels  -  " + Stake + " gold   ·   THE POT: " + Pot.Value;
         }
 
-        /// <summary>The reel showing the best symbol (the one a nudge holds).</summary>
         public static int BestReel(Symbol a, Symbol b, Symbol c)
         {
             int best = 0;
@@ -82,14 +67,13 @@ namespace Deepbound.World
             return Symbol.Skull;
         }
 
-        /// <summary>The payout (gold returned, stake included) for three symbols.</summary>
         public static int Payout(Symbol a, Symbol b, Symbol c)
         {
             if (a == b && b == c)
             {
                 switch (a)
                 {
-                    case Symbol.Crown: return Stake * 25; // the server pays THE POT instead (see ServerUse)
+                    case Symbol.Crown: return Stake * 25;
                     case Symbol.Coin: return Stake * 10;
                     case Symbol.Candle: return Stake * 6;
                     case Symbol.Bone: return Stake * 4;
@@ -115,7 +99,6 @@ namespace Deepbound.World
             ServerSettle(who, r, held, cost);
         }
 
-        /// <summary>Server: pay a pull (forced symbols in tests). <paramref name="held"/> is the nudged reel or -1.</summary>
         public int ServerSettle(PlayerProgress who, Symbol[] r, int held, int cost)
         {
             nudgeFor = ulong.MaxValue;
@@ -125,7 +108,7 @@ namespace Deepbound.World
             if (jackpot) { win = Pot.Value; Pot.Value = PotSeed; }
             else if (win == 0) Pot.Value = Mathf.Min(PotCap, Pot.Value + Mathf.Max(1, Mathf.RoundToInt(cost * PotShare)));
             who.ServerAddGold(win - cost);
-            // Nothing paid on a full pull: a nudge is on offer.
+
             if (win == 0 && held < 0)
             {
                 nudgeFor = who.OwnerClientId;
@@ -183,7 +166,7 @@ namespace Deepbound.World
                         stopped[i] = true;
                         shown[i] = stops[i];
                         landed[i] = true;
-                        // Land with the rolled symbol facing out.
+
                         spin[i] = -stops[i] * 72f;
                         Sfx.Play(Sound.Block, reels[i].position, 0.35f, 1.8f);
                     }
@@ -209,7 +192,6 @@ namespace Deepbound.World
             BuildVisual();
         }
 
-        /// <summary>The result, big and plain: three symbol tiles and what they paid. Shown to anyone near the machine.</summary>
                 private void OnGUI()
         {
             Deepbound.UI.UiTimer.Begin();
@@ -219,8 +201,8 @@ namespace Deepbound.World
 
         private void OnGUIBody()
         {
-            useGUILayout = false; // no GUILayout here: skip the layout pass (perf)
-            if (Time.time > cardUntil || DiceTable.LocalOpen || PokerDiceTable.LocalSeated || BlackjackTable.LocalOpen) return;
+            useGUILayout = false;
+            if (Time.time > cardUntil || PokerDiceTable.LocalSeated || BlackjackTable.LocalOpen) return;
             var local = Player.NetworkPlayer.Local;
             if (local == null || Vector3.Distance(local.transform.position, transform.position) > 7f) return;
             UI.UiSkin.Apply();
@@ -228,15 +210,14 @@ namespace Deepbound.World
             float tile = 120f, gap = 14f, pw = tile * 3 + gap * 2 + 40, ph = 230f;
             float px = w / 2f - pw / 2f, py = h * 0.5f + 40f;
             UI.UiSkin.Panel(new Rect(px, py, pw, ph), 0.94f);
-            GUI.Label(new Rect(px, py + 8, pw, 24), "THE BONE REELS" + (cardWho != null ? "   -   " + cardWho : "") + "      POT " + Pot.Value, new GUIStyle(UI.UiSkin.Heading) { alignment = TextAnchor.MiddleCenter, fontSize = 18 });
+            GUI.Label(new Rect(px, py + 8, pw, 24), "THE BONE REELS" + (cardWho != null ? "   -   " + cardWho : "") + "      POT " + Pot.Value, UiSkin.Derive(UI.UiSkin.Heading, UI.UiSkin.Heading.normal.textColor, fontSize: 18, align: TextAnchor.MiddleCenter));
             for (int i = 0; i < 3; i++)
             {
                 var r = new Rect(px + 20 + i * (tile + gap), py + 40, tile, tile * 0.8f);
                 var c = SymbolColors[shown[i]];
                 UI.UiSkin.Rect(r, landed[i] ? new Color(c.r, c.g, c.b, 0.9f) : new Color(0.3f, 0.28f, 0.25f, 0.9f));
                 UI.UiSkin.Rect(new Rect(r.x + 3, r.y + 3, r.width - 6, r.height - 6), new Color(0.08f, 0.06f, 0.05f, 0.95f));
-                GUI.Label(r, Names[shown[i]], new GUIStyle(UI.UiSkin.Heading) { alignment = TextAnchor.MiddleCenter, fontSize = 22,
-                    normal = { textColor = landed[i] ? c : new Color(0.6f, 0.58f, 0.55f) } });
+                GUI.Label(r, Names[shown[i]], UiSkin.Derive(UI.UiSkin.Heading, landed[i] ? c : new Color(0.6f, 0.58f, 0.55f), fontSize: 22, align: TextAnchor.MiddleCenter));
             }
             string result;
             Color rc;
@@ -245,15 +226,14 @@ namespace Deepbound.World
             else if (jackpotShown) { result = "THE POT!  +" + (cardWin - stakeShown) + " gold"; rc = new Color(1f, 0.85f, 0.35f); }
             else if (cardWin >= Stake * 6) { result = "JACKPOT!  +" + (cardWin - stakeShown) + " gold"; rc = new Color(1f, 0.85f, 0.35f); }
             else { result = "WIN  +" + (cardWin - stakeShown) + " gold"; rc = new Color(0.6f, 1f, 0.55f); }
-            GUI.Label(new Rect(px, py + 146, pw, 34), result, new GUIStyle(UI.UiSkin.Heading) { alignment = TextAnchor.MiddleCenter, fontSize = 26, normal = { textColor = rc } });
-            if (heldShown >= 0) GUI.Label(new Rect(px + 20 + heldShown * (tile + gap), py + 40 + tile * 0.8f - 2, tile, 18), "HELD", new GUIStyle(UI.UiSkin.Small) { alignment = TextAnchor.MiddleCenter, normal = { textColor = UI.UiSkin.Gold } });
+            GUI.Label(new Rect(px, py + 146, pw, 34), result, UiSkin.Derive(UI.UiSkin.Heading, rc, fontSize: 26, align: TextAnchor.MiddleCenter));
+            if (heldShown >= 0) GUI.Label(new Rect(px + 20 + heldShown * (tile + gap), py + 40 + tile * 0.8f - 2, tile, 18), "HELD", UiSkin.Derive(UI.UiSkin.Small, UI.UiSkin.Gold, align: TextAnchor.MiddleCenter));
             GUI.Label(new Rect(px, py + 186, pw, 34), "3 crowns = THE POT   3 coins x10   3 candles x6   3 bones x4   any pair x2 (crowns x3)   skulls pay nothing",
-                new GUIStyle(UI.UiSkin.Small) { alignment = TextAnchor.MiddleCenter, wordWrap = true });
+                UiSkin.Derive(UI.UiSkin.Small, UI.UiSkin.Small.normal.textColor, align: TextAnchor.MiddleCenter, wrap: true));
         }
 
         private void BuildVisual()
         {
-            // The cabinet: dark wood, gilt trim, a window over three reels, a lever on the right.
             var cab = MeshKit.Part(transform, "Cabinet", MeshKit.Box(new Vector3(1f, 1.7f, 0.7f)), Mat.Wood, Vector3.up * 0.85f);
             ArtLibrary.Tint(cab.GetComponent<Renderer>(), new Color(0.45f, 0.28f, 0.2f));
             MeshKit.Part(transform, "TrimTop", MeshKit.Box(new Vector3(1.06f, 0.08f, 0.76f)), Mat.Gold, Vector3.up * 1.72f);
@@ -263,7 +243,7 @@ namespace Deepbound.World
             {
                 var reel = MeshKit.Pivot(transform, "Reel" + i, new Vector3((i - 1) * 0.26f, 1.2f, 0.2f));
                 MeshKit.Part(reel, "Drum", MeshKit.Cylinder(0.17f, 0.17f, 0.22f, 15), Mat.Bone, new Vector3(-0.11f, 0f, 0f), new Vector3(0f, 0f, 90f));
-                // Five symbols round the drum, 72 degrees apart; symbol 0 faces out at rest.
+
                 for (int s = 0; s < 5; s++)
                 {
                     var face = MeshKit.Pivot(reel, "Face" + s, Vector3.zero, new Vector3(s * 72f, 0f, 0f));
@@ -277,7 +257,7 @@ namespace Deepbound.World
             MeshKit.Part(arm, "Arm", MeshKit.Cylinder(0.025f, 0.025f, 0.5f, 6), Mat.Steel, Vector3.zero);
             MeshKit.Part(arm, "Knob", MeshKit.Ball(0.06f, 8, 6), Mat.Bone, Vector3.up * 0.52f);
             lever = arm;
-            // A skull on top, candles either side.
+
             MeshKit.Part(transform, "Skull", MeshKit.Ball(0.12f, 8, 6), Mat.Bone, new Vector3(0f, 1.86f, 0.1f));
             foreach (float x in new[] { -0.38f, 0.38f })
             {

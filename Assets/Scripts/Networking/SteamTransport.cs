@@ -7,38 +7,20 @@ using UnityEngine;
 
 namespace Deepbound.Networking
 {
-    /// <summary>
-    /// Netcode over Steam's peer-to-peer sockets (2026-10-26, "work on multiplayer for testing": the user's router
-    /// opens no ports, so friends could not reach a host). Steam finds the host by SteamID and relays the traffic
-    /// through Valve's network when a direct route fails, so nobody forwards a port or installs a VPN.
-    ///
-    /// <para>
-    /// A polling transport: <see cref="PollEvent"/> hands NGO one queued event at a time; connection changes arrive
-    /// on Steam's status callback (run by <see cref="SteamPlatform"/>), messages are read from a poll group (host) or
-    /// the one connection (guest). Transport ids are the Steam connection handles; the host is <see cref="ServerClientId"/> 0.
-    /// </para>
-    /// </summary>
     public class SteamTransport : NetworkTransport
     {
-        /// <summary>Guest: the SteamID of the host to connect to (set before StartClient).</summary>
         public ulong TargetSteamId;
 
         public override ulong ServerClientId => 0;
 
-        /// <summary>Why the last Steam connection ended, in words for the join screen ("" if it ended cleanly).</summary>
         public static string LastProblem { get; private set; } = "";
         private float connectStartedAt, nextSendWarn;
         private int sendFailures;
 
-        /// <summary>
-        /// Steam refuses any one message over 512 KB, and NGO can hand us a bigger batch (the first sync of a whole floor).
-        /// Every message carries a one-byte frame: <see cref="Whole"/>, or a run of <see cref="Part"/> chunks ending in
-        /// <see cref="Last"/>. Big ones are always reliable, and reliable messages arrive in order, so a chunk run is never interleaved.
-        /// </summary>
         private const byte Whole = 0, Part = 1, Last = 2;
         public const int ChunkSize = 256 * 1024;
         private readonly Dictionary<uint, System.IO.MemoryStream> partial = new Dictionary<uint, System.IO.MemoryStream>();
-        /// <summary>For tests: the largest message handed to Steam and the most chunks one was split into.</summary>
+
         public static int LargestSent { get; private set; }
 
         private struct Pending { public NetworkEvent Kind; public ulong Client; public ArraySegment<byte> Data; public float At; }
@@ -101,8 +83,7 @@ namespace Deepbound.Networking
             switch (s.m_info.m_eState)
             {
                 case ESteamNetworkingConnectionState.k_ESteamNetworkingConnectionState_Connecting:
-                    // Someone knocking on our listen socket: let them in (the build and party size are checked by
-                    // the launcher's connection approval, which can send a reason before it closes them).
+
                     if (server && s.m_info.m_hListenSocket == listen)
                     {
                         if (SteamNetworkingSockets.AcceptConnection(conn) == EResult.k_EResultOK)
@@ -114,7 +95,7 @@ namespace Deepbound.Networking
                     Debug.Log("[Steam] connection " + id + " finding a route (" + (Time.realtimeSinceStartup - connectStartedAt).ToString("F1") + " s)");
                     break;
                 case ESteamNetworkingConnectionState.k_ESteamNetworkingConnectionState_Connected:
-                    // Direct or through Valve's relays: worth knowing when a friend reports lag.
+
                     bool relayed = (s.m_info.m_nFlags & Constants.k_nSteamNetworkConnectionInfoFlags_Relayed) != 0;
                     Debug.Log("[Steam] connection " + id + " connected " + (relayed ? "through a relay" : "directly") + (server ? "" : " after " + (Time.realtimeSinceStartup - connectStartedAt).ToString("F1") + " s") + ": " + s.m_info.m_szConnectionDescription);
                     MarkConnected(conn);
@@ -126,13 +107,12 @@ namespace Deepbound.Networking
                     SteamNetworkingSockets.CloseConnection(conn, 0, null, false);
                     bool was = connected.Remove(id);
                     if (server) { if (was) { peers.Remove(id); Queue(NetworkEvent.Disconnect, id); } }
-                    // A guest whose host vanished, or who never got through: either way NGO hears "disconnected".
+
                     else if (conn == toHost) { toHost = HSteamNetConnection.Invalid; Queue(NetworkEvent.Disconnect, ServerClientId); }
                     break;
             }
         }
 
-        /// <summary>Steam's end reason, as something a player can act on.</summary>
         public static string Explain(int reason, bool wasIn)
         {
             if (reason >= 1000 && reason < 3000) return "";
@@ -184,7 +164,7 @@ namespace Deepbound.Networking
             {
                 var msg = SteamNetworkingMessage_t.FromIntPtr(inbox[i]);
                 uint from = msg.m_conn.m_HSteamNetConnection;
-                // A message can beat its own "connected" callback by a frame: count the sender in first.
+
                 if (!connected.Contains(from)) MarkConnected(msg.m_conn);
                 if (msg.m_cbSize >= 1)
                 {
@@ -225,7 +205,7 @@ namespace Deepbound.Networking
                 : Constants.k_nSteamNetworkingSend_Reliable | Constants.k_nSteamNetworkingSend_NoNagle;
             LargestSent = Mathf.Max(LargestSent, payload.Count);
             if (payload.Count <= ChunkSize || unreliable) { SendFrame(conn, Whole, payload.Array, payload.Offset, payload.Count, flags, networkDelivery); return; }
-            // Too big for one Steam message: reliable chunks, reassembled on the other side.
+
             for (int off = 0; off < payload.Count; off += ChunkSize)
             {
                 int len = Mathf.Min(ChunkSize, payload.Count - off);
@@ -244,7 +224,7 @@ namespace Deepbound.Networking
             Marshal.WriteByte(sendBuffer, frame);
             Marshal.Copy(data, offset, sendBuffer + 1, count);
             var sent = SteamNetworkingSockets.SendMessageToConnection(conn, sendBuffer, (uint)(count + 1), flags, out _);
-            // A dropped reliable message would desync the guest without a word: say so in the log (a few a second at most).
+
             if (sent != EResult.k_EResultOK)
             {
                 sendFailures++;
@@ -259,7 +239,7 @@ namespace Deepbound.Networking
         public override void DisconnectRemoteClient(ulong clientId)
         {
             if (!peers.TryGetValue(clientId, out var conn)) return;
-            // Linger so a refusal ("different build", "party full") reaches them before the line drops.
+
             SteamNetworkingSockets.CloseConnection(conn, 0, "removed by host", true);
             peers.Remove(clientId);
             connected.Remove((uint)clientId);

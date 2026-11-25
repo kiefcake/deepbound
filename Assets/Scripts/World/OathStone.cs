@@ -5,11 +5,6 @@ using UnityEngine;
 
 namespace Deepbound.World
 {
-    /// <summary>
-    /// The Oath Room's weight (2026-10-20): a carved block heavy enough to hold down one of the
-    /// <see cref="OathPlates"/>, so a lone delver can keep the oath. Carried like any <see cref="Carryable"/>
-    /// (slow, no fighting) but never delivered anywhere: set it down on a plate.
-    /// </summary>
     public class OathStone : Carryable
     {
         public override string ItemName => "the Oath Stone";
@@ -39,12 +34,12 @@ namespace Deepbound.World
         {
             visual = new GameObject("Stone").transform;
             visual.SetParent(transform, false);
-            // Pale carved stone, so it reads as the plates' twin and not a crate.
+
             var block = MeshKit.Part(visual, "Block", MeshKit.Box(new Vector3(0.62f, 0.5f, 0.62f)), Mat.Marble, new Vector3(0f, 0.25f, 0f));
             ArtLibrary.Tint(block.GetComponent<Renderer>(), new Color(0.86f, 0.88f, 0.92f));
             MeshKit.Part(visual, "Cap", MeshKit.Box(new Vector3(0.68f, 0.07f, 0.68f)), Mat.StoneWall, new Vector3(0f, 0.53f, 0f));
             MeshKit.Part(visual, "Base", MeshKit.Box(new Vector3(0.68f, 0.06f, 0.68f)), Mat.StoneWall, new Vector3(0f, 0.03f, 0f));
-            // A glowing hand carved on every face, matching the plates, and a ring on top.
+
             for (int f = 0; f < 4; f++)
             {
                 var rot = Quaternion.Euler(0f, f * 90f, 0f);

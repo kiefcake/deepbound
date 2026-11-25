@@ -3,19 +3,12 @@ using UnityEngine;
 
 namespace Deepbound.Player
 {
-    /// <summary>
-    /// Sitting on the logs round the spawn bonfire (2026-11-07, the user: "allow the players to be able to sit around the
-    /// camp fire at spawn on the logs"). Owner only, like the carriage bench: F within reach of a free place on a log pins
-    /// you to it facing the fire and plays the Sit gesture for everyone; F again, a jump or any step stands you up.
-    /// Added at runtime by <see cref="NetworkPlayer"/>.
-    /// </summary>
     public class CampSeat : MonoBehaviour
     {
         public const float Reach = 1.6f;
 
-        /// <summary>What the HUD prompts while the local player is by a log (or seated), else null.</summary>
         public static string Prompt { get; private set; }
-        /// <summary>The local player is sitting on a log.</summary>
+
         public static bool SeatedLocal { get; private set; }
 
         private NetworkPlayer player;
@@ -35,7 +28,6 @@ namespace Deepbound.Player
             seats = Lobby.LogSeats();
         }
 
-        /// <summary>The nearest free place on a log within reach of <paramref name="from"/>, or -1.</summary>
         public int NearestFree(Vector3 from)
         {
             int best = -1;
@@ -67,7 +59,6 @@ namespace Deepbound.Player
             bool camp = DungeonDirector.InLobby && !life.Downed.Value;
             if (seat >= 0)
             {
-                // Moved off the log by something else (a teleport): let go where you are.
                 var off = transform.position - seats[seat].at; off.y = 0f;
                 if (!motor.Pinned || off.magnitude > 0.3f) { Stand(moved: true); return; }
                 bool wantsUp = !camp || UI.Binds.Down(UI.Bind.Jump) || motor.RawMove.sqrMagnitude > 0.2f

@@ -8,22 +8,6 @@ using UnityEngine;
 
 namespace Deepbound.Enemies
 {
-    /// <summary>
-    /// What every boss shares: the boss-bar identity, party scaling, guaranteed loot,
-    /// immunity to knockback, summoning, and the telegraph and impact effects. Each floor's
-    /// boss subclasses this with its own mechanics.
-    ///
-    /// Design rule for every boss: each mechanic has one visible tell and one answer, and
-    /// the answers are different skills — so a fight tests the whole kit and the whole
-    /// party, not just damage output.
-    ///
-    /// <para>Phases, after Realm of the Mad God: a boss declares HP gates (<see cref="PhaseGates"/>).
-    /// Damage cannot carry it past the next gate, so no burst skips a phase. At each gate it
-    /// changes stance: a short invulnerable <b>Transition</b> with a taunt; an <b>Invulnerable</b>
-    /// phase that lasts while its wards (summoned guards) live, with a timeout; a timed
-    /// <b>Survival</b> phase (immune, dodge the pattern); or <b>Armored</b> (it takes a third).
-    /// Every stance shows on the boss bar, on the boss (a shield bubble) and on hits (IMMUNE).</para>
-    /// </summary>
     public abstract partial class BossBrain : EnemyBrain
     {
         public static BossBrain Active { get; private set; }
@@ -33,13 +17,10 @@ namespace Deepbound.Enemies
 
         public abstract string DisplayName { get; }
 
-        /// <summary>The line under the name on the intro card.</summary>
         public virtual string Epithet => "Guardian of the deep";
 
-        /// <summary>What it says as it falls.</summary>
         public virtual string LastWords => "...";
 
-        /// <summary>Which of the camp's remembered deeds this boss is.</summary>
         public virtual Progression.Deeds.Deed Deed => Progression.Deeds.Deed.Gravewarden;
 
         protected override void OnDied(Health h)
@@ -56,45 +37,37 @@ namespace Deepbound.Enemies
             UI.GameHud.ShowTitleCard(who.ToUpperInvariant() + " FALLS", Epithet, new Color(1f, 0.82f, 0.4f));
             if (Progression.Deeds.Add((Progression.Deeds.Deed)deed))
             {
-                // A first kill on this machine: the guardian's eulogy goes into the journal.
                 int page = UI.Journal.EulogyFor(deed);
                 if (page >= 0 && UI.Journal.Add(page)) UI.GameHud.Feed("A new page in your Journal: " + UI.Journal.Entries[page].Title, new Color(0.9f, 0.8f, 0.55f));
             }
         }
 
-        /// <summary>One sentence on how to beat it, shown on the intro card.</summary>
         public virtual string Hint => "Watch for the red ! and jump its shockwaves.";
         public Health Health => health;
 
         protected int scaledPlayers = 1, scaledDepth;
-
-        // ------------------------------------------------------------------
-        // Phases
-        // ------------------------------------------------------------------
 
         public enum Stance : byte { Normal = 0, Transition = 1, Invulnerable = 2, Survival = 3, Armored = 4 }
 
         public readonly NetworkVariable<byte> StanceValue = new NetworkVariable<byte>();
         public readonly NetworkVariable<Unity.Collections.FixedString64Bytes> PhaseName = new NetworkVariable<Unity.Collections.FixedString64Bytes>();
         public readonly NetworkVariable<Unity.Collections.FixedString128Bytes> PhaseHint = new NetworkVariable<Unity.Collections.FixedString128Bytes>();
-        /// <summary>Server time the current stance times out (0 = no timer), for the HUD countdown.</summary>
+
         public readonly NetworkVariable<double> StanceEndsAt = new NetworkVariable<double>();
-        /// <summary>Wards still standing (the guards that keep an Invulnerable phase up).</summary>
+
         public readonly NetworkVariable<byte> WardsLeft = new NetworkVariable<byte>();
 
         public Stance CurrentStance => (Stance)StanceValue.Value;
         public bool Immune => CurrentStance == Stance.Transition || CurrentStance == Stance.Invulnerable || CurrentStance == Stance.Survival;
         protected bool InSurvival => CurrentStance == Stance.Survival;
 
-        /// <summary>Damage taken while Armored.</summary>
         public const float ArmoredTaken = 0.35f;
-        /// <summary>A hit this big is a scripted kill (tests, the abyss): it ignores phases.</summary>
+
         public const float KillDamage = 1e5f;
 
-        /// <summary>HP fractions, highest first, at which <see cref="OnPhaseGate"/> fires.</summary>
         protected virtual float[] PhaseGates => System.Array.Empty<float>();
         public int GateCount => PhaseGates.Length;
-        /// <summary>Any peer: the phase gates (for the boss bar's notches).</summary>
+
         public float[] Gates => PhaseGates;
         protected virtual void OnPhaseGate(int index) { }
 
@@ -122,7 +95,7 @@ namespace Deepbound.Enemies
             }
             if (CurrentStance == Stance.Armored) dmg *= ArmoredTaken;
             var gates = PhaseGates;
-            // A gate reached but not yet begun holds: the boss cannot drop below it in between.
+
             if (pendingGate >= 0) return Mathf.Max(0f, Mathf.Min(dmg, health.Current.Value - gates[pendingGate] * health.Max.Value));
             if (gatesPassed < gates.Length && pendingGate < 0)
             {
@@ -140,9 +113,8 @@ namespace Deepbound.Enemies
 
         private void TickPhases()
         {
-            // Added on the first tick, so it runs after every modifier the subclass registered (shields, wards).
             if (!phaseModifierAdded) { phaseModifierAdded = true; health.IncomingModifiers.Add(PhaseModifier); }
-            // Gates crossed without damage (set by tests or scripts) still fire, one at a time.
+
             var gates = PhaseGates;
             if (pendingGate < 0 && gatesPassed < gates.Length && health.Fraction < gates[gatesPassed] - 0.001f) pendingGate = gatesPassed++;
             if (pendingGate >= 0 && !Immune && !Dormant)
@@ -173,7 +145,6 @@ namespace Deepbound.Enemies
             Debug.Log("[Boss] " + DisplayName + " stance " + stance + " (" + PhaseName.Value + ")");
         }
 
-        /// <summary>Server: end a Survive stance early (a lure that surfaces before its clock runs out).</summary>
         protected void EndSurvival() { if (CurrentStance == Stance.Survival) EndStance(); }
 
         private void EndStance()
@@ -189,7 +160,6 @@ namespace Deepbound.Enemies
             then?.Invoke();
         }
 
-        /// <summary>Server: a brief, immune pause into a new phase: it stops, speaks, and gathers itself.</summary>
         [Rpc(SendTo.ClientsAndHost)]
         private void RoarRpc() => Sfx.Play(Sound.Roar, transform.position + Vector3.up * 2f, 1f, Rig != null ? Mathf.Clamp(1.1f - 0.12f * Rig.transform.lossyScale.y, 0.6f, 1f) : 0.8f);
 
@@ -201,16 +171,14 @@ namespace Deepbound.Enemies
             castUntil = Time.time + seconds;
             busyUntil = castUntil;
             CancelTelegraphRpc();
-            // A wind-up in flight is dropped with its telegraph, as a break drops it: it used to land mid-transition with no warning.
+
             if (IsServer) OnBroken();
             PlayActionRpc(RigAction.Cast, seconds);
             Taunt(taunt);
         }
 
-        /// <summary>Server: the party changed size mid-fight; the shield and summon rules follow it.</summary>
         internal void SyncScaledPlayers(int players) => scaledPlayers = Mathf.Max(1, players);
 
-        /// <summary>Server: immune while <paramref name="guards"/> live (or until the timeout). It keeps fighting.</summary>
         protected void InvulnerableWhile(string phase, string taunt, string hint, List<EnemyBrain> guards, float maxSeconds, System.Action then = null)
         {
             wards = guards ?? new List<EnemyBrain>();
@@ -221,7 +189,6 @@ namespace Deepbound.Enemies
             Taunt(taunt);
         }
 
-        /// <summary>Server: immune for <paramref name="seconds"/> while the subclass runs a pattern to survive.</summary>
         protected void Survive(string phase, string taunt, string hint, float seconds, System.Action then = null)
         {
             stanceThen = then;
@@ -231,7 +198,6 @@ namespace Deepbound.Enemies
             Taunt(taunt);
         }
 
-        /// <summary>Server: armour on (a third of damage gets through) or off.</summary>
         protected void SetArmored(bool on, string phase = null, string hint = null)
         {
             SetStance(on ? Stance.Armored : Stance.Normal, phase, hint, 0f);
@@ -242,7 +208,6 @@ namespace Deepbound.Enemies
             if (!string.IsNullOrEmpty(line)) TauntRpc(DisplayName, line);
         }
 
-        /// <summary>Tests: back to the first phase, normal stance.</summary>
         public void ServerDebugResetPhases()
         {
             gatesPassed = 0;
@@ -277,12 +242,9 @@ namespace Deepbound.Enemies
             Sfx.Play(Sound.Whisper, transform.position + Vector3.up * 2f, 1f, 0.55f);
         }
 
-        // ---- The shield bubble: shown on every peer while it is immune. ----
         private Transform bubble;
         private Renderer bubbleRenderer;
 
-        // A faint shadowless light over every guardian: past the presence light's 8 m they were black shapes on the
-        // darker floors (floors 1, 5 and 10 in the boss shots). Low, so the ink-and-candle look stays.
         private Light bossLight;
 
         private void TickBossLight()
@@ -314,28 +276,21 @@ namespace Deepbound.Enemies
             bubble.gameObject.SetActive(show);
             if (!show) return;
             var c = CurrentStance == Stance.Survival ? new Color(1f, 0.55f, 0.3f) : new Color(0.55f, 0.75f, 1f);
-            c.a = 0.05f + 0.02f * Mathf.Sin(Time.time * 4f); // 2026-11-20: faint, so the guardian shows inside (it hid the Lantern Fisher)
+            c.a = 0.05f + 0.02f * Mathf.Sin(Time.time * 4f);
             ArtLibrary.Tint(bubbleRenderer, c);
         }
         protected float castUntil;
 
         public void SetMinionPrefab(NetworkObject prefab) => minionPrefab = prefab;
 
-        // ------------------------------------------------------------------
-        // STAGGER (2026-10-26, "keep working on bosses"): weak-point bursts, headshots, stuns and kicks fill a
-        // break meter under the boss bar; full, the boss is BROKEN for a few seconds - held, its patterns and
-        // telegraphs cut, taking x1.5 - and each break after needs more. Nothing fills it while it is immune.
-        // ------------------------------------------------------------------
-
         public readonly NetworkVariable<float> Stagger = new NetworkVariable<float>();
         public readonly NetworkVariable<bool> Broken = new NetworkVariable<bool>();
         public const float BreakSeconds = 3.5f, BreakTaken = 1.5f, StaggerGrace = 3f, StaggerDecay = 0.06f;
-        /// <summary>What each kind of hit adds (before the per-break and party scaling).</summary>
+
         public const float StaggerWeakBurst = 0.16f, StaggerWeak = 0.05f, StaggerHead = 0.035f, StaggerStun = 0.12f;
         private float lastStaggerAt, brokenUntil;
         public int Breaks { get; private set; }
 
-        /// <summary>Server: add to the break meter (scaled down per break so far, and for a bigger party).</summary>
         public void ServerAddStagger(float amount)
         {
             if (!IsServer || IsDead || Immune || Dormant || Broken.Value || InEntrance) return;
@@ -363,10 +318,8 @@ namespace Deepbound.Enemies
             Debug.Log("[Boss] " + DisplayName + " BROKEN (" + Breaks + ")");
         }
 
-        /// <summary>A subclass drops whatever it was winding up (the Hollow King's slam).</summary>
         protected virtual void OnBroken() { }
 
-        /// <summary>For tests: break it now, asleep or not.</summary>
         public void ServerDebugBreak() { if (!Broken.Value) ServerBreak(); }
 
         private void TickStagger()
@@ -397,10 +350,8 @@ namespace Deepbound.Enemies
 
         protected override LootTable Loot => LootTable.SkeletonKing;
 
-        /// <summary>The floor's guardian takes the boss bar as it spawns; a lair's mini boss only once it is fought (LairBrain).</summary>
         protected virtual bool ClaimsActiveOnSpawn => true;
 
-        /// <summary>Any peer: put <paramref name="b"/> on the boss bar, or (null) hand it back to the floor's guardian.</summary>
         public static void ClaimActive(BossBrain b)
         {
             if (b != null) { Active = b; return; }
@@ -416,8 +367,7 @@ namespace Deepbound.Enemies
             if (IsServer)
             {
                 health.IncomingModifiers.Add((dmg, from) => Broken.Value && dmg < KillDamage ? dmg * BreakTaken : dmg);
-                // Asleep on its throne it cannot be hurt (no plinking it from the doorway, no
-                // sealing the gates on half the party); the director wakes it when everyone is in.
+
                 health.IncomingModifiers.Insert(0, (dmg, from) =>
                 {
                     if (!Dormant || dmg >= KillDamage) return dmg;
@@ -442,22 +392,17 @@ namespace Deepbound.Enemies
             scaledPlayers = players;
             scaledDepth = depth;
             ServerScale(players, depth);
-            // The signature hits (slam, pool, charge, judgement) were bare numbers tuned for each guardian's own act:
-            // they ignored the difficulty setting and fury, and the Cardinal hit no harder on floors 9-10 than on 7-8.
-            // Party size is left out on purpose: those hits land on several of you at once already.
+
             signatureScale = Difficulty.Level.Damage * Difficulty.DepthDamage(depth) / Difficulty.DepthDamage(Mathf.Min(depth, HomeDepthCap));
         }
 
-        /// <summary>Deepest depth a guardian is tuned for (the Cardinal's act, depths 6-7); past it the signature hits grow.</summary>
         private const int HomeDepthCap = 7;
         private float signatureScale = 1f;
 
-        /// <summary>Server: a signature hit's base number, scaled for difficulty, the depth past its own act, and fury.</summary>
         protected float Signature(float baseHit) => baseHit * signatureScale;
 
         protected bool Casting => Time.time < castUntil;
 
-        // ---- Fury: a fight that drags past a few minutes makes the boss hit much harder. ----
         public const float FurySeconds = 210f;
         private float fightStartedAt = -1f;
         private bool furious;
@@ -482,8 +427,7 @@ namespace Deepbound.Enemies
             if (Rig != null) Rig.GlowColor = new Color(1f, 0.15f, 0.05f);
         }
 
-        // ---- Shockwave: an expanding ring that hits grounded players as it passes. ----
-        protected virtual float ShockwaveCooldown => 0f;   // 0 = this boss has none
+        protected virtual float ShockwaveCooldown => 0f;
         protected virtual Color ShockwaveColor => new Color(1f, 0.6f, 0.3f);
         protected virtual float ShockwaveDamage => damage * 0.9f;
         private float nextShockwave = -1f, shockwaveAt = -1f;
@@ -491,11 +435,10 @@ namespace Deepbound.Enemies
         private class Wave { public Vector3 Origin; public float Start, Speed, Max, Damage; public readonly HashSet<ulong> Hit = new HashSet<ulong>(); }
         private readonly List<Wave> waves = new List<Wave>();
 
-        /// <summary>Server: start a shockwave wind-up if one is due. Call from ChooseSpecialAttack.</summary>
         protected bool TryShockwave()
         {
             if (ShockwaveCooldown <= 0f) return false;
-            // The first comes a little after the fight starts (or after a phase unlocks it).
+
             if (nextShockwave < 0f) nextShockwave = Time.time + Mathf.Min(6f, ShockwaveCooldown * 0.6f);
             if (Time.time < nextShockwave) return false;
             nextShockwave = Time.time + ShockwaveCooldown;
@@ -507,7 +450,6 @@ namespace Deepbound.Enemies
             return true;
         }
 
-        /// <summary>Server: launch a wave now (bosses may also call this from their own attacks).</summary>
         protected void LaunchShockwave(Vector3 origin, float speed, float max, float dmg)
         {
             waves.Add(new Wave { Origin = origin, Start = Time.time, Speed = speed, Max = max, Damage = dmg });
@@ -531,7 +473,7 @@ namespace Deepbound.Enemies
                 {
                     if (p == null || !p.Targetable || w.Hit.Contains(p.NetworkObjectId)) continue;
                     var d = p.transform.position - w.Origin;
-                    // Airborne players clear the wave: jump it.
+
                     if (d.y > 0.45f) continue;
                     d.y = 0f;
                     if (Mathf.Abs(d.magnitude - r) > 0.8f) continue;
@@ -552,13 +494,8 @@ namespace Deepbound.Enemies
             if (local != null && Vector3.Distance(local.transform.position, origin) < 18f) local.AddShake(0.35f);
         }
 
-        /// <summary>
-        /// Server: asleep on the throne until the arena seals (or it is hit). The director
-        /// wakes it; damage wakes it too, so a party cannot plink it from the doorway.
-        /// </summary>
         public bool Dormant { get; set; }
 
-        /// <summary>The dash (EnemyBrain.ServerBossDash) waits while it sleeps, stands untouchable or makes its entrance.</summary>
         protected override bool CanDash => base.CanDash && !Dormant && !Immune && !InEntrance && Hunts;
 
         protected override bool IsBoss => true;
@@ -580,14 +517,13 @@ namespace Deepbound.Enemies
             base.Update();
         }
 
-        // Phases tick here, not in Update: subclasses return early from Update while they wind up.
         protected virtual void LateUpdate()
         {
             if (IsServer && !IsDead && IsSpawned)
             {
                 TickPhases();
                 TickStagger();
-                // Hunts and their strikes tick here too: subclasses return early from Update mid-attack.
+
                 TickStrikes();
                 if (!IsStunned && !InEntrance) TickHunt();
                 TickDash();
@@ -596,24 +532,18 @@ namespace Deepbound.Enemies
             TickBubble();
         }
 
-        // ------------------------------------------------------------------
-        // Bullet patterns: arms of bolts wheeling out from an emitter that MOVES (orbits the boss,
-        // walks with it, circles the arena), spinning one way then the other, with aimed shots
-        // mixed in, so standing still is never the answer.
-        // ------------------------------------------------------------------
-
         protected class Pattern
         {
             public int Arms = 4;
             public float Interval = 0.12f, Speed = 12f, Spin = 12f, Damage = 10f, Range = 34f;
-            /// <summary>Seconds between spin reversals (0 = never).</summary>
+
             public float FlipEvery;
-            /// <summary>Degrees of extra sway per volley (a flower instead of a pinwheel).</summary>
+
             public float Wobble;
-            /// <summary>Seconds between leading shots at every player (0 = none).</summary>
+
             public float AimedEvery;
             public ProjectileKind Kind = ProjectileKind.ShadowBolt;
-            /// <summary>Where the emitter is, given seconds since the pattern began.</summary>
+
             public System.Func<float, Vector3> Origin;
             public System.Action<Health> OnHit;
             public float Duration = 6f;
@@ -621,7 +551,6 @@ namespace Deepbound.Enemies
             internal byte Id;
         }
 
-        /// <summary>Boss bullet patterns hit harder (2026-10-21, the user): every pattern's bolts and aimed shots.</summary>
         public const float PatternDamageScale = 1.5f;
         private byte nextPatternId;
 
@@ -643,7 +572,6 @@ namespace Deepbound.Enemies
         protected void StopPatterns() => patterns.Clear();
         protected bool PatternRunning => patterns.Count > 0;
 
-        /// <summary>An emitter circling the boss at <paramref name="radius"/>, <paramref name="degPerSec"/> round.</summary>
         protected System.Func<float, Vector3> Orbit(float radius, float degPerSec, float phase = 0f, float height = 1.3f) =>
             t => transform.position + Quaternion.Euler(0f, phase + t * degPerSec, 0f) * Vector3.forward * radius + Vector3.up * height;
 
@@ -699,9 +627,6 @@ namespace Deepbound.Enemies
             Sfx.Play(Sound.Whisper, origin, 0.5f, 1.5f);
         }
 
-        // ---- Quick shots: run from a boss on floor 3 or deeper and it answers with a fast, leading burst ----
-
-        /// <summary>What it throws at a fleeing party (none: it never does).</summary>
         protected virtual ProjectileKind? QuickKind => ProjectileKind.ShadowBolt;
         public const float QuickSpeed = 26f;
         private float nextQuick, farSince = -1f;
@@ -718,7 +643,6 @@ namespace Deepbound.Enemies
 
         private System.Collections.IEnumerator QuickBurst(int shots)
         {
-            // The tell: a flare at its hand and a hiss, a beat before the first shot.
             var hand = transform.position + Vector3.up * 2.3f + transform.forward * 0.9f;
             QuickTellRpc(hand, (byte)QuickKind.Value);
             yield return new WaitForSeconds(0.4f);
@@ -741,14 +665,11 @@ namespace Deepbound.Enemies
             Sfx.Play(Sound.Bow, at, 0.8f, 1.4f);
         }
 
-        // ---- Cone warnings on its big swings ----
-
         protected override void BeginAttack()
         {
             base.BeginAttack();
             if (attacking && Rig != null)
-                // Exactly the wedge the swing will strike (its move's arc and reach, plus a body's width), in the locked direction,
-                // for the whole wind-up of that move.
+
                 ConeTelegraphRpc(transform.position, strikeDir, Mathf.Clamp(MoveArc, 40f, 300f), MoveReach + 0.45f, Mathf.Max(0.1f, strikeAt - Time.time));
         }
 
@@ -760,15 +681,11 @@ namespace Deepbound.Enemies
             bool heavy = currentMove == Move.Heavy;
             base.Strike();
             StrikeWakeRpc(apex, dir, arc, reach, heavy);
-            // A flurry's second blow gets its own wedge (same direction: it is locked).
+
             if (attacking && Rig != null)
                 ConeTelegraphRpc(transform.position, strikeDir, Mathf.Clamp(MoveArc, 40f, 300f), MoveReach + 0.45f, Mathf.Max(0.1f, strikeAt - Time.time));
         }
 
-        /// <summary>
-        /// Where a guardian's blow lands, the floor shows it (2026-11-13): grit thrown up along the edge of the wedge it struck, and
-        /// for a heavy blow a crack of dust and a ring where the weapon met the stone. Seen by everyone; harmless.
-        /// </summary>
         [Rpc(SendTo.ClientsAndHost)]
         private void StrikeWakeRpc(Vector3 apex, Vector3 dir, float arc, float reach, bool heavy)
         {
@@ -810,7 +727,6 @@ namespace Deepbound.Enemies
             base.ServerStun(seconds);
         }
 
-        /// <summary>Where a player will be in <paramref name="seconds"/>, as far as this boss is clever enough to guess.</summary>
         protected Vector3 PredictedFeet(PlayerLife p, float seconds)
         {
             var v = p.ServerVelocity;
@@ -820,10 +736,8 @@ namespace Deepbound.Enemies
             return at;
         }
 
-        /// <summary>A cast-time summon of the minion prefab in a ring around the boss.</summary>
         protected NetworkObject guardPrefab;
 
-        /// <summary>A second kind of minion some bosses call (the Hollow King's royal guard).</summary>
         public void SetGuardPrefab(NetworkObject prefab) => guardPrefab = prefab;
 
         protected List<EnemyBrain> Summon(int count, float radius, float castTime = 1.6f) => SummonOf(minionPrefab, count, radius, castTime);
@@ -843,7 +757,7 @@ namespace Deepbound.Enemies
             {
                 float a = i * Mathf.PI * 2f / count;
                 var pos = World.DropSpots.Stand(transform.position, transform.position + new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)) * radius, 0.3f, 1f);
-                // Summoned through rifts, or up through the floor (2026-11-12).
+
                 var minion = World.DungeonDirector.ServerSpawnEntering(minionPrefab, pos, Quaternion.LookRotation(transform.position - pos), 0f, 0.6f);
                 var brain = minion.GetComponent<EnemyBrain>();
                 brain.NoLoot = true;
@@ -854,17 +768,11 @@ namespace Deepbound.Enemies
             return raised;
         }
 
-        /// <summary>Server: shove a player. Movement is owner-authoritative, so this asks their client to do it.</summary>
         protected static void KnockPlayer(Health victim, Vector3 velocity)
         {
             if (victim.TryGetComponent<KnockbackReceiver>(out var k)) k.KnockbackRpc(velocity);
         }
 
-        // ------------------------------------------------------------------
-        // Presentation
-        // ------------------------------------------------------------------
-
-        /// <param name="keyed">Keyed telegraphs can be cancelled (a slam interrupted by a bash).</param>
         [Rpc(SendTo.ClientsAndHost)]
         protected void CircleTelegraphRpc(Vector3 center, float radius, float duration, bool keyed)
         {
@@ -886,20 +794,15 @@ namespace Deepbound.Enemies
             Gather(duration, 1f);
         }
 
-        /// <summary>A lane that stands alongside others (a fan): not keyed, so it does not cancel the last one.</summary>
         [Rpc(SendTo.ClientsAndHost)]
         protected void FreeLineTelegraphRpc(Vector3 start, Vector3 direction, float length, float width, float duration)
         {
-            // Fanned lanes overlap near the boss: each is fainter, so the stack does not blaze.
             Telegraph.ShowLine(start, direction, length, width, duration, null, new Color(1f, 0.15f, 0.05f, 0.12f));
             Gather(duration, 0.8f);
         }
 
-        /// <summary>Any peer: the boss crouches, draws embers in and swells a core of light for <paramref name="seconds"/>.</summary>
         protected void Gather(float seconds, float k)
         {
-            // READABILITY (2026-11-19): every big tell is heard as well as seen - a deep intake of breath as it gathers, once per
-            // wind-up (fans and chains of circles call this many times in a frame). Its plain swings (k 0.5) rattle instead.
             if (k >= 0.6f && seconds >= 0.35f && Time.time >= nextGatherSoundAt)
             {
                 nextGatherSoundAt = Time.time + 0.5f;
@@ -907,7 +810,7 @@ namespace Deepbound.Enemies
             }
             if (Rig == null) return;
             BossWindup.For(gameObject, Rig, health != null ? health.CenterHeight * 2f : 2f).Anticipate(seconds, k);
-            // A turning circle of runes under it as it gathers (a sprite, at most every few seconds).
+
             if (seconds >= 0.8f && Time.time >= nextCircleAt)
             {
                 nextCircleAt = Time.time + 3f;
@@ -921,22 +824,14 @@ namespace Deepbound.Enemies
         [Rpc(SendTo.ClientsAndHost)]
         protected void GatherRpc(float seconds, float k) => Gather(seconds, k);
 
-        // ------------------------------------------------------------------
-        // Entrances (2026-10-20): when the arena seals, the guardian rises to meet you. A gather, a
-        // roar and a ring of force (harmless), each boss in its own way, and it holds still for
-        // EntranceSeconds while its name is on screen, so the first blow never lands under the title.
-        // ------------------------------------------------------------------
+        public const float BossEntranceSeconds = 2.4f;
 
-        public const float EntranceSeconds = 2.4f;
-
-        /// <summary>0 roar, 1 shield slam, 2 tide, 3 crown, 4 bell, 5 the abyss.</summary>
         protected virtual byte EntranceStyle => 0;
 
-        /// <summary>Server: the arena has sealed.</summary>
         public void ServerEntrance()
         {
-            heldUntil = Time.time + EntranceSeconds;
-            // Face the party as it stands up.
+            heldUntil = Time.time + BossEntranceSeconds;
+
             Vector3 sum = Vector3.zero; int n = 0;
             foreach (var p in Player.PlayerLife.All) if (p != null && !p.Downed.Value) { sum += p.transform.position; n++; }
             if (n > 0)
@@ -948,17 +843,16 @@ namespace Deepbound.Enemies
             EntranceRpc(EntranceStyle);
         }
 
-        /// <summary>Server, for tests: entrances played.</summary>
         public static int EntrancesPlayed { get; private set; }
 
         [Rpc(SendTo.ClientsAndHost)]
         private void EntranceRpc(byte style)
         {
             EntrancesPlayed++;
-            StartCoroutine(Entrance(style));
+            StartCoroutine(PlayEntrance(style));
         }
 
-        private System.Collections.IEnumerator Entrance(byte style)
+        private System.Collections.IEnumerator PlayEntrance(byte style)
         {
             var feet = transform.position + Vector3.up * 0.05f;
             float height = health != null ? health.CenterHeight * 2f : 3f;
@@ -966,7 +860,6 @@ namespace Deepbound.Enemies
             Color tint = style == 1 ? new Color(0.85f, 0.75f, 0.6f) : style == 2 ? new Color(0.4f, 0.75f, 1f) : style == 3 ? new Color(1f, 0.82f, 0.35f)
                 : style == 4 ? new Color(1f, 0.55f, 0.25f) : style == 5 ? new Color(0.6f, 0.4f, 1f) : new Color(0.9f, 0.35f, 0.3f);
 
-            // Gather: crouch, the core lights, embers drawn in.
             Gather(1.05f, 1f);
             Rig?.Play(RigAction.Cast, 1.05f);
             if (style == 2) Vfx.Ring(feet, reach * 1.4f, tint, 1f);
@@ -975,7 +868,6 @@ namespace Deepbound.Enemies
             yield return new WaitForSeconds(1.05f);
             if (this == null || IsDead) yield break;
 
-            // Release: the signature blow.
             switch (style)
             {
                 case 1: Rig?.Play(RigAction.Bash, 0.7f); break;
@@ -993,26 +885,15 @@ namespace Deepbound.Enemies
                 Player.NetworkPlayer.Local?.AddShake(0.35f);
         }
 
-        // ------------------------------------------------------------------
-        // Party-aware pressure (2026-10-20): every boss and Warden hunts EVERY standing player
-        // with predicted strikes from floor 2, tells shorten with depth, and a soloist gets a
-        // faster rhythm (one target, so it comes to you more often) while a party gets more
-        // targets and more summons to split onto.
-        // ------------------------------------------------------------------
-
-        /// <summary>Server: how many players it can hunt right now.</summary>
         protected int StandingParty
         {
             get { int n = 0; foreach (var p in PlayerLife.All) if (p != null && p.Targetable) n++; return Mathf.Max(1, n); }
         }
 
-        /// <summary>A tell's length here: shorter on deeper floors and when furious.</summary>
         protected float Tell(float seconds) => seconds * Difficulty.Tell(scaledDepth) * (furious ? 0.85f : 1f);
 
-        /// <summary>Hunt cadence factor: alone, it comes more often.</summary>
         protected float Cadence => StandingParty <= 1 ? 0.8f : 1f;
 
-        /// <summary>Bosses that should not hunt (none yet) override this.</summary>
         protected virtual bool Hunts => true;
 
         public const float StrikeRadius = 2.2f, LanceLength = 24f, LanceWidth = 1.7f;
@@ -1022,11 +903,10 @@ namespace Deepbound.Enemies
         private float nextHunt = -1f;
         private int huntKind;
 
-        /// <summary>Tests: how many hunts it has thrown.</summary>
         public int HuntsThrown { get; private set; }
-        /// <summary>Tests: where the last hunting strike was aimed.</summary>
+
         public Vector3 LastStrikeAt { get; private set; }
-        /// <summary>Tests: strikes that caught a player, and what the last one dealt.</summary>
+
         public int StrikeHits { get; private set; }
         public float LastStrikeDealt { get; private set; }
 
@@ -1039,7 +919,6 @@ namespace Deepbound.Enemies
             ServerHuntNow();
         }
 
-        /// <summary>Server: throw the next hunt now (tests call this too).</summary>
         public void ServerHuntNow()
         {
             HuntsThrown++;
@@ -1047,7 +926,6 @@ namespace Deepbound.Enemies
             else ServerLanceFan();
         }
 
-        /// <summary>A chain of predicted circles that walks after each player: keep changing direction.</summary>
         private System.Collections.IEnumerator HuntingStrikes()
         {
             int count = scaledDepth >= 6 ? 4 : 3;
@@ -1068,7 +946,6 @@ namespace Deepbound.Enemies
             }
         }
 
-        /// <summary>A fan of lances at each player, aimed where they are going.</summary>
         public void ServerLanceFan()
         {
             float tell = Tell(1.0f);

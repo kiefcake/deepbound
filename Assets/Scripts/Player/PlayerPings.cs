@@ -5,21 +5,14 @@ using Deepbound.Loot;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using Deepbound.UI;
 
 namespace Deepbound.Player
 {
-    /// <summary>
-    /// Pings: the co-op shorthand. Tap middle mouse (or Z) to mark what you are aiming at for the
-    /// whole party — an enemy (the marker follows it), a piece of loot (named), or a spot.
-    /// Hold it for the ping wheel (League's semantic pings): DANGER up, ON MY WAY right,
-    /// NEED HELP down (pinned to you), LOOK left. Downed, a tap calls for help.
-    /// Each player has one ping at a time, lasting six seconds.
-    /// </summary>
     public class PlayerPings : NetworkBehaviour
     {
         public enum Kind : byte { Spot, Enemy, Loot, Danger, OnMyWay, Help, Look }
 
-        /// <summary>The wheel, clockwise from the top.</summary>
         private static readonly Kind[] Wheel = { Kind.Danger, Kind.OnMyWay, Kind.Help, Kind.Look };
         public static string WheelName(Kind k) => k == Kind.Danger ? "DANGER" : k == Kind.OnMyWay ? "ON MY WAY" : k == Kind.Help ? "NEED HELP" : k == Kind.Look ? "LOOK" : "";
         public static Color KindColor(Kind k) => k == Kind.Danger ? new Color(1f, 0.25f, 0.2f) : k == Kind.OnMyWay ? new Color(0.35f, 0.7f, 1f)
@@ -45,7 +38,6 @@ namespace Deepbound.Player
 
         private const float Lifetime = 6f, Range = 80f, Cooldown = 0.4f;
 
-        /// <summary>Live pings on this peer, keyed by the pinging player's object id.</summary>
         public static readonly Dictionary<ulong, Ping> Active = new Dictionary<ulong, Ping>();
 
         private float nextPing;
@@ -61,12 +53,11 @@ namespace Deepbound.Player
             if (!IsOwner || debugHold) return;
             var mouse = Mouse.current;
             var keyboard = Keyboard.current;
-            // Pinging is gone (2026-11-07, the user: "remove pinging entirely"); its key is the give wheel's now.
+
             bool pressed = false, held = false;
             var motor = GetComponent<FirstPersonMotor>();
             var life = GetComponent<PlayerLife>();
 
-            // Downed: a tap calls for help, pinned to you.
             if (life != null && life.Downed.Value)
             {
                 CloseWheel();
@@ -83,7 +74,7 @@ namespace Deepbound.Player
                 return;
             }
             if (heldSince < 0f) return;
-            // Released.
+
             bool fromWheel = wheelOpen;
             var choice = WheelChoice();
             heldSince = -1f;
@@ -91,7 +82,7 @@ namespace Deepbound.Player
             if (Time.time < nextPing) return;
             if (fromWheel)
             {
-                if (choice == Kind.Spot) return; // let go in the middle: cancelled
+                if (choice == Kind.Spot) return;
                 nextPing = Time.time + Cooldown;
                 if (choice == Kind.Help) { PingRpc(transform.position, NetworkObjectId, Kind.Help, ""); return; }
                 PingRpc(AimPoint(), 0, choice, "");
@@ -106,7 +97,6 @@ namespace Deepbound.Player
             Vector3 point = origin + dir * Range;
             string label = "";
 
-            // Aim assist: an enemy or loot near the crosshair counts even if the ray misses it.
             float best = 4f;
             foreach (var h in Health.All)
             {
@@ -133,7 +123,6 @@ namespace Deepbound.Player
             PingRpc(point, targetId, kind, label);
         }
 
-        /// <summary>Screenshots: show the wheel with the mouse pushed toward <paramref name="aim"/>.</summary>
         public void DebugShowWheel(bool on, Vector2 aim)
         {
             wheelOpen = on;
@@ -150,11 +139,10 @@ namespace Deepbound.Player
             FirstPersonMotor.LookHeld = false;
         }
 
-        /// <summary>The slice the mouse has pushed toward (Spot = still in the middle).</summary>
         private Kind WheelChoice()
         {
             if (wheelAim.magnitude < 30f) return Kind.Spot;
-            float ang = Mathf.Atan2(wheelAim.x, wheelAim.y) * Mathf.Rad2Deg; // 0 = up, 90 = right
+            float ang = Mathf.Atan2(wheelAim.x, wheelAim.y) * Mathf.Rad2Deg;
             int slice = Mathf.RoundToInt(((ang + 360f) % 360f) / 90f) % 4;
             return Wheel[slice];
         }
@@ -166,7 +154,6 @@ namespace Deepbound.Player
             return player.AimRay(Range, out var hit) ? hit.point : origin + dir * 20f;
         }
 
-        /// <summary>Owner (tests): a semantic ping as if chosen on the wheel.</summary>
         public void PingKind(Kind kind, Vector3 point)
         {
             if (IsOwner) PingRpc(point, kind == Kind.Help ? NetworkObjectId : 0, kind, "");
@@ -181,13 +168,13 @@ namespace Deepbound.Player
 
         private void OnGUIBody()
         {
-            useGUILayout = false; // no GUILayout here: skip the layout pass (perf)
+            useGUILayout = false;
             if (!IsOwner || !wheelOpen) return;
             float w = UI.UiScale.W, h = UI.UiScale.H;
             var c = new Vector2(w / 2f, h / 2f);
             var choice = WheelChoice();
             UI.UiSkin.Apply();
-            GUI.depth = -15; // above the HUD's cards
+            GUI.depth = -15;
             UI.UiSkin.Rect(new Rect(0, 0, w, h), new Color(0f, 0f, 0f, 0.3f));
             for (int i = 0; i < Wheel.Length; i++)
             {
@@ -199,14 +186,13 @@ namespace Deepbound.Player
                 UI.UiSkin.Rect(new Rect(pos.x - 70, pos.y - 20, 140, 40), new Color(0f, 0f, 0f, on ? 0.9f : 0.75f));
                 if (on) UI.UiSkin.Rect(new Rect(pos.x - 70, pos.y + 18, 140, 3), col);
                 GUI.Label(new Rect(pos.x - 70, pos.y - 20, 140, 40), WheelName(k),
-                    new GUIStyle(UI.UiSkin.Body) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold, normal = { textColor = on ? col : new Color(col.r * 0.8f + 0.15f, col.g * 0.8f + 0.15f, col.b * 0.8f + 0.15f, 0.85f) } });
+                    UiSkin.Derive(UI.UiSkin.Body, on ? col : new Color(col.r * 0.8f + 0.15f, col.g * 0.8f + 0.15f, col.b * 0.8f + 0.15f, 0.85f), fontStyle: FontStyle.Bold, align: TextAnchor.MiddleCenter));
             }
-            // Where the mouse has pushed.
+
             var dot = c + new Vector2(wheelAim.x, -wheelAim.y) * 0.7f;
             UI.UiSkin.Rect(new Rect(dot.x - 4, dot.y - 4, 8, 8), Color.white);
         }
 
-        /// <summary>Owner: ping a spot (the smoke test uses this; players use the key).</summary>
         public void PingSpot(Vector3 point)
         {
             if (IsOwner) PingRpc(point, 0, Kind.Spot, "");
@@ -230,7 +216,7 @@ namespace Deepbound.Player
                 Position = point, Follow = follow, Kind = kind, Color = color, Until = Time.time + Lifetime, Marker = marker,
                 Label = kind == Kind.Enemy ? "ENEMY" : kind == Kind.Loot ? label : semantic ? WheelName(kind) + "  (" + name + ")" : "HERE",
             };
-            // Each kind sounds different, so you know what it is before you look.
+
             if (kind == Kind.Danger) Sfx.Play2D(Sound.Bash, 0.7f);
             else if (kind == Kind.Help) Sfx.Play2D(Sound.WarCry, 0.45f);
             else Sfx.Play(kind == Kind.Enemy ? Sound.Bash : Sound.Purchase, point, 0.6f, kind == Kind.Enemy ? 1.8f : kind == Kind.OnMyWay ? 1.1f : 1.4f);
@@ -245,7 +231,6 @@ namespace Deepbound.Player
             Active.Remove(id);
         }
 
-        /// <summary>Moves markers with what they follow and retires expired ones.</summary>
         private void TickMarkers()
         {
             if (!Active.TryGetValue(NetworkObjectId, out var p)) return;
@@ -262,7 +247,6 @@ namespace Deepbound.Player
             }
         }
 
-        /// <summary>A thin beam of the player's colour and a ring on the ground.</summary>
         private static GameObject BuildMarker(Vector3 at, Color color, Kind kind)
         {
             var root = new GameObject("Ping");

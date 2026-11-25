@@ -3,27 +3,18 @@ using UnityEngine;
 
 namespace Deepbound.Art
 {
-    /// <summary>
-    /// Heavy plate over a bone rig (2026-11-19, the user: the Twice-Crowned and Sir Aldous "need to look scarier and not
-    /// just like a skeleton" - "chunky and bigger"). A bulging cuirass with a glowing wound in it, layered spiked
-    /// pauldrons, thick arm and leg plates, gauntlets, sabatons, a skirt of tassets, and a helm (open-faced with horns, or
-    /// a closed great helm with a burning eye slit). Hung on the rig's own pivots, so it moves with the body; built before
-    /// <see cref="MeshKit.MergeRig"/>, so it costs a few merged meshes. Bone sizes are the stock skeleton's
-    /// (<c>CharacterArt.BuildSkeleton</c>): shoulders at torso y 0.58, x 0.21; head at 0.66; arm and leg pivots hang down.
-    /// </summary>
     public static class PlateKit
     {
         public struct Look
         {
             public Color Plate, Trim, Glow;
-            /// <summary>True: a closed great helm with an eye slit. False: an open-faced helm with great horns.</summary>
+
             public bool ClosedHelm;
             public bool Horns;
-            /// <summary>No helm at all (the Hollow King keeps his crowned skull bare).</summary>
+
             public bool NoHelm;
         }
 
-        /// <summary>Every peer: armour the rig. Returns the new glowing parts (the wound, the eyes) for the rig's glow list.</summary>
         public static List<Renderer> Armour(HumanoidRig rig, Look look)
         {
             var glow = new List<Renderer>();
@@ -33,7 +24,7 @@ namespace Deepbound.Art
             Renderer Glow(GameObject g, float k) { var r = g.GetComponent<Renderer>(); ArtLibrary.SetGlow(r, look.Glow * k); r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; glow.Add(r); return r; }
 
             var t = rig.Torso;
-            // Cuirass: a barrel chest that swells to the shoulders, flattened front to back.
+
             Plate(MeshKit.Part(t, "Cuirass", MeshKit.Lathe("plateCuirass", new[]
             {
                 new Vector2(0.17f, 0.0f), new Vector2(0.2f, 0.08f), new Vector2(0.23f, 0.3f), new Vector2(0.26f, 0.45f), new Vector2(0.23f, 0.57f), new Vector2(0.1f, 0.64f),
@@ -41,11 +32,10 @@ namespace Deepbound.Art
             Trim(MeshKit.Part(t, "CuirassRim", MeshKit.Cylinder(0.205f, 0.205f, 0.035f, 12), Mat.Gold, new Vector3(0f, 0.0f, 0.01f), Vector3.zero, new Vector3(1.05f, 1f, 0.8f)));
             Trim(MeshKit.Part(t, "CuirassRidge", MeshKit.Box(new Vector3(0.03f, 0.42f, 0.03f)), Mat.Gold, new Vector3(0f, 0.3f, 0.205f), new Vector3(-8f, 0f, 0f)));
             Plate(MeshKit.Part(t, "Gorget", MeshKit.Cylinder(0.14f, 0.1f, 0.09f, 10), Mat.Steel, new Vector3(0f, 0.58f, 0f)));
-            // A wound in the breastplate where the light inside shows through.
+
             Glow(MeshKit.Part(t, "Wound", MeshKit.Box(new Vector3(0.05f, 0.16f, 0.02f)), Mat.Glow, new Vector3(-0.06f, 0.4f, 0.2f), new Vector3(-6f, 0f, 24f)), 1.6f);
             Glow(MeshKit.Part(t, "WoundB", MeshKit.Box(new Vector3(0.025f, 0.1f, 0.02f)), Mat.Glow, new Vector3(0.0f, 0.33f, 0.205f), new Vector3(-6f, 0f, -30f)), 1.3f);
 
-            // Hips: a belt and a skirt of tassets.
             if (rig.Hips != null)
             {
                 MeshKit.Part(rig.Hips, "WarBelt", MeshKit.Cylinder(0.21f, 0.21f, 0.07f, 12), Mat.Leather, new Vector3(0f, -0.04f, 0f), Vector3.zero, new Vector3(1.05f, 1f, 0.82f));
@@ -58,7 +48,6 @@ namespace Deepbound.Art
                 Trim(MeshKit.Part(rig.Hips, "BeltBuckle", MeshKit.Box(new Vector3(0.08f, 0.07f, 0.03f)), Mat.Gold, new Vector3(0f, -0.005f, 0.18f)));
             }
 
-            // Arms: a great spiked pauldron in two lames, rerebrace, couter, flared vambrace, gauntlet.
             foreach (var arm in new[] { rig.ArmL, rig.ArmR })
             {
                 if (arm == null) continue;
@@ -79,7 +68,6 @@ namespace Deepbound.Art
                 Plate(MeshKit.Part(arm, "Gauntlet", MeshKit.Box(new Vector3(0.11f, 0.09f, 0.07f)), Mat.Steel, new Vector3(0f, -0.63f, 0.005f)));
             }
 
-            // Legs: cuisses, poleyns with a fan, greaves, sabatons.
             foreach (var leg in new[] { rig.LegL, rig.LegR })
             {
                 if (leg == null) continue;
@@ -90,7 +78,6 @@ namespace Deepbound.Art
                 Plate(MeshKit.Part(leg, "Sabaton", MeshKit.Box(new Vector3(0.12f, 0.075f, 0.22f)), Mat.Steel, new Vector3(0f, -0.855f, 0.05f)));
             }
 
-            // The helm.
             var h = rig.Head;
             if (look.NoHelm) { }
             else if (look.ClosedHelm)
@@ -99,7 +86,7 @@ namespace Deepbound.Art
                 {
                     new Vector2(0.15f, -0.04f), new Vector2(0.165f, 0.1f), new Vector2(0.16f, 0.21f), new Vector2(0.11f, 0.29f), new Vector2(0f, 0.31f),
                 }, 12), Mat.Steel, Vector3.zero));
-                // A black slit with a burning light behind it, and a breathing grille below.
+
                 MeshKit.Part(h, "VisorSlit", MeshKit.Box(new Vector3(0.2f, 0.035f, 0.02f)), Mat.Dark, new Vector3(0f, 0.13f, 0.158f));
                 foreach (float x in new[] { -0.045f, 0.045f })
                     Glow(MeshKit.Part(h, "SlitEye", MeshKit.Box(new Vector3(0.045f, 0.014f, 0.01f)), Mat.Glow, new Vector3(x, 0.13f, 0.168f)), 2f);
@@ -109,13 +96,12 @@ namespace Deepbound.Art
             }
             else
             {
-                // Open-faced: the skull's burning eyes and teeth show, the rest is iron.
                 Plate(MeshKit.Part(h, "WarHelm", MeshKit.Lathe("plateOpenHelm", new[]
                 {
                     new Vector2(0.15f, 0.02f), new Vector2(0.162f, 0.12f), new Vector2(0.155f, 0.21f), new Vector2(0.1f, 0.28f), new Vector2(0f, 0.3f),
                 }, 12, true, 300f), Mat.Steel, Vector3.zero, new Vector3(0f, 210f, 0f)));
                 Trim(MeshKit.Part(h, "Brow", MeshKit.Box(new Vector3(0.2f, 0.035f, 0.04f)), Mat.Gold, new Vector3(0f, 0.19f, 0.14f), new Vector3(-10f, 0f, 0f)));
-                // Cheek guards jutting forward like a jaw.
+
                 foreach (float s in new[] { -1f, 1f })
                     Plate(MeshKit.Part(h, "Cheek", MeshKit.Box(new Vector3(0.03f, 0.12f, 0.1f)), Mat.Steel, new Vector3(s * 0.1f, 0.06f, 0.11f), new Vector3(0f, s * -18f, 0f)));
                 foreach (float x in new[] { -0.045f, 0.045f })
@@ -124,7 +110,6 @@ namespace Deepbound.Art
             if (look.Horns)
                 foreach (float s in new[] { -1f, 1f })
                 {
-                    // Three tapering segments: out, then up, then forward to a point.
                     var a = MeshKit.Pivot(h, "Horn", new Vector3(s * 0.14f, 0.2f, -0.01f), new Vector3(-10f, 0f, -72f * s));
                     Plate(MeshKit.Part(a, "HornA", MeshKit.Cylinder(0.05f, 0.04f, 0.17f, 7), Mat.Steel, Vector3.zero));
                     var b = MeshKit.Pivot(a, "HornB", new Vector3(0f, 0.16f, 0f), new Vector3(0f, 0f, 48f * s));

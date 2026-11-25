@@ -2,11 +2,6 @@ using UnityEngine;
 
 namespace Deepbound.UI
 {
-    /// <summary>
-    /// The options, shared by the pause menu and the title screen (the title used to have only four of them): tabs for
-    /// the game, the display and the sound. Draw inside a GUILayout area about 780 x 600.
-    /// Resolution and window mode wait for APPLY, so browsing the list does not flip the screen with every click.
-    /// </summary>
     public static class OptionsPanel
     {
         private static readonly string[] Tabs = { "GAME", "DISPLAY", "AUDIO" };
@@ -94,7 +89,7 @@ namespace Deepbound.UI
                 var r = list[Mathf.Clamp(at < 0 ? 0 : at - 1, 0, list.Count - 1)];
                 pendingW = r.x; pendingH = r.y;
             }
-            GUILayout.Label(pendingW + " x " + pendingH, new GUIStyle(UiSkin.Body) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold }, GUILayout.Height(32));
+            GUILayout.Label(pendingW + " x " + pendingH, UiSkin.Derive(UiSkin.Body, UiSkin.Body.normal.textColor, fontStyle: FontStyle.Bold, align: TextAnchor.MiddleCenter), GUILayout.Height(32));
             if (GUILayout.Button(">", UiSkin.Button, GUILayout.Width(44), GUILayout.Height(32)) && list.Count > 0)
             {
                 var r = list[Mathf.Clamp(at + 1, 0, list.Count - 1)];

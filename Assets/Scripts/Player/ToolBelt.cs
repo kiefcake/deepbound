@@ -7,11 +7,6 @@ using UnityEngine;
 
 namespace Deepbound.Player
 {
-    /// <summary>
-    /// Crafted tools in use (2026-11-07, <see cref="Crafting"/>): the owner throws the readied one with <see cref="Bind.Tool"/>
-    /// (Z) at the floor under the crosshair; the server keeps this player's caltrop patches and cuts what walks them; every
-    /// peer draws the spikes and the rattle. A runtime component, added by <see cref="NetworkPlayer"/>.
-    /// </summary>
     public class ToolBelt : MonoBehaviour
     {
         private NetworkPlayer player;
@@ -47,7 +42,6 @@ namespace Deepbound.Player
             if (player.IsServer) ServerTick();
         }
 
-        /// <summary>Server: a new caltrop patch here.</summary>
         public void ServerCaltrops(Vector3 at) => patches.Add(new Patch { At = at, Until = Time.time + Crafting.CaltropSeconds, NextTick = Time.time });
 
         private void ServerTick()
@@ -71,7 +65,6 @@ namespace Deepbound.Player
             }
         }
 
-        /// <summary>Every peer: the spikes for their life, or the rattle's clatter and ring.</summary>
         public void ShowTool(CraftKind kind, Vector3 at)
         {
             var floor = Vfx.Floor(at);

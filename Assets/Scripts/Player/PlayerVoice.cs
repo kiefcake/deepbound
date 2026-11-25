@@ -7,34 +7,21 @@ using UnityEngine.InputSystem;
 
 namespace Deepbound.Player
 {
-    /// <summary>
-    /// Proximity voice, R.E.P.O.-style. The owner records the microphone, encodes 40 ms frames
-    /// (<see cref="VoiceCodec"/>) and sends them to the host. The host forwards each frame only
-    /// to players within earshot. Every peer plays a speaker's voice from that speaker's head,
-    /// in 3D, muffled through walls. Nothing leaves the game session: no voice service.
-    ///
-    /// <para>Shouting is noise: loud frames wake nearby enemies and statues (<see cref="ServerHeard"/>).
-    /// Bled-out souls can only whisper (short range).</para>
-    /// </summary>
     public class PlayerVoice : NetworkBehaviour
     {
         public const float Earshot = 30f, SoulEarshot = 7f, ShoutLevel = 0.12f, ShoutRadius = 10f;
 
-        /// <summary>Voice level for the HUD: this player's latest frame (any peer), 0..~0.5, decays.</summary>
         public float Level { get; private set; }
         public bool Speaking => Level > 0.004f;
 
-        /// <summary>Server: frames received from this speaker (for tests).</summary>
         public int ServerFramesFrom { get; private set; }
-        /// <summary>Frames this peer has played for this speaker (for tests).</summary>
+
         public int FramesHeard { get; private set; }
 
-        /// <summary>Owner: the latest microphone level (for the options meter), whether or not it is sent.</summary>
         public static float MicLevel { get; private set; }
         public static bool MicAvailable { get; private set; }
         public static PlayerVoice LocalVoice { get; private set; }
 
-        // ---- Capture (owner) ----
         private string device;
         private AudioClip micClip;
         private int micRate, micPos;
@@ -48,17 +35,13 @@ namespace Deepbound.Player
         private float nextShout;
         private readonly Queue<float> injected = new Queue<float>();
 
-        // ---- Playback (every peer, for remote speakers) ----
         private AudioSource source;
         private AudioLowPassFilter muffle;
         private readonly float[] ring = new float[VoiceCodec.SampleRate * 2];
         private int writeAt, readAt, buffered;
         private bool playing;
         private readonly object ringLock = new object();
-        /// <summary>
-        /// Voices are amplified on playback (play-test 2026-11-01: "make mics louder"): an AudioSource stops at volume 1,
-        /// so the boost is applied to the samples, with a soft clip so a shout distorts gently instead of cracking.
-        /// </summary>
+
         public const float PlaybackBoost = 2.4f;
         private volatile float playGain = PlaybackBoost;
         private readonly float[] decodeBuf = new float[VoiceCodec.FrameSamples];
@@ -102,7 +85,6 @@ namespace Deepbound.Player
             MicAvailable = micClip != null;
         }
 
-        /// <summary>Tests: push 16 kHz samples through the send path as if spoken (bypasses the gate).</summary>
         public void DebugInject(float[] samples)
         {
             foreach (var s in samples) injected.Enqueue(s);
@@ -114,10 +96,6 @@ namespace Deepbound.Player
             if (IsOwner) OwnerCapture();
             else if (source != null && Time.time >= nextOcclusion) UpdateOcclusion();
         }
-
-        // ------------------------------------------------------------------
-        // Capture and send (owner)
-        // ------------------------------------------------------------------
 
         private void OwnerCapture()
         {
@@ -141,7 +119,6 @@ namespace Deepbound.Player
                 if (!forced && !ShouldTransmit(rms)) { encoder = default; continue; }
                 for (int s = 0; s < frame.Length; s++)
                 {
-                    // ~100 Hz one-pole high-pass: takes out hum and desk thumps.
                     hpOut = 0.962f * (hpOut + frame[s] - hpPrev);
                     hpPrev = frame[s];
                     frame[s] = hpOut;
@@ -160,7 +137,7 @@ namespace Deepbound.Player
             int count = (pos - micPos + len) % len;
             if (count <= 0) return;
             if (micRead.Length < count) micRead = new float[count];
-            // Two reads if the ring wrapped.
+
             int first = Mathf.Min(count, len - micPos);
             var a = new float[first];
             micClip.GetData(a, micPos);
@@ -179,7 +156,7 @@ namespace Deepbound.Player
                 for (int i = 0; i < count; i++) pending.Add(Mathf.Clamp(micRead[i] * gain, -1f, 1f));
                 return;
             }
-            // Linear resample to 16 kHz.
+
             float stepIn = (float)micRate / VoiceCodec.SampleRate;
             float t = resampleCarry;
             while (t < count - 1)
@@ -196,13 +173,12 @@ namespace Deepbound.Player
         {
             switch (Settings.VoiceMode)
             {
-                case 2: return false; // off
-                case 1:               // push to talk
+                case 2: return false;
+                case 1:
                     var k = Keyboard.current;
                     return k != null && UI.Binds.Held(UI.Bind.PushToTalk) && !PauseMenu.Open;
-                default:              // open mic, voice-activated, with a short hang so words are not clipped
-                    // The gate tracks the room's noise floor (hiss, fans, hum) and opens only well above it,
-                    // so a quiet mic never streams static.
+                default:
+
                     noiseFloor = rms < noiseFloor ? Mathf.Lerp(noiseFloor, rms, 0.2f) : Mathf.Lerp(noiseFloor, rms, 0.004f);
                     if (rms >= Mathf.Max(Settings.MicThreshold, noiseFloor * 3f)) openUntil = Time.time + 0.35f;
                     return Time.time < openUntil;
@@ -226,7 +202,6 @@ namespace Deepbound.Player
             }
             if (targets.Count > 0) VoiceDownRpc(frame, loudness, RpcTarget.Group(targets, RpcTargetUse.Temp));
 
-            // R.E.P.O.: shouting carries to the dead.
             if (!soul && level >= ShoutLevel && Time.time >= nextShout && World.DungeonDirector.Layout != null && !World.DungeonDirector.InLobby)
             {
                 nextShout = Time.time + 1f;
@@ -234,7 +209,6 @@ namespace Deepbound.Player
             }
         }
 
-        /// <summary>Server: a player shouted here (who, where, radius). Enemies and statues listen.</summary>
         public static event System.Action<Health, Vector3, float> ServerHeard;
 
         [Rpc(SendTo.SpecifiedInParams, Delivery = RpcDelivery.Unreliable)]
@@ -252,7 +226,7 @@ namespace Deepbound.Player
                     writeAt = (writeAt + 1) % ring.Length;
                 }
                 buffered = Mathf.Min(ring.Length, buffered + decodeBuf.Length);
-                // Too far behind (a stall): drop the oldest so the voice stays live.
+
                 if (buffered > VoiceCodec.SampleRate / 2)
                 {
                     int drop = buffered - VoiceCodec.SampleRate / 5;
@@ -261,10 +235,6 @@ namespace Deepbound.Player
                 }
             }
         }
-
-        // ------------------------------------------------------------------
-        // Playback (remote speakers)
-        // ------------------------------------------------------------------
 
         private void EnsureSource()
         {
@@ -282,19 +252,18 @@ namespace Deepbound.Player
             source.dopplerLevel = 0f;
             source.volume = 1f;
             playGain = PlaybackBoost * Settings.VoiceVolume;
-            // Stone rooms: a little echo, and walls muffle.
+
             var reverb = head.AddComponent<AudioReverbFilter>();
             reverb.reverbPreset = AudioReverbPreset.Stoneroom;
             reverb.dryLevel = 0f;
             reverb.room = -1800f;
-            // It carries its own little echo; the room's reverb zone (Art.Acoustics) would double it.
+
             source.reverbZoneMix = 0f;
             muffle = head.AddComponent<AudioLowPassFilter>();
             muffle.cutoffFrequency = 22000f;
             source.Play();
         }
 
-        // Audio thread: pull from the jitter buffer. Start once ~120 ms are queued; on underrun, wait again.
         private void OnAudioRead(float[] data)
         {
             lock (ringLock)
@@ -303,7 +272,7 @@ namespace Deepbound.Player
                 for (int i = 0; i < data.Length; i++)
                 {
                     if (!playing || buffered <= 0) { data[i] = 0f; playing = false; continue; }
-                    // A tanh-shaped soft clip (Pade): unity gain near zero, never past +-1.
+
                     float v = Mathf.Clamp(ring[readAt] * playGain, -3f, 3f);
                     data[i] = v * (27f + v * v) / (27f + 9f * v * v);
                     readAt = (readAt + 1) % ring.Length;

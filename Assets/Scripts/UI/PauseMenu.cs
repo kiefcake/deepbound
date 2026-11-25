@@ -8,33 +8,21 @@ using UnityEngine.InputSystem;
 
 namespace Deepbound.UI
 {
-    /// <summary>
-    /// Esc while playing: resume, options, or leave the party. A co-op game cannot stop
-    /// time, so this only frees your mouse and covers the screen — the dungeon keeps
-    /// moving, which is also why it is quick to get out of.
-    /// SOLO (2026-11-20, the user: "pause menu while solo does not work"): a host with nobody else connected
-    /// stops the world while the menu is open (Time.timeScale 0); it starts again on closing, or the moment
-    /// someone joins.
-    /// </summary>
     public class PauseMenu : MonoBehaviour
     {
         public static bool Open { get; private set; }
 
-        /// <summary>For the screenshot run.</summary>
         public static void SetOpen(bool open) => Open = open;
         private bool options, guide, controls, invitesOpen, legacy;
         private Bind? capturing;
 
-        /// <summary>For the screenshot run.</summary>
         public static void DebugShowGuide(PauseMenu menu, int page = 0) { Open = true; menu.guide = true; menu.guidePage = page; }
         public static void DebugShowOptions(PauseMenu menu, int tab = 0) { Open = true; menu.guide = false; menu.options = true; menu.controls = false; OptionsPanel.Tab = tab; }
         public static void DebugShowControls(PauseMenu menu) { Open = true; menu.guide = false; menu.options = true; menu.controls = true; }
 
-        /// <summary>Keys that can never be bound: menus, chat, the free cursor and the developer keys.</summary>
         private static bool Reserved(Key k) => k == Key.Escape || k == Key.Enter || k == Key.NumpadEnter || k == Key.Slash || k == Key.Backquote
             || k == Key.F1 || k == Key.LeftAlt || k == Key.RightAlt || k == Key.LeftMeta || k == Key.RightMeta || k == Key.ContextMenu || k == Key.None;
 
-        // The Guide's sections live in Codex (2026-11-24): they fill in as they are met in play.
         private static Codex.Section[] GuideLeft => Codex.GuideLeft;
         private static Codex.Section[] GuideRight => Codex.GuideRight;
         private static Codex.Section[] DungeonLeft => Codex.DungeonLeft;
@@ -46,7 +34,6 @@ namespace Deepbound.UI
         private float[][] guideHeights;
         private float guideTallest;
 
-        /// <summary>A checkbox that shows its state (a gold square inside a box), label beside it. <paramref name="radio"/>: round-ish, for one-of choices.</summary>
         internal static bool Check(bool on, string label, bool radio = false)
         {
             var rect = GUILayoutUtility.GetRect(new GUIContent("      " + label), UiSkin.Body, GUILayout.Height(24));
@@ -55,12 +42,11 @@ namespace Deepbound.UI
             UiSkin.Rect(box, new Color(gold.r * 0.55f, gold.g * 0.55f, gold.b * 0.55f, 0.95f));
             UiSkin.Rect(new Rect(box.x + 1f, box.y + 1f, 14f, 14f), new Color(0.05f, 0.04f, 0.03f, 1f));
             if (on) UiSkin.Rect(radio ? new Rect(box.x + 5f, box.y + 5f, 6f, 6f) : new Rect(box.x + 3.5f, box.y + 3.5f, 9f, 9f), gold);
-            GUI.Label(new Rect(rect.x + 26f, rect.y, rect.width - 26f, rect.height), label, new GUIStyle(UiSkin.Body) { normal = { textColor = on ? Color.white : new Color(0.8f, 0.78f, 0.72f) } });
+            GUI.Label(new Rect(rect.x + 26f, rect.y, rect.width - 26f, rect.height), label, UiSkin.Derive(UiSkin.Body, on ? Color.white : new Color(0.8f, 0.78f, 0.72f)));
             if (GUI.Button(rect, GUIContent.none, GUIStyle.none)) on = !on;
             return on;
         }
 
-        /// <summary>A row of buttons, the chosen one underlined in gold.</summary>
         internal static int Choice(int current, string[] names)
         {
             GUILayout.BeginHorizontal();
@@ -77,13 +63,12 @@ namespace Deepbound.UI
             return current;
         }
 
-        /// <summary>Set by other menus each frame; Esc closes them rather than opening this.</summary>
         public static bool OtherMenuOpenLastFrame;
 
         private void OnDestroy() { Open = false; if (worldPaused) { worldPaused = false; Time.timeScale = 1f; } }
 
         private static bool worldPaused;
-        /// <summary>True while the solo pause holds the world still.</summary>
+
         public static bool WorldPaused => worldPaused;
 
         private static bool SoloHost()
@@ -100,9 +85,8 @@ namespace Deepbound.UI
             Time.timeScale = want ? 0f : 1f;
         }
 
-        // ---- Gamepad (2026-10-20): the main list, the guide's pages and Back work on a pad ----
         private int padFocus;
-        /// <summary>For tests: is the guide showing?</summary>
+
         public bool GuideShowing => Open && guide;
         private float padRepeatAt;
 
@@ -118,7 +102,7 @@ namespace Deepbound.UI
                 if (back) guide = false;
                 else if (ok || g.rightShoulder.wasPressedThisFrame) guidePage = (guidePage + 1) % 4;
                 else if (g.leftShoulder.wasPressedThisFrame) guidePage = (guidePage + 3) % 4;
-                // The right stick scrolls a long page.
+
                 guideScroll.y = Mathf.Max(0f, guideScroll.y - g.rightStick.ReadValue().y * 900f * Time.unscaledDeltaTime);
                 return;
             }
@@ -136,7 +120,7 @@ namespace Deepbound.UI
             if (Mathf.Abs(v) > 0.5f && Time.unscaledTime >= padRepeatAt)
             {
                 padRepeatAt = Time.unscaledTime + 0.22f;
-                // Screen order: resume, guide, options, legacy, unstuck (6), leave, quit.
+
                 int pos = System.Array.IndexOf(PadOrder, padFocus);
                 padFocus = PadOrder[(pos + (v < 0f ? 1 : PadOrder.Length - 1)) % PadOrder.Length];
             }
@@ -147,7 +131,6 @@ namespace Deepbound.UI
 
         private static readonly int[] PadOrder = { 0, 1, 2, 3, 6, 4, 5 };
 
-        /// <summary>0 none; 4 leave the party, 5 quit: asked once more before it happens (2026-11-19).</summary>
         private int confirm;
 
         private void Confirmed()
@@ -169,12 +152,12 @@ namespace Deepbound.UI
                 : confirm == 5 ? "Your camp progress is saved." : "You go back to the title screen.";
             var panel = new Rect(w / 2f - 230f, h / 2f - 105f, 460f, 210f);
             UiSkin.Panel(panel, 0.97f);
-            GUI.Label(new Rect(panel.x, panel.y + 22, panel.width, 34), head, new GUIStyle(UiSkin.Heading) { alignment = TextAnchor.MiddleCenter, fontSize = 26 });
+            GUI.Label(new Rect(panel.x, panel.y + 22, panel.width, 34), head, UiSkin.Derive(UiSkin.Heading, UiSkin.Heading.normal.textColor, fontSize: 26, align: TextAnchor.MiddleCenter));
             UiSkin.Ornament(panel.center.x - 100f, panel.y + 60f, 200f, 1f);
-            GUI.Label(new Rect(panel.x + 24, panel.y + 74, panel.width - 48, 50), body, new GUIStyle(UiSkin.Body) { alignment = TextAnchor.MiddleCenter });
+            GUI.Label(new Rect(panel.x + 24, panel.y + 74, panel.width - 48, 50), body, UiSkin.Derive(UiSkin.Body, UiSkin.Body.normal.textColor, align: TextAnchor.MiddleCenter));
             if (UiSkin.Btn(new Rect(panel.x + 30, panel.yMax - 62, 190, 42), confirm == 4 ? "LEAVE" : "QUIT", UiSkin.Button)) Confirmed();
             if (UiSkin.Btn(new Rect(panel.xMax - 220, panel.yMax - 62, 190, 42), "STAY", UiSkin.Button)) confirm = 0;
-            GUI.Label(new Rect(panel.x, panel.yMax - 16, panel.width, 14), "Esc / B: stay", new GUIStyle(UiSkin.Small) { alignment = TextAnchor.MiddleCenter, fontSize = 10 });
+            GUI.Label(new Rect(panel.x, panel.yMax - 16, panel.width, 14), "Esc / B: stay", UiSkin.Derive(UiSkin.Small, UiSkin.Small.normal.textColor, fontSize: 10, align: TextAnchor.MiddleCenter));
         }
 
         private void Choose(int i)
@@ -189,7 +172,6 @@ namespace Deepbound.UI
                 case 5: confirm = 5; break;
                 case 6:
                 {
-                    // Free yourself from a snag in the walls or props (2026-11-22).
                     var me = Unity.Netcode.NetworkManager.Singleton?.LocalClient?.PlayerObject;
                     var np = me != null ? me.GetComponent<Player.NetworkPlayer>() : null;
                     if (np != null) { np.UnstuckRpc(); GameHud.Feed("Unstuck: moved to open floor nearby", new Color(0.8f, 0.75f, 0.7f)); }
@@ -199,7 +181,6 @@ namespace Deepbound.UI
             }
         }
 
-        /// <summary>A gold frame on the pad's focused button (drawn over the last layout rect).</summary>
         private void PadFrame(int i)
         {
             if (!Binds.PadActive || i != padFocus || Event.current.type != EventType.Repaint) return;
@@ -209,7 +190,6 @@ namespace Deepbound.UI
             UiSkin.Rect(new Rect(r.x - 3, r.y, 3, r.height), c); UiSkin.Rect(new Rect(r.xMax, r.y, 3, r.height), c);
         }
 
-        /// <summary>Options or the friends list is up: the pad drives the pointer there (UI/PadCursor), not the list focus.</summary>
         public static bool InOptions { get; private set; }
 
         private void Update()
@@ -220,7 +200,6 @@ namespace Deepbound.UI
             var keyboard = Keyboard.current;
             if (capturing.HasValue && keyboard != null)
             {
-                // Waiting for a key: the first one pressed takes the binding; Esc gives up.
                 if (keyboard.escapeKey.wasPressedThisFrame) { capturing = null; return; }
                 foreach (var key in keyboard.allKeys)
                 {
@@ -262,7 +241,7 @@ namespace Deepbound.UI
             GUILayout.Space(10);
             GUILayout.Label("Open-mic sensitivity (the bar must pass the line)", UiSkin.Body);
             Settings.MicThreshold = GUILayout.HorizontalSlider(Settings.MicThreshold, 0.002f, 0.08f);
-            // Live meter: your level against the threshold line.
+
             var r = GUILayoutUtility.GetRect(360, 14);
             UiSkin.Rect(r, new Color(0f, 0f, 0f, 0.6f));
             float level = Mathf.Clamp01(Player.PlayerVoice.MicLevel / 0.08f);
@@ -279,7 +258,6 @@ namespace Deepbound.UI
             UiTimer.Mark("PauseMenu");
         }
 
-        // Layout only while open (2026-11-16 perf): a closed menu still paid IMGUI's Layout event every frame.
         private void LateUpdate() => useGUILayout = Open;
 
         private void OnGUIBody()
@@ -319,7 +297,7 @@ namespace Deepbound.UI
             var area = options ? new Rect(w / 2f - 390, h / 2f - 335, 780, 680) : new Rect(w / 2f - 180, h / 2f - (steamExtra ? 278 : 253), 360, steamExtra ? 556 : 511);
             UiSkin.Panel(new Rect(area.x - 20, area.y - 20, area.width + 40, area.height + 40), 0.95f);
             GUILayout.BeginArea(area);
-            GUILayout.Label(options ? "OPTIONS" : "PAUSED", new GUIStyle(UiSkin.Heading) { alignment = TextAnchor.MiddleCenter, fontSize = 30 });
+            GUILayout.Label(options ? "OPTIONS" : "PAUSED", UiSkin.Derive(UiSkin.Heading, UiSkin.Heading.normal.textColor, fontSize: 30, align: TextAnchor.MiddleCenter));
             if (Event.current.type == EventType.Repaint)
             {
                 var head = GUILayoutUtility.GetLastRect();
@@ -366,27 +344,27 @@ namespace Deepbound.UI
                 GUILayout.Space(10);
                 var net = NetworkManager.Singleton;
                 string party = net == null ? "" : (net.IsHost ? "You are hosting" : "In a party") + "   ·   " + (net.IsServer ? net.ConnectedClientsIds.Count : Player.PlayerLife.All.Count) + " in the party";
-                GUILayout.Label(party, new GUIStyle(UiSkin.Small) { alignment = TextAnchor.MiddleCenter });
+                GUILayout.Label(party, UiSkin.Derive(UiSkin.Small, UiSkin.Small.normal.textColor, align: TextAnchor.MiddleCenter));
                 var launcherHere = FindAnyObjectByType<Networking.NetworkLauncher>();
-                // Hosting over Steam (2026-10-26): invite friends from a list; no addresses to copy.
+
                 if (net != null && net.IsHost && launcherHere != null && launcherHere.OverSteam)
                 {
                     GUILayout.Space(4);
                     if (UiSkin.Btn("INVITE STEAM FRIENDS", UiSkin.Button, GUILayout.Height(38))) invitesOpen = true;
                 }
-                // An invite from someone else's party: joining leaves this one.
+
                 if (Networking.SteamPlatform.Ready && Networking.SteamPlatform.Instance.Invites.Count > 0)
                 {
                     GUILayout.Space(4);
                     FriendsPanel.DrawInvites();
-                    GUILayout.Label("Joining leaves this party.", new GUIStyle(UiSkin.Small) { alignment = TextAnchor.MiddleCenter });
+                    GUILayout.Label("Joining leaves this party.", UiSkin.Derive(UiSkin.Small, UiSkin.Small.normal.textColor, align: TextAnchor.MiddleCenter));
                 }
-                // Hosting: where friends connect, with Copy buttons (2026-10-21).
+
                 if (net != null && net.IsHost && !(launcherHere != null && launcherHere.OverSteam))
                 {
                     var mid = new GUIStyle(UiSkin.Small) { alignment = TextAnchor.MiddleCenter, wordWrap = true };
                     string line = Networking.PortMapper.Line;
-                    if (!string.IsNullOrEmpty(line)) GUILayout.Label(line, new GUIStyle(mid) { normal = { textColor = Networking.PortMapper.Current == Networking.PortMapper.State.Open && !Networking.PortMapper.SharedAddress ? UiSkin.Gold : mid.normal.textColor } });
+                    if (!string.IsNullOrEmpty(line)) GUILayout.Label(line, UiSkin.Derive(mid, Networking.PortMapper.Current == Networking.PortMapper.State.Open && !Networking.PortMapper.SharedAddress ? UiSkin.Gold : mid.normal.textColor));
                     var launcherNow = FindAnyObjectByType<Networking.NetworkLauncher>();
                     string portTag = launcherNow != null && launcherNow.Port != 7777 ? ":" + launcherNow.Port : "";
                     string lan = Networking.PortMapper.LocalIp ?? Networking.PortMapper.GuessLocalIp(null);
@@ -398,12 +376,11 @@ namespace Deepbound.UI
                         GUIUtility.systemCopyBuffer = lan + portTag;
                     GUILayout.EndHorizontal();
                 }
-                GUILayout.Label("The dungeon does not pause for you.", new GUIStyle(UiSkin.Small) { alignment = TextAnchor.MiddleCenter });
+                GUILayout.Label("The dungeon does not pause for you.", UiSkin.Derive(UiSkin.Small, UiSkin.Small.normal.textColor, align: TextAnchor.MiddleCenter));
             }
             GUILayout.EndArea();
         }
 
-        // ---- LEGACY (2026-11-07): Renown boons and the heirloom, anywhere from the pause menu ----
         private Vector2 legacyScroll;
 
         private void DrawLegacy(float w, float h)
@@ -411,9 +388,9 @@ namespace Deepbound.UI
             float pw = Mathf.Min(820f, w - 60f), ph = Mathf.Min(720f, h - 40f);
             var panel = new Rect(w / 2f - pw / 2f, h / 2f - ph / 2f, pw, ph);
             UiSkin.Panel(panel, 0.96f);
-            GUI.Label(new Rect(panel.x, panel.y + 12, pw, 40), "LEGACY", new GUIStyle(UiSkin.Heading) { alignment = TextAnchor.MiddleCenter, fontSize = 30 });
+            GUI.Label(new Rect(panel.x, panel.y + 12, pw, 40), "LEGACY", UiSkin.Derive(UiSkin.Heading, UiSkin.Heading.normal.textColor, fontSize: 30, align: TextAnchor.MiddleCenter));
             GUI.Label(new Rect(panel.x, panel.y + 50, pw, 24), "RENOWN  " + Cosmetics.Renown + "      small comforts that outlive a run; nothing here makes you stronger",
-                new GUIStyle(UiSkin.Body) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold, normal = { textColor = UiSkin.Gold } });
+                UiSkin.Derive(UiSkin.Body, UiSkin.Gold, fontStyle: FontStyle.Bold, align: TextAnchor.MiddleCenter));
 
             var view = new Rect(panel.x + 16, panel.y + 82, pw - 32, ph - 82 - 72);
             const float rowH = 52f;
@@ -446,9 +423,9 @@ namespace Deepbound.UI
             float y = 26 + 8 * rowH + 14f;
             GUI.Label(new Rect(8, y, cw, 22), "HEIRLOOM", nameStyle);
             y += 24f;
-            GUI.Label(new Rect(8, y, cw, 40), "Choose one relic from your last run. At camp, before a run, bring it: it joins that run as a plain relic, once. Then you must earn another.", new GUIStyle(UiSkin.Small) { fontSize = 13, wordWrap = true });
+            GUI.Label(new Rect(8, y, cw, 40), "Choose one relic from your last run. At camp, before a run, bring it: it joins that run as a plain relic, once. Then you must earn another.", UiSkin.Derive(UiSkin.Small, UiSkin.Small.normal.textColor, fontSize: 13, wrap: true));
             y += 44f;
-            if (last.Length == 0) GUI.Label(new Rect(8, y, cw, 22), "No relics remembered yet: finish a run carrying some.", new GUIStyle(UiSkin.Small) { fontStyle = FontStyle.Italic });
+            if (last.Length == 0) GUI.Label(new Rect(8, y, cw, 22), "No relics remembered yet: finish a run carrying some.", UiSkin.Derive(UiSkin.Small, UiSkin.Small.normal.textColor, fontStyle: FontStyle.Italic));
             var chosen = Legacy.Heirloom;
             float bw = (cw - 16f - 20f) / 3f;
             for (int i = 0; i < last.Length; i++)
@@ -459,7 +436,7 @@ namespace Deepbound.UI
             }
             if (last.Length > 0) y += ((last.Length + 2) / 3) * 36f;
             y += 8f;
-            GUI.Label(new Rect(8, y, cw, 22), "Heirloom: " + (chosen.HasValue ? Relics.Name(chosen.Value) : "none chosen"), new GUIStyle(UiSkin.Body) { fontStyle = FontStyle.Bold });
+            GUI.Label(new Rect(8, y, cw, 22), "Heirloom: " + (chosen.HasValue ? Relics.Name(chosen.Value) : "none chosen"), UiSkin.Derive(UiSkin.Body, UiSkin.Body.normal.textColor, fontStyle: FontStyle.Bold));
             y += 28f;
             var net = NetworkPlayer.Local;
             var prog = net != null ? net.GetComponent<PlayerProgress>() : null;
@@ -477,14 +454,13 @@ namespace Deepbound.UI
             if (UiSkin.Btn(new Rect(panel.x + pw / 2f - 90, panel.yMax - 56, 180, 40), "BACK", UiSkin.Button)) legacy = false;
         }
 
-        /// <summary>The host's invite list: online Steam friends, each with INVITE (2026-10-26).</summary>
         private void DrawInviteFriends(float w, float h)
         {
             var area = new Rect(w / 2f - 230, h / 2f - 260, 460, 520);
             UiSkin.Panel(new Rect(area.x - 20, area.y - 20, area.width + 40, area.height + 40), 0.95f);
             GUILayout.BeginArea(area);
-            GUILayout.Label("INVITE FRIENDS", new GUIStyle(UiSkin.Heading) { alignment = TextAnchor.MiddleCenter, fontSize = 30 });
-            GUILayout.Label("They get a Steam invite and a JOIN button in Deepbound. Both of you need the same build, with Steam running.", new GUIStyle(UiSkin.Small) { wordWrap = true, alignment = TextAnchor.MiddleCenter });
+            GUILayout.Label("INVITE FRIENDS", UiSkin.Derive(UiSkin.Heading, UiSkin.Heading.normal.textColor, fontSize: 30, align: TextAnchor.MiddleCenter));
+            GUILayout.Label("They get a Steam invite and a JOIN button in Deepbound. Both of you need the same build, with Steam running.", UiSkin.Derive(UiSkin.Small, UiSkin.Small.normal.textColor, align: TextAnchor.MiddleCenter, wrap: true));
             GUILayout.Space(8);
             FriendsPanel.DrawInviteList(330f);
             GUILayout.Space(8);
@@ -495,17 +471,13 @@ namespace Deepbound.UI
             GUILayout.EndArea();
         }
 
-        /// <summary>
-        /// Options > Controls (2026-10-20): every gameplay key in two columns. Click one, press the new key
-        /// (Esc cancels); a key already in use swaps with it, so nothing is ever left unbound.
-        /// </summary>
         private void DrawControls(float w, float h)
         {
             var area = new Rect(w / 2f - 390, h / 2f - 330, 780, 660);
             UiSkin.Panel(new Rect(area.x - 20, area.y - 20, area.width + 40, area.height + 40), 0.95f);
-            GUI.Label(new Rect(area.x, area.y, area.width, 40), "CONTROLS", new GUIStyle(UiSkin.Heading) { alignment = TextAnchor.MiddleCenter, fontSize = 30 });
+            GUI.Label(new Rect(area.x, area.y, area.width, 40), "CONTROLS", UiSkin.Derive(UiSkin.Heading, UiSkin.Heading.normal.textColor, fontSize: 30, align: TextAnchor.MiddleCenter));
             GUI.Label(new Rect(area.x, area.y + 40, area.width, 20), capturing.HasValue ? "Press a key for " + LabelOf(capturing.Value).ToUpperInvariant() + "   (Esc cancels)" : "Click an action, then press its new key. Mouse buttons, Esc, Enter (chat) and Alt (free cursor) stay put.",
-                new GUIStyle(UiSkin.Small) { alignment = TextAnchor.MiddleCenter, normal = { textColor = capturing.HasValue ? UiSkin.Gold : UiSkin.Small.normal.textColor } });
+                UiSkin.Derive(UiSkin.Small, capturing.HasValue ? UiSkin.Gold : UiSkin.Small.normal.textColor, align: TextAnchor.MiddleCenter));
             int n = Binds.Defaults.Length, half = (n + 1) / 2;
             float colW = 370f, rowH = 34f, top = area.y + 74f;
             var label = new GUIStyle(UiSkin.Body) { alignment = TextAnchor.MiddleLeft, fontSize = 15 };
@@ -521,7 +493,7 @@ namespace Deepbound.UI
                 UiSkin.Panel(key, live ? 1f : 0.85f);
                 bool changed = Binds.KeyOf(d.bind) != d.key;
                 GUI.Label(key, live ? (Mathf.Repeat(Time.unscaledTime, 0.8f) < 0.5f ? "..." : "") : Binds.Label(d.bind),
-                    new GUIStyle(keyStyle) { normal = { textColor = live || changed ? UiSkin.Gold : Color.white } });
+                    UiSkin.Derive(keyStyle, live || changed ? UiSkin.Gold : Color.white));
                 if (GUI.Button(r, GUIContent.none, GUIStyle.none)) capturing = live ? (Bind?)null : d.bind;
             }
             float by = area.yMax - 46f;
@@ -535,13 +507,10 @@ namespace Deepbound.UI
             return b.ToString();
         }
 
-        // The journal: the pages found so far, by floor; the rest are blanks to find.
-        private Vector2 journalScroll;
         private int journalOpen = -1;
 
         private Vector2 bestiaryScroll;
 
-        /// <summary>Two columns of the dead you have met (bosses after), "???" for the rest.</summary>
         private void DrawBestiary(Rect panel, float colW, GUIStyle titleStyle, GUIStyle bodyStyle)
         {
             var view = new Rect(panel.x + 20, panel.y + 58, panel.width - 40, panel.height - 124);
@@ -557,8 +526,8 @@ namespace Deepbound.UI
                 var r = new Rect((i % 2) * (cw + 20f), (i / 2) * rowH, cw, rowH - 6);
                 UiSkin.Rect(r, new Color(1f, 1f, 1f, seen ? 0.05f : 0.02f));
                 if (seen) UiSkin.Rect(new Rect(r.x, r.y, 3, r.height), e.Boss ? new Color(0.9f, 0.3f, 0.22f) : UiSkin.Gold);
-                GUI.Label(new Rect(r.x + 10, r.y + 3, r.width - 14, 20), seen ? e.Name.ToUpperInvariant() : "???", new GUIStyle(titleStyle) { normal = { textColor = seen ? (e.Boss ? new Color(0.95f, 0.45f, 0.35f) : UiSkin.Gold) : new Color(0.5f, 0.48f, 0.45f) } });
-                GUI.Label(new Rect(r.x + 10, r.y + 22, r.width - 14, r.height - 24), Bestiary.TextFor(i), new GUIStyle(bodyStyle) { fontSize = 12, normal = { textColor = seen ? bodyStyle.normal.textColor : new Color(0.5f, 0.48f, 0.45f) } });
+                GUI.Label(new Rect(r.x + 10, r.y + 3, r.width - 14, 20), seen ? e.Name.ToUpperInvariant() : "???", UiSkin.Derive(titleStyle, seen ? (e.Boss ? new Color(0.95f, 0.45f, 0.35f) : UiSkin.Gold) : new Color(0.5f, 0.48f, 0.45f)));
+                GUI.Label(new Rect(r.x + 10, r.y + 22, r.width - 14, r.height - 24), Bestiary.TextFor(i), UiSkin.Derive(bodyStyle, seen ? bodyStyle.normal.textColor : new Color(0.5f, 0.48f, 0.45f), fontSize: 12));
             }
             GUI.EndScrollView();
         }
@@ -576,8 +545,8 @@ namespace Deepbound.UI
                     if (Journal.Entries[i].Floor != f) continue;
                     bool have = Journal.Has(i);
                     var r = new Rect(listX + 8, y, listW - 8, 19);
-                    if (have && GUI.Button(r, (journalOpen == i ? "> " : "") + Journal.Entries[i].Title, new GUIStyle(UiSkin.Body) { fontSize = 14, normal = { textColor = journalOpen == i ? UiSkin.Gold : new Color(0.9f, 0.88f, 0.84f) } })) journalOpen = i;
-                    if (!have) GUI.Label(r, f == 4 ? "a guardian not yet felled" : f == 5 ? "someone not yet brought home" : "a page not yet found", new GUIStyle(UiSkin.Body) { fontSize = 14, fontStyle = FontStyle.Italic, normal = { textColor = new Color(0.55f, 0.52f, 0.48f) } });
+                    if (have && GUI.Button(r, (journalOpen == i ? "> " : "") + Journal.Entries[i].Title, UiSkin.Derive(UiSkin.Body, journalOpen == i ? UiSkin.Gold : new Color(0.9f, 0.88f, 0.84f), fontSize: 14))) journalOpen = i;
+                    if (!have) GUI.Label(r, f == 4 ? "a guardian not yet felled" : f == 5 ? "someone not yet brought home" : "a page not yet found", UiSkin.Derive(UiSkin.Body, new Color(0.55f, 0.52f, 0.48f), fontSize: 14, fontStyle: FontStyle.Italic));
                     y += 19;
                 }
                 y += 4;
@@ -586,8 +555,8 @@ namespace Deepbound.UI
             if (journalOpen >= 0 && Journal.Has(journalOpen))
             {
                 var e = Journal.Entries[journalOpen];
-                GUI.Label(new Rect(tx, panel.y + 64, tw, 30), e.Title, new GUIStyle(UiSkin.Heading) { fontSize = 22 });
-                GUI.Label(new Rect(tx, panel.y + 100, tw, panel.height - 180), e.Text, new GUIStyle(bodyStyle) { fontSize = 16, fontStyle = FontStyle.Italic });
+                GUI.Label(new Rect(tx, panel.y + 64, tw, 30), e.Title, UiSkin.Derive(UiSkin.Heading, UiSkin.Heading.normal.textColor, fontSize: 22));
+                GUI.Label(new Rect(tx, panel.y + 100, tw, panel.height - 180), e.Text, UiSkin.Derive(bodyStyle, bodyStyle.normal.textColor, fontSize: 16, fontStyle: FontStyle.Italic));
             }
             else GUI.Label(new Rect(tx, panel.y + 64, tw, 60), Journal.Count == 0 ? "Pages of Cathedra's history lie open on lecterns in the dungeon, one on every floor. Read them (F) and they are kept here." : "Choose a page to read it.", bodyStyle);
         }
@@ -598,7 +567,7 @@ namespace Deepbound.UI
             var panel = new Rect(w / 2f - pw / 2f, h / 2f - ph / 2f, pw, ph);
             UiSkin.Panel(panel, 0.96f);
             string[] titles = { "GUIDE: PROGRESSION", "GUIDE: THE DUNGEON", "JOURNAL  (" + Journal.Count + " / " + Journal.Entries.Length + " pages)", "BESTIARY  (" + Bestiary.SeenCount + " / " + Bestiary.Entries.Length + " met)" };
-            GUI.Label(new Rect(panel.x, panel.y + 12, pw, 40), titles[guidePage], new GUIStyle(UiSkin.Heading) { alignment = TextAnchor.MiddleCenter, fontSize = 30 });
+            GUI.Label(new Rect(panel.x, panel.y + 12, pw, 40), titles[guidePage], UiSkin.Derive(UiSkin.Heading, UiSkin.Heading.normal.textColor, fontSize: 30, align: TextAnchor.MiddleCenter));
             float colW = (pw - 92f) / 2f;
             var titleStyle = new GUIStyle(UiSkin.Small) { fontStyle = FontStyle.Bold, fontSize = 14, normal = { textColor = UiSkin.Gold } };
             var bodyStyle = new GUIStyle(UiSkin.Body) { fontSize = 14, wordWrap = true };
@@ -607,10 +576,9 @@ namespace Deepbound.UI
             else if (guidePage == 3) DrawBestiary(panel, colW, titleStyle, bodyStyle);
             else
             {
-                // The two columns scroll (the wheel, or the bar) inside the panel, above the buttons.
                 var view = new Rect(panel.x + 16, panel.y + 58, pw - 32, ph - 58 - 72);
                 var sections = new[] { guidePage == 0 ? GuideLeft : DungeonLeft, guidePage == 0 ? GuideRight : DungeonRight };
-                // Measuring a page of wrapped text is costly: do it once per page, width and key state.
+
                 string key = guidePage + "|" + colW + "|" + Binds.AnyChanged + "|" + Binds.PadActive + "|" + Codex.Version;
                 if (key != guideCacheKey)
                 {
@@ -649,7 +617,7 @@ namespace Deepbound.UI
                 }
                 GUI.EndScrollView();
                 if (tallest > view.height && guideScroll.y < tallest - view.height - 4f)
-                    GUI.Label(new Rect(view.x, view.yMax - 2, view.width, 18), "scroll for more", new GUIStyle(UiSkin.Small) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Italic, normal = { textColor = UiSkin.Gold } });
+                    GUI.Label(new Rect(view.x, view.yMax - 2, view.width, 18), "scroll for more", UiSkin.Derive(UiSkin.Small, UiSkin.Gold, fontStyle: FontStyle.Italic, align: TextAnchor.MiddleCenter));
             }
             string[] next = { "THE DUNGEON >", "JOURNAL >", "BESTIARY >", "PROGRESSION >" };
             if (UiSkin.Btn(new Rect(panel.x + pw / 2f - 280, panel.yMax - 56, 180, 40), next[guidePage], UiSkin.Button)) guidePage = (guidePage + 1) % 4;

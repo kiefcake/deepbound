@@ -2,15 +2,11 @@ using Unity.Netcode;
 
 namespace Deepbound.Enemies
 {
-    /// <summary>
-    /// What an elite, champion or boss's rage looks like to the party (synced a few times a second):
-    /// up to four players' rage and who it is hunting. Plain data, copied byte for byte.
-    /// </summary>
     public struct ThreatView : INetworkSerializeByMemcpy, System.IEquatable<ThreatView>
     {
         public ulong Id0, Id1, Id2, Id3;
         public float T0, T1, T2, T3;
-        /// <summary>The NetworkObjectId of the player it is after (0: nobody).</summary>
+
         public ulong Target;
 
         public int Count => (Id0 != 0 ? 1 : 0) + (Id1 != 0 ? 1 : 0) + (Id2 != 0 ? 1 : 0) + (Id3 != 0 ? 1 : 0);

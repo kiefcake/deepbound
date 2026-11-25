@@ -2,11 +2,6 @@ using UnityEngine;
 
 namespace Deepbound.Art
 {
-    /// <summary>
-    /// The Knight's Rallying Banner as you see it: an iron pole driven into the floor, a
-    /// swallow-tailed war banner in the Knight's colour, and a glowing ring on the ground
-    /// that marks where its blessing reaches. Purely visual; the server owns the effect.
-    /// </summary>
     public class RallyBanner : MonoBehaviour
     {
         private Renderer ring;

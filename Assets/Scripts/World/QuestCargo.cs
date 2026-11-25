@@ -5,26 +5,10 @@ using UnityEngine;
 
 namespace Deepbound.World
 {
-    /// <summary>
-    /// A quest's CARGO (2026-11-08, the user: quests "way too easy ... be more creative, you can involve new mechanics or
-    /// assets that can be done in the dungeon"; picked "Fetch &amp; carry"). Somewhere far from the start lies the thing a
-    /// camp person asked for; carry it (F) OUT: through the guardian's fight and up on the grave lift (2026-11-08, the
-    /// user: "it should be carried out past the boss fight, so that the item can get damaged or the speed halved will
-    /// affect someone in combat"). It must be inside the arena when the arena seals (else it is left behind and the quest
-    /// fails), and it cannot be set down while the arena is sealed. Each one handles differently:
-    /// <list type="bullet">
-    /// <item>Hobb's father's hammer: heavy (x0.5 speed).</item>
-    /// <item>Silas's strongbox of a dead merchant: x0.62, and every blow that knocks it loose spills some of its gold (the reward shrinks).</item>
-    /// <item>Marta's cask of Deepcellar Black and Vey's bolt of deep silk: FRAGILE - every blow that knocks it loose
-    /// cracks it (three and it is ruined, the quest failed).</item>
-    /// <item>Corwin's old coach lamp: light (x0.95) and it lights the way (a carried light, like the hand torch).</item>
-    /// </list>
-    /// </summary>
     public class QuestCargo : Carryable
     {
-        /// <summary>Whose cargo this is (a <see cref="FolkId"/>); set before spawning.</summary>
         public readonly NetworkVariable<byte> Giver = new NetworkVariable<byte>();
-        /// <summary>Fragile cargo: cracks so far (3 = ruined).</summary>
+
         public readonly NetworkVariable<byte> Cracks = new NetworkVariable<byte>();
         public const int MaxCracks = 3;
 
@@ -82,18 +66,16 @@ namespace Deepbound.World
         private void CrackFxRpc(byte cracks)
         {
             Sfx.Play(Who == FolkId.Marta ? Sound.Shatter : Sound.Creak, transform.position + Vector3.up * 0.4f, 0.9f, 1.1f);
-            // Shown on the cargo, not spelled out (2026-11-14): splinters fly and a dark split opens in it (VisualTick).
+
             Vfx.Embers(transform.position + Vector3.up * 0.3f, 8, new Color(0.55f, 0.4f, 0.25f), 3f, 0.05f, 0.6f);
         }
 
-        /// <summary>Never by the waystone: <see cref="DungeonDirector"/> settles cargo as the grave lift rises.</summary>
         protected override void ServerDelivered(NetworkObject carrier, DungeonLayout layout) { }
 
         private int cracksShown;
 
         protected override void VisualTick(bool carried)
         {
-            // One dark split per crack, on every peer (late joiners too), so a carried crate shows how close it is to ruin.
             while (visual != null && cracksShown < Cracks.Value)
             {
                 cracksShown++;
@@ -119,7 +101,7 @@ namespace Deepbound.World
             switch (Who)
             {
                 case FolkId.Hobb:
-                    // A great smith's hammer, head down, haft up, a leather grip.
+
                     MeshKit.Part(visual, "Head", MeshKit.Box(new Vector3(0.42f, 0.2f, 0.2f)), Mat.Steel, new Vector3(0f, 0.1f, 0f));
                     MeshKit.Part(visual, "Haft", MeshKit.Cylinder(0.035f, 0.03f, 0.95f, 7), Mat.Wood, new Vector3(0f, 0.2f, 0f));
                     ArtLibrary.Tint(MeshKit.Part(visual, "Grip", MeshKit.Cylinder(0.042f, 0.042f, 0.25f, 7), Mat.Leather, new Vector3(0f, 0.85f, 0f)).GetComponent<Renderer>(), new Color(0.35f, 0.22f, 0.12f));
@@ -141,7 +123,7 @@ namespace Deepbound.World
                     var sheen = MeshKit.Part(visual, "Sheen", MeshKit.Cylinder(0.132f, 0.132f, 0.1f, 12), Mat.Glow, new Vector3(0f, 0.13f, -0.05f), new Vector3(90f, 0f, 0f));
                     ArtLibrary.SetGlow(sheen.GetComponent<Renderer>(), new Color(0.5f, 0.3f, 0.9f) * 0.5f);
                     break;
-                default: // Corwin's lamp
+                default:
                     MeshKit.Part(visual, "Base", MeshKit.Box(new Vector3(0.22f, 0.05f, 0.22f)), Mat.Steel, new Vector3(0f, 0.025f, 0f));
                     var glass = MeshKit.Part(visual, "Glass", MeshKit.Box(new Vector3(0.18f, 0.26f, 0.18f)), Mat.Glow, new Vector3(0f, 0.18f, 0f));
                     ArtLibrary.SetGlow(glass.GetComponent<Renderer>(), new Color(1f, 0.75f, 0.4f) * 1.3f);
@@ -157,7 +139,7 @@ namespace Deepbound.World
                     lamp.shadows = LightShadows.None;
                     break;
             }
-            // A thin column of light over it while it lies waiting, so a searching party can spot it down a hall.
+
             var beacon = MeshKit.Part(visual, "Beacon", MeshKit.Cylinder(0.02f, 0.06f, 3.2f, 6), Mat.Glow, new Vector3(0f, 0.5f, 0f));
             ArtLibrary.SetGlow(beacon.GetComponent<Renderer>(), new Color(1f, 0.8f, 0.45f) * 0.45f);
             beacon.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;

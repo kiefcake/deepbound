@@ -2,7 +2,6 @@ using UnityEngine;
 
 namespace Deepbound.Art
 {
-    /// <summary>A broken lantern: steady most of the time, then it stutters and dies for a beat (and its pane with it).</summary>
     public class StutterLight : MonoBehaviour
     {
         public Renderer Pane;

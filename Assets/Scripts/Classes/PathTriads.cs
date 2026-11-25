@@ -6,24 +6,17 @@ using UnityEngine;
 
 namespace Deepbound.Classes
 {
-    /// <summary>
-    /// PATH TRIADS (2026-11-13, the user: "Give each class a third anvil path built for survival, e.g. a Knight 'Bulwark' path
-    /// where blocking builds a shield charge you can spend as a shockwave. Every class gets a clear tank/damage/utility fork").
-    /// Path 3 of every class keeps you standing. Server-side: <see cref="Incoming"/> is folded into the delver's incoming damage,
-    /// <see cref="OnDamaged"/> hears every hit a delver lands, and <see cref="OnKnightBlock"/> is the Knight's shield charge.
-    /// </summary>
     public static class PathTriads
     {
         public const int Path = 3;
         public const float BulwarkCharge = 100f, BulwarkRadius = 4f, BulwarkStun = 0.8f, BulwarkShield = 0.2f;
-        public const float WardPerHit = 0.04f, WardCap = 0.25f, WardCapMastered = 0.4f, WardSeconds = 6f;
-        public const float AnchoriteHeal = 0.3f, ShadowSeconds = 1f, PathwardenReach = 6f, PathwardenHeal = 0.02f, MithridateReach = 8f;
-        /// <summary>The Wardweaver: a shard at most every <see cref="ShardEvery"/> s, each soaking up to <see cref="ShardSoak"/> of max health.</summary>
+        public const float WardSeconds = 6f;
+        public const float ShadowSeconds = 1f, PathwardenReach = 6f, MithridateReach = 8f;
+
         public const float ShardEvery = 1.5f, ShardSoak = 0.15f, ShardBurst = 3f;
         public const int Shards = 3, ShardsMastered = 5;
         private static readonly Dictionary<ulong, float> nextShard = new Dictionary<ulong, float>();
 
-        /// <summary>Server: the Wardweaver's shards take what they can of a blow.</summary>
         public static float Absorb(PlayerProgress p, float damage)
         {
             if (p == null || damage <= 0f || !p.OnPath(Path) || p.ClassId.Value != ClassId.Mage || p.WardShards.Value == 0) return damage;
@@ -72,7 +65,6 @@ namespace Deepbound.Classes
         private static bool hooked;
         private static readonly Dictionary<ulong, float> shadowUntil = new Dictionary<ulong, float>(), mendReady = new Dictionary<ulong, float>(), charge = new Dictionary<ulong, float>();
 
-        /// <summary>Server: listen for the hits delvers land (once).</summary>
         public static void EnsureHook()
         {
             if (hooked) return;
@@ -108,7 +100,7 @@ namespace Deepbound.Classes
                     shadowUntil[p.NetworkObjectId] = Time.time + ShadowSeconds;
                     break;
                 case ClassId.Ranger:
-                    // Point-blank: a shot at something this close hurls it back and stuns it (once a second each).
+
                     if ((target.transform.position - p.transform.position).sqrMagnitude < PathwardenReach * PathwardenReach && !AbilityKit.IsBoss(target)
                         && (!mendReady.TryGetValue(target.NetworkObjectId, out var r) || Time.time >= r))
                     {
@@ -122,7 +114,6 @@ namespace Deepbound.Classes
             }
         }
 
-        /// <summary>Server: the path's share of a blow on <paramref name="p"/> (a multiplier).</summary>
         public static float Incoming(PlayerProgress p, Vector3 attackerPosition)
         {
             if (p == null || !p.OnPath(Path)) return 1f;
@@ -146,7 +137,6 @@ namespace Deepbound.Classes
             return 1f;
         }
 
-        /// <summary>Server: the cut a blow would get right now, for the HUD (the Pathwarden's counts when the dead are within reach).</summary>
         public static float Readout(PlayerProgress p)
         {
             if (p == null || !p.OnPath(Path)) return 1f;
@@ -157,7 +147,6 @@ namespace Deepbound.Classes
             return Incoming(p, at);
         }
 
-        /// <summary>Server: a Knight on the Bulwark path turned <paramref name="blocked"/> damage on the shield. True when it looses the shockwave.</summary>
         public static bool OnKnightBlock(PlayerProgress p, float blocked, float swingDamage)
         {
             if (p == null || !p.OnPath(Path) || p.ClassId.Value != ClassId.Knight) return false;
@@ -178,10 +167,8 @@ namespace Deepbound.Classes
             return true;
         }
 
-        /// <summary>Any peer: how full the Knight's shield charge is (server only; clients see 0).</summary>
         public static float ChargeOf(ulong id) => charge.TryGetValue(id, out var c) ? Mathf.Clamp01(c / BulwarkCharge) : 0f;
 
-        /// <summary>Server, tests: set a Knight's charge.</summary>
         public static void DebugCharge(ulong id, float value) => charge[id] = value;
     }
 }

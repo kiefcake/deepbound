@@ -5,14 +5,10 @@ using UnityEngine;
 
 namespace Deepbound.World
 {
-    /// <summary>
-    /// The camp shrine: kneel, pay, and carry a blessing down with you for one floor. Each
-    /// player is offered their own blessing each visit.
-    /// </summary>
     public class Shrine : Interactable
     {
         private Renderer sigil;
-        // The two relics the shrine offers this visit, shown as gems in caskets on the altar.
+
         private readonly Renderer[] relicGems = new Renderer[2];
         private float nextRelicCheck;
         private float pulse;
@@ -23,24 +19,10 @@ namespace Deepbound.World
 
         public override string Prompt(PlayerProgress who)
         {
-            // The blessings are chosen in the shrine's offerings (G), two to pick from.
             return null;
         }
 
-        // Blessings are bought from the shrine's offerings now (two to choose from), not by kneeling.
         protected override void ServerUse(PlayerProgress who) { }
-
-        [Rpc(SendTo.ClientsAndHost)]
-        private void BlessFxRpc(string who, byte b, Vector3 at)
-        {
-            var blessing = (Blessing)b;
-            var c = Blessings.Color(blessing);
-            pulse = 1f;
-            Sfx.Play(Sound.Revive, transform.position + Vector3.up, 0.9f, 1.1f);
-            Vfx.Ring(at, 2f, c, 0.5f);
-            Vfx.Embers(at + Vector3.up, 20, c, 3f, 0.06f, 1f);
-            UI.GameHud.Feed(who + " receives the " + Blessings.Name(blessing).Replace("Blessing of ", "blessing of ") + " for the next floor", c);
-        }
 
         private void Update()
         {
@@ -64,7 +46,7 @@ namespace Deepbound.World
         public override void OnNetworkSpawn()
         {
             base.OnNetworkSpawn();
-            // An altar stone with candles, a weathered hooded saint above, a halo of light.
+
             MeshKit.Part(transform, "Altar", MeshKit.Box(new Vector3(1.6f, 0.9f, 0.8f)), Mat.StoneWall, Vector3.up * 0.45f);
             MeshKit.Part(transform, "AltarTop", MeshKit.Box(new Vector3(1.75f, 0.1f, 0.9f)), Mat.StoneWall, Vector3.up * 0.95f);
             var cloth = MeshKit.Part(transform, "AltarCloth", MeshKit.Box(new Vector3(0.5f, 0.6f, 0.92f)), Mat.Cloth, new Vector3(0f, 0.68f, 0f));

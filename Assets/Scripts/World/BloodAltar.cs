@@ -9,21 +9,10 @@ using UnityEngine;
 
 namespace Deepbound.World
 {
-    /// <summary>
-    /// A blood altar (reworked 2026-10-20). Its chalice wants <see cref="Offerings"/> offerings of
-    /// blood; anyone in the party can give one (F, a fifth of your max health, taken straight from
-    /// the pool). Each offering pays at once (embers), and the blood on the stone calls the dead
-    /// within earshot. When the chalice brims, every player who bled gets a relic they lack, and the
-    /// whole party gets BLOODLUST (+15% damage for <see cref="BloodlustSeconds"/>). A soloist pays it
-    /// all alone; a party splits the price, and those who gave nothing share only the bloodlust.
-    /// </summary>
     public class BloodAltar : Interactable
     {
         public const int Offerings = 3;
-        // 2026-11-13, the user: "nerf the blood chest ... to 10% of max hp, permanently and adjust benefit". An offering now
-        // takes a tenth of your MAX health for the rest of the run (it used to be a fifth of your current health, which you
-        // mended); in return each offering is +4% damage for the run (PlayerProgress.BloodOffered), on top of the relic and the
-        // Bloodlust when the chalice brims.
+
         public const float OfferFraction = 0.1f, BloodlustSeconds = 90f, OfferDamage = 0.04f;
         public const int MaxOffered = 5;
 
@@ -58,13 +47,13 @@ namespace Deepbound.World
             var hp = who.GetComponent<Health>();
             if (who.BloodOffered.Value >= MaxOffered) return;
             nextOffer = Time.time + 0.6f;
-            // Taken from your MAX health for the run (not a hit: blocks and wards do not apply).
+
             who.ServerOfferBlood();
             donors.Add(who.NetworkObjectId);
             int depth = DungeonDirector.Layout != null ? DungeonDirector.Layout.Depth : 0;
             who.ServerAddEmbers(Enemies.Difficulty.Embers(4 + Mathf.RoundToInt(2f * DungeonDirector.Tier(depth))));
             Filled.Value = (byte)Mathf.Min(Offerings, Filled.Value + 1);
-            // Fresh blood on the stone: the dead nearby smell it.
+
             DungeonDirector.Instance?.ServerNoise(hp, transform.position, 12f);
             OfferFxRpc(who.name, Filled.Value);
             if (Filled.Value >= Offerings) ServerBrim();
@@ -125,7 +114,7 @@ namespace Deepbound.World
         {
             MeshKit.Part(transform, "Base", MeshKit.Box(new Vector3(1.4f, 0.4f, 1.0f)), Mat.StoneWall, new Vector3(0f, 0.2f, 0f));
             MeshKit.Part(transform, "Top", MeshKit.Box(new Vector3(1.2f, 0.5f, 0.8f)), Mat.StoneWall, new Vector3(0f, 0.65f, 0f));
-            // Runnels down the front where the blood runs, and a broad stone chalice on top.
+
             for (int i = 0; i < 3; i++)
                 MeshKit.Part(transform, "Runnel" + i, MeshKit.Box(new Vector3(0.05f, 0.5f, 0.02f)), Mat.Dark, new Vector3(-0.3f + i * 0.3f, 0.62f, 0.405f));
             MeshKit.Part(transform, "Chalice", MeshKit.Lathe("altarChalice", new[]
@@ -134,7 +123,7 @@ namespace Deepbound.World
             }, 14), Mat.StoneWall, new Vector3(0f, 0.9f, 0f));
             bloodLevel = MeshKit.Pivot(transform, "BloodLevel", new Vector3(0f, 1.2f, 0f));
             pool = MeshKit.Part(bloodLevel, "Blood", MeshKit.Cylinder(0.3f, 0.3f, 0.12f, 14), Mat.Glow, new Vector3(0f, 0.06f, 0f)).GetComponent<Renderer>();
-            // Three blood-marks on the altar's face: one lights for each offering.
+
             for (int i = 0; i < Offerings; i++)
             {
                 var m = MeshKit.Part(transform, "Mark" + i, MeshKit.Lathe("altarMark", new[] { new Vector2(0.06f, 0f), new Vector2(0f, 0.12f) }, 3), Mat.Glow, new Vector3(-0.3f + i * 0.3f, 0.95f, 0.41f), new Vector3(180f, 0f, 0f));
