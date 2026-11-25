@@ -401,3 +401,30 @@ The economy section expects about 5,700 gold a run, so three quests a floor add 
 
 - Near-downs 0 / 0 / 2 / 2. A party of four took floor 1 with no real danger; floors 2-3 were not reached (the same camp
   timeout fault as run A, fixed). Rerun both parties on the next build for floors 2-3 and the Plague Doctor recheck.
+
+## Party run A2, 2026-11-25 (same party, after the stack trim; all four played floors 1-3)
+
+| Floor | Knight | Mage | Cleric | Plague Doctor |
+|---|---|---|---|---|
+| 1 | 15.5k | 13.0k | 5.7k | 19.1k |
+| 2 | 14.2k | 17.5k | 7.1k | 27.3k |
+| 3 | 43.2k | 33.6k | 25.7k | 64.8k |
+
+- Still the top dealer by ~1.5x. The source lines show why: on floor 3, 14.7k of the Plague Doctor's damage was "Relics".
+  The Thunder Idol counted every hit toward its lightning, and blight ticks twice a second on every blighted enemy, so it
+  fired many times more often than for any other class. Damage-over-time ticks no longer count (`Relics`, `Health.InTick`
+  read at the start of the hook); the relic text says "direct hit". Blight ticks are now tagged "Blight" (they were most
+  of "other", 20k on floor 3).
+- Bot noise: "no damage on guardian" no longer fires while the guardian is asleep, invulnerable or in its entrance.
+
+## Party run A3, 2026-11-25 (after the Thunder Idol tick fix)
+
+| Floor | Knight | Mage | Cleric | Plague Doctor | PD / Knight on the guardian |
+|---|---|---|---|---|---|
+| 1 | 9.7k (boss 5.1k) | 10.9k (6.5k) | 5.6k (3.4k) | 14.1k (8.1k) | 1.58 |
+| 2 | 24.5k (17.0k) | 15.3k (10.0k) | 6.3k (4.1k) | 25.1k (19.2k) | 1.13 |
+| 3 | 34.0k (21.2k) | 24.8k (16.2k) | 14.8k (10.1k) | 49.1k (25.4k) | 1.20 |
+
+- The Plague Doctor now sits level with the Knight on guardians; its lead is on crowds (floor 3: 23.6k on non-boss enemies
+  against the Knight's 12.8k), which is its role. No further change. Sources: vials ~45%, Blight ~45%, the rest small.
+- The Cleric deals the least, as the support class. Near-downs stayed low (0-9 per member per floor).

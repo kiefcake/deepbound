@@ -424,7 +424,7 @@ namespace Deepbound.Combat
                 {
                     nextBlightTick = Time.time + 0.5f;
                     var src = blightSource;
-                    Ticking().ServerDamage(blightDps * 0.5f, transform.position, src);
+                    Tag("Blight").Ticking().ServerDamage(blightDps * 0.5f, transform.position, src);
                 }
             }
 

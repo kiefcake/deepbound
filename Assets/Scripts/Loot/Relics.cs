@@ -7,7 +7,6 @@ using UnityEngine;
 
 namespace Deepbound.Loot
 {
-    /// <summary>APPEND ONLY: synced as a byte in loot drops and player relic lists.</summary>
     public enum Relic : byte
     {
         VampiricFang = 0,
@@ -33,44 +32,30 @@ namespace Deepbound.Loot
         TallymansLedger = 20,
         LamplightersOil = 21,
         ChoristersBell = 22,
-        // 2026-10-23: the party relics and a crit relic.
+
         BannerOfTheFallen = 23,
         SharedVow = 24,
         RallyingBell = 25,
         WhettedFang = 26,
-        // 2026-11-22: relics for Convergence and Blight. (Ids fit in 5 bits: up to 31.)
+
         ConvergentStar = 27,
         PlagueCenser = 28,
         CinderCrown = 29,
     }
 
-    /// <summary>
-    /// Relics: the run's "fun items". Where potions are steady numeric growth, each relic
-    /// changes how you play — a reason to take risks (Blood Pact), to stick together
-    /// (Briar Crown on the tank), or to build around a combo (Frost Shard on anyone
-    /// partied with a Mage). One of each per player; a duplicate stays on the floor for a
-    /// teammate. Lost when the run ends, like everything else.
-    /// </summary>
     public static class Relics
     {
         public static readonly int Count = System.Enum.GetValues(typeof(Relic)).Length;
 
-        /// <summary>
-        /// The relic tray (2026-10-23): at most <see cref="MaxCarried"/>, each up to tier III. A relic you
-        /// already carry, or any relic once the tray is full, empowers one instead (+35% to its numbers per
-        /// tier). A full run used to end with 15+ relics and every build the same.
-        /// </summary>
         public const int MaxCarried = 8, MaxTier = 2;
         public static float Power(int tier) => 1f + TierStep * Mathf.Clamp(tier, 0, MaxTier);
-        /// <summary>+35% a tier (it was 50%: the autoplay run's floors 8-9 went by with two close calls).</summary>
+
         public const float TierStep = 0.35f;
         public static int TierPercent(int tier) => Mathf.RoundToInt(TierStep * 100f * Mathf.Clamp(tier, 0, MaxTier));
         public static string TierName(int tier) => tier >= 2 ? " III" : tier == 1 ? " II" : "";
 
-        /// <summary>Relics with nothing to scale cannot be empowered.</summary>
         public static bool Scales(Relic r) => r != Relic.LamplightersOil;
 
-        /// <summary>Only worth having with someone to share it: never rolled in a solo run.</summary>
         public static bool PartyOnly(Relic r) => r == Relic.SharedVow || r == Relic.RallyingBell || r == Relic.ConvergentStar;
 
         public static string Name(Relic r)
@@ -78,7 +63,7 @@ namespace Deepbound.Loot
             switch (r)
             {
                 case Relic.VampiricFang: return "Vampiric Fang";
-                case Relic.ThunderSigil: return "Thunder Idol"; // renamed 2026-10-21: "Sigil" is the ability currency
+                case Relic.ThunderSigil: return "Thunder Idol";
                 case Relic.BerserkersBrand: return "Berserker's Brand";
                 case Relic.BoneWard: return "Bone Ward";
                 case Relic.PhoenixFeather: return "Phoenix Feather";
@@ -116,7 +101,7 @@ namespace Deepbound.Loot
             switch (r)
             {
                 case Relic.VampiricFang: return "Heal for 6% of all damage you deal.";
-                case Relic.ThunderSigil: return "Every 6th hit (one sooner per tier) calls lightning that chains to 2 more enemies.";
+                case Relic.ThunderSigil: return "Every 6th direct hit (one sooner per tier) calls lightning that chains to 2 more enemies.";
                 case Relic.BerserkersBrand: return "+40% damage while below half health.";
                 case Relic.BoneWard: return "Blocks one hit completely every 12 seconds (sooner per tier).";
                 case Relic.PhoenixFeather: return "Once per floor, rise again the moment you go down.";
@@ -187,12 +172,9 @@ namespace Deepbound.Loot
             }
         }
 
-        /// <summary>Never in a random roll: the Gilded Skull comes only from the Bone Hoarder (2026-11-13, the user: "put else where").</summary>
-        // Tests never roll the Cinder Crown: its stray fire landed first blows and broke unrelated checks.
         public static bool NotRandom(Relic r) => r == Relic.GildedSkull || (r == Relic.CinderCrown && World.DungeonDirector.TestMode);
         public const float HoarderSkullChance = 0.35f;
 
-        /// <summary>A random relic; in a solo run never a party one.</summary>
         public static Relic Random()
         {
             bool solo = Player.PlayerLife.All.Count <= 1;
@@ -204,7 +186,6 @@ namespace Deepbound.Loot
             return Relic.HeartOfTheDeep;
         }
 
-        /// <summary>The same, from a seeded generator (the shrine's stock).</summary>
         public static Relic FromSeed(System.Random rng)
         {
             bool solo = Player.PlayerLife.All.Count <= 1;
@@ -215,10 +196,6 @@ namespace Deepbound.Loot
             }
             return Relic.HeartOfTheDeep;
         }
-
-        // ------------------------------------------------------------------
-        // Synergies: two relics that belong together awaken something more
-        // ------------------------------------------------------------------
 
         public enum Synergy { DeepWinter, Bloodbound, StormCaller, Reaper, Undying, WarBand, ColdSteel, LastLight, RebornInFlame }
 
@@ -241,14 +218,9 @@ namespace Deepbound.Loot
             return false;
         }
 
-        // ------------------------------------------------------------------
-        // Server-side effects that hook into damage dealt
-        // ------------------------------------------------------------------
-
         private static bool hooked;
         private static readonly Dictionary<ulong, int> HitCounters = new Dictionary<ulong, int>();
 
-        /// <summary>Server: subscribe once to every damage event in the game.</summary>
         public static void EnsureServerHooks()
         {
             if (hooked) return;
@@ -258,14 +230,14 @@ namespace Deepbound.Loot
 
         private static bool resolvingProc;
 
-        /// <summary>Hit counts start again each run.</summary>
         public static void ResetRun() => HitCounters.Clear();
 
         private static void OnServerAnyDamaged(Health target, float dealt, ulong attackerId)
         {
+            bool tick = Health.InTick;
             if (target.Team == Team.Players && target.TryGetComponent<PlayerProgress>(out var victim)) victim.ServerCreditTaken(dealt);
             if (target.Team != Team.Enemies) return;
-            // Relic procs deal damage too: they count for stats, but must not trigger more procs.
+
             if (resolvingProc)
             {
                 var n = NetworkManager.Singleton;
@@ -293,11 +265,11 @@ namespace Deepbound.Loot
                 finally { resolvingProc = false; }
             }
 
-            if (p.HasRelic(Relic.ThunderSigil))
+            if (!tick && p.HasRelic(Relic.ThunderSigil))
             {
                 HitCounters.TryGetValue(attackerId, out int hits);
                 hits++;
-                if (hits >= Mathf.Max(3, (Has(p, Synergy.StormCaller) ? 3 : 6) - p.RelicTier(Relic.ThunderSigil))) // never more often than every 3rd hit (Storm Caller on the Cleric's beam ticks was the strongest pair seen)
+                if (hits >= Mathf.Max(3, (Has(p, Synergy.StormCaller) ? 3 : 6) - p.RelicTier(Relic.ThunderSigil)))
                 {
                     hits = 0;
                     resolvingProc = true;

@@ -1241,7 +1241,7 @@ namespace Deepbound.Networking
                         dmgTarget = null;
                         continue;
                     }
-                    else if (Time.time - dmgSince > 20f && target.GetComponent<EnemyBrain>() is BossBrain bb0)
+                    else if (Time.time - dmgSince > 20f && target.GetComponent<EnemyBrain>() is BossBrain bb0 && !bb0.Immune && !bb0.Dormant && !bb0.InEntrance)
                     {
                         dmgSince = Time.time;
                         var eye = me.transform.position + Vector3.up * 1.6f;

@@ -5536,7 +5536,7 @@ namespace Deepbound.Networking
                         }
                         if (vA != null && vA.IsSpawned) vA.NetworkObject.Despawn();
                         if (vB != null && vB.IsSpawned) vB.NetworkObject.Despawn();
-                        Log("vial per stack", "fresh target " + fresh.ToString("F1") + ", four stacks " + festered.ToString("F1"), fresh > 0f && festered > fresh * 1.5f);
+                        Log("vial per stack", "fresh target " + fresh.ToString("F1") + ", four stacks " + festered.ToString("F1"), fresh > 0f && festered > fresh * (1f + PlagueDoctorKit.StackBonus * 2f));
                         var tme = local.GetComponent<Health>();
                         tme.ServerSetFraction(0.5f);
                         float tb0 = tme.Current.Value;
