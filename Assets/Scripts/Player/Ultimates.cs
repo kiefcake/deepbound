@@ -448,7 +448,7 @@ namespace Deepbound.Player
                     if (ally != null && !ally.Downed.Value && ally.Health.IsAlive && Flat(ally.transform.position - at) <= DawnRadius)
                         ClericKit.Bless(ally.Health, ally.Health.Max.Value * DawnHeal);
                 foreach (var foe in CombatQuery.Circle(at, DawnRadius, Team.Enemies).ToArray())
-                    foe.Tag("Dawnbreak").ServerDamage(DawnBurn * att * DawnTick * 2f, at, NetworkObjectId);
+                    foe.Tag("Dawnbreak").Ticking().ServerDamage(DawnBurn * att * DawnTick * 2f, at, NetworkObjectId);
                 yield return new WaitForSeconds(DawnTick);
             }
         }

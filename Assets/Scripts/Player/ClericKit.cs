@@ -439,7 +439,7 @@ namespace Deepbound.Player
                     if (progress.B(AbilitySlot.Q, 3) && ally.TryGetComponent<PlayerDebuffs>(out var db) && db.AnyAffliction) { db.ServerCleanse(); progress.AbilityTextRpc(ally.Center + Vector3.up, "PURIFIED", PlayerProgress.FxKind.Holy); }
                 }
                 foreach (var foe in CombatQuery.Circle(at, ZoneRadius, Team.Enemies).ToArray())
-                    foe.Tag("Consecrate").ServerDamage(ConsecrateBurnPerSec * progress.AttackMultiplier * progress.Potency(AbilitySlot.Q) * dt, at, NetworkObjectId);
+                    foe.Tag("Consecrate").Ticking().ServerDamage(ConsecrateBurnPerSec * progress.AttackMultiplier * progress.Potency(AbilitySlot.Q) * dt, at, NetworkObjectId);
                 // Judgement (rank 4 A): pillars of light on what stands inside.
                 if (progress.A(AbilitySlot.Q, 3) && Time.time >= z.NextPillar)
                 {

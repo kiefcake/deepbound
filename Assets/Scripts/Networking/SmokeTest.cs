@@ -6037,6 +6037,28 @@ namespace Deepbound.Networking
                     w1 > w0 + 0.01f && Mathf.Abs(upPitch - Player.Ultimates.WyrmMaxPitch) < 1f && Mathf.Abs(wd2.y) < 0.02f && wd.z > 0f);
             }
 
+            // 2026-11-25: a tick of damage over time does not spend the perfect dodge's counter; the next real blow does.
+            if (net.IsServer && NetworkPlayer.Local != null && DungeonDirector.Instance != null)
+            {
+                var kme = NetworkPlayer.Local;
+                var kp = kme.GetComponent<PlayerProgress>();
+                var kfoe = DungeonDirector.Instance.ServerDebugSpawn("skeleton", kme.transform.position + kme.transform.forward * 5f, false, calm: true);
+                bool kept = false, spent = false;
+                if (kfoe != null)
+                {
+                    var kh = kfoe.GetComponent<Health>();
+                    kh.ServerSetMax(5000f, refill: true);
+                    yield return null;
+                    kp.PerfectStrikeUntil = Time.time + 2f;
+                    kh.Ticking().ServerDamage(3f, kh.transform.position, kme.NetworkObjectId);
+                    kept = kp.PerfectStrikeUntil > Time.time;
+                    kh.ServerDamage(3f, kme.transform.position, kme.NetworkObjectId);
+                    spent = kp.PerfectStrikeUntil <= 0f;
+                    if (kfoe.IsSpawned) kfoe.NetworkObject.Despawn();
+                }
+                Log("counter kept from ticks", "spawned " + (kfoe != null) + ", kept through a tick " + kept + ", spent by a blow " + spent, kept && spent);
+            }
+
             // THE PROVING PATH (2026-11-23): the tutorial floor, every lesson met in turn, the guardian, then camp.
             if (net.IsServer && NetworkPlayer.Local != null && DungeonDirector.Instance != null)
             {

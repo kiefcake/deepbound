@@ -53,8 +53,9 @@ namespace Deepbound.Loot
                     banner = Mathf.Max(banner, bp.RelicPower(Relic.BannerOfTheFallen) * (band ? 1.5f : 1f));
             }
             if (banner > 0f) m *= 1f + 0.08f * banner;
-            if (p.ServerConsumeDodgeStrike()) m *= 1.6f;
-            if (p.ServerConsumePerfectStrike()) m *= PlayerProgress.PerfectStrikeMultiplier;
+            // A tick of blight or a burning cloud is not the blow these were saved for.
+            if (!Health.InTick && p.ServerConsumeDodgeStrike()) m *= 1.6f;
+            if (!Health.InTick && p.ServerConsumePerfectStrike()) m *= PlayerProgress.PerfectStrikeMultiplier;
             if (p.Blessed(Blessing.Wrath)) m *= 1.15f;
             if (p.HasRelic(Relic.ExecutionersCoin) && target.Fraction < (Relics.Has(p, Relics.Synergy.Reaper) ? 0.45f : 0.3f)) m *= 1f + 0.5f * p.RelicPower(Relic.ExecutionersCoin);
             if (p.HasRelic(Relic.WintersTooth) && target.Chilled.Value) m *= 1f + 0.25f * p.RelicPower(Relic.WintersTooth) + (Relics.Has(p, Relics.Synergy.DeepWinter) ? 0.25f : 0f);

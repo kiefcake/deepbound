@@ -64,7 +64,7 @@ namespace Deepbound.Classes
             {
                 yield return new WaitForSeconds(0.5f);
                 if (h == null || !h.IsAlive) yield break;
-                float dealt = h.Tag(tag).ServerDamage(dps * 0.5f, h.transform.position, by);
+                float dealt = h.Tag(tag).Ticking().ServerDamage(dps * 0.5f, h.transform.position, by);
                 onTick?.Invoke(dealt);
             }
         }

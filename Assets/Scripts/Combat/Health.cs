@@ -380,6 +380,14 @@ namespace Deepbound.Combat
         public static Action<Health, float, ulong, string> ServerHitTagged;
         public Health Tag(string source) { DamageTag = source; return this; }
 
+        /// <summary>
+        /// The next hit is a tick of damage over time (blight, a burning cloud, Consecrate). While it lands, <see cref="InTick"/>
+        /// is true, so one-shot bonuses meant for a real blow (the perfect dodge's counter) are not spent on it (2026-11-25).
+        /// </summary>
+        public Health Ticking() { tickNext = true; return this; }
+        private static bool tickNext;
+        public static bool InTick { get; private set; }
+
         /// <summary>Diagnostics (tests): the modifier that last turned a hit to nothing, and what the last hit to land was worth.</summary>
         public string LastZeroedBy { get; private set; } = "none";
         public float LastLanded { get; private set; }
@@ -388,6 +396,8 @@ namespace Deepbound.Combat
         {
             string tag = DamageTag;
             DamageTag = null;
+            InTick = tickNext;
+            tickNext = false;
             if (!IsServer || !IsSpawned || !IsAlive || amount <= 0f) return 0f;
             // A killing blow (BossBrain.KillDamage, 1e5: tests, falls into the abyss) is never scaled or softened by DEF, so every
             // modifier that lets it through still sees it at full size.
@@ -513,7 +523,7 @@ namespace Deepbound.Combat
                 {
                     nextBlightTick = Time.time + 0.5f;
                     var src = blightSource;
-                    ServerDamage(blightDps * 0.5f, transform.position, src);
+                    Ticking().ServerDamage(blightDps * 0.5f, transform.position, src);
                 }
             }
 

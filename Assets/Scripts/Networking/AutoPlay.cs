@@ -1590,6 +1590,10 @@ namespace Deepbound.Networking
                         s.Key + " " + s.Value.ToString("F0") + (m.BossSource.TryGetValue(s.Key, out float bs) ? " (boss " + bs.ToString("F0") + " in " + m.BossHits[s.Key] + " hits)" : ""))));
                 m.Source.Clear(); m.BossSource.Clear(); m.BossHits.Clear();
             }
+            // The damage sheet as the player would read it (2026-11-24): the growth curve, floor by floor.
+            if (prog != null)
+                L("   damage sheet: " + string.Join(", ", Progression.DamageSheet.For(prog).Select(dl => dl.Name + " " + dl.Now.ToString("F0") + " (+" + ((dl.Start > 0f ? dl.Now / dl.Start - 1f : 0f) * 100f).ToString("F0") + "%)"))
+                    + " | ATT " + prog.Value(Core.StatType.ATT).ToString("F0") + ", weapon +" + prog.WeaponLevel.Value + ", relics " + prog.RelicCount + ", cooldown cut " + (prog.CooldownCut * 100f).ToString("F0") + "%");
             string usedLine = AbilitiesLine();
             L("   abilities used this floor: " + usedLine);
             if (usedLine == "none") Problem("played a whole floor without using one ability");

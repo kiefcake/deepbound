@@ -1403,28 +1403,75 @@ namespace Deepbound.Art
         }
 
         /// <summary>Disengage: a spray of green leaves where the Ranger kicked off, and a short arc of light along the leap.</summary>
+        /// <summary>
+        /// DISENGAGE (2026-11-25; the green ring and leaves read as the Plague Doctor's): a hunter's leap in silver and gold.
+        /// A parting ARROW stays stuck in the floor where the Ranger stood, two boot FURROWS are scraped along the way they
+        /// went, a silver wind CRESCENT bursts off the take-off, and grey FEATHERS drift down after.
+        /// </summary>
         public static void Disengage(Transform who)
         {
             if (!Live || who == null) return;
             var feet = Vfx.Floor(who.position);
-            Shock(feet, 1.6f, Hunter, 0.4f, 0.3f);
-            var leaf = MeshKit.Box(new Vector3(1f, 0.08f, 0.55f));
-            for (int i = 0; i < 14; i++)
+            var back = -Flat(who.forward);
+            if (back.sqrMagnitude < 0.01f) back = Vector3.back;
+            var face = Quaternion.LookRotation(back, Vector3.up);
+            var wind = new Color(0.82f, 0.9f, 1f);
+            var gold = new Color(1f, 0.82f, 0.45f);
+
+            // The parting arrow: shaft, iron head buried, fletching up, a gold glint; it stays a breath, then sinks away.
+            var arrow = FxShape.Make("DisengageArrow", feet, Quaternion.Euler(0f, Random.Range(0f, 360f), 0f), 1.6f);
+            var tilt = arrow.Pivot(Vector3.zero, Quaternion.Euler(-18f, 0f, 8f));
+            arrow.Solid(MeshKit.Cylinder(0.022f, 0.022f, 0.85f, 6), Mat.Wood, Vector3.up * 0.0f, Quaternion.identity, null, tilt);
+            arrow.Solid(MeshKit.Cylinder(0.0f, 0.05f, 0.12f, 6), Mat.Steel, Vector3.down * 0.1f, Quaternion.Euler(180f, 0f, 0f), null, tilt);
+            for (int i = 0; i < 3; i++)
+                arrow.Solid(MeshKit.Box(new Vector3(0.005f, 0.16f, 0.08f)), Mat.Cloth, new Vector3(0f, 0.74f, 0f), Quaternion.Euler(0f, i * 120f, 0f), null, tilt, new Color(0.85f, 0.85f, 0.8f));
+            arrow.Light(MeshKit.Ball(0.07f, 8, 6), H(gold, 2.6f, 0.9f), new Vector3(0f, 0.86f, 0f), Quaternion.identity, null, true, tilt);
+            arrow.Light(Shapes.Hoop(0.05f, 32), H(gold, 1.6f, 0.6f), Vector3.up * 0.04f, Quaternion.identity, Vector3.one * 0.35f);
+            arrow.Tick = (sh, k) =>
             {
-                var v = (Flat(who.forward) * 2f + Random.insideUnitSphere * 1.6f + Vector3.up * 1.5f).normalized * Random.Range(2f, 4.5f);
-                var p = Vfx.Spawn(leaf, Mat.Glow, feet + Vector3.up * 0.3f + Random.insideUnitSphere * 0.3f, v, Random.Range(0.8f, 1.3f), Random.Range(0.07f, 0.12f), 0.03f,
-                    Color.Lerp(Hunter, new Color(0.9f, 0.8f, 0.3f), Random.value) * 1.2f, 3f, 1.6f);
-                p.transform.rotation = Random.rotation;
-                p.Spin = Random.Range(-400f, 400f);
-            }
-            var s = FxShape.Make("DisengageTrail", who.position, Quaternion.identity, 0.5f);
-            float next = 0f;
-            s.Tick = (sh, k) =>
-            {
-                if (who == null || sh.Age < next) return;
-                next = sh.Age + 0.03f;
-                Vfx.Spawn(MeshKit.Ball(0.5f, 6, 4), Mat.Glow, who.position + Vector3.up * 0.9f, Vector3.zero, 0.35f, 0.18f, 0f, Hunter * 1.6f, 0f, 1f);
+                float fade = Mathf.Clamp01((k - 0.6f) / 0.4f);
+                sh.Bright = 1f - fade;
+                sh.transform.position = feet + Vector3.down * 0.9f * fade * fade;
             };
+
+            // Two furrows scraped toward where the leap goes, darkest at the take-off.
+            var furrow = FxShape.Make("DisengageFurrows", feet + Vector3.up * 0.02f, face, 1.4f);
+            foreach (float sx in new[] { -0.17f, 0.17f })
+            {
+                furrow.Shade(MeshKit.Box(new Vector3(0.09f, 0.012f, 1.5f)), new Color(0.05f, 0.04f, 0.03f, 0.65f), new Vector3(sx, 0f, 0.9f), Quaternion.Euler(0f, sx * 8f, 0f));
+                furrow.Shade(MeshKit.Box(new Vector3(0.05f, 0.012f, 0.9f)), new Color(0.05f, 0.04f, 0.03f, 0.4f), new Vector3(sx * 1.25f, 0f, 2.1f), Quaternion.Euler(0f, sx * 14f, 0f));
+            }
+            furrow.Tick = (sh, k) => sh.Bright = Mathf.Clamp01(1.6f - k * 1.6f);
+
+            // A silver crescent of wind, standing up behind the Ranger and opening outward.
+            var cres = FxShape.Make("DisengageWind", feet + Vector3.up * 1.0f, face, 0.45f);
+            var arc = cres.Pivot(Vector3.zero, Quaternion.identity);
+            for (int i = 0; i < 9; i++)
+            {
+                float t = (i - 4) / 4f;
+                float ang = t * 70f;
+                var dir = Quaternion.Euler(0f, 0f, ang) * Vector3.up;
+                cres.Light(Shapes.Spindle(0.55f, 0.07f), H(wind, 2.2f, 0.85f), dir * 0.9f + Vector3.forward * (0.15f - Mathf.Abs(t) * 0.25f),
+                    Quaternion.Euler(0f, 0f, ang + 90f), null, true, arc);
+            }
+            cres.Tick = (sh, k) =>
+            {
+                float e = EaseOut(k);
+                arc.localScale = Vector3.one * (0.7f + 1.4f * e);
+                arc.localPosition = Vector3.back * 0.6f * e;
+                sh.Bright = Mathf.Clamp01(1.2f - k * 1.2f);
+            };
+
+            // Feathers: long pale spindles that tumble and drift down slowly over the take-off.
+            for (int i = 0; i < 7; i++)
+            {
+                var v = (back * Random.Range(0.4f, 1.4f) + Random.insideUnitSphere * 0.9f + Vector3.up * 1.6f);
+                var p = Vfx.Spawn(Shapes.Spindle(0.32f, 0.07f), Mat.Glow, feet + Vector3.up * 0.9f + Random.insideUnitSphere * 0.25f, v,
+                    Random.Range(1.3f, 1.9f), 1f, 0f, Color.Lerp(wind, new Color(0.7f, 0.68f, 0.62f), Random.value) * 1.1f, 0.35f, 1f);
+                p.transform.rotation = Random.rotation;
+                p.Spin = Random.Range(-160f, 160f);
+            }
+            Shock(feet, 1.1f, wind, 0.25f, 0.25f);
         }
 
         /// <summary>A Volley arrow coming down out of the dark: a green streak from the sky to where it lands.</summary>
