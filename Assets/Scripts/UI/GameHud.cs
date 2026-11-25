@@ -3458,8 +3458,9 @@ namespace Deepbound.UI
             }
 
             var hits = Progression.DamageSheet.For(progress);
-            float pw = 300, rowH = 26, ph = 50 + Stats.Count * rowH + 70 + 88 + 22 + 22 + 22 + 22 + 22 + (hits.Count > 0 ? 30 + hits.Count * 20 : 0);
-            float x = w - pw - 24, y = h / 2f - ph / 2f;
+            float pw = 300, rowH = 26, ph = 50 + Stats.Count * rowH + 70 + 88 + 22 + 22 + 22 + 22 + 22;
+            // Below the minimap when the screen has the room (it sat over the panel's title at 720p).
+            float x = w - pw - 24, y = Mathf.Max(h / 2f - ph / 2f, Mathf.Min(Minimap.SmallBottom + 8f, h - ph - 66f));
             Rect(x, y, pw, ph, Panel);
             // The two gear slots, at the foot of the sheet; hover-free: full cards sit left of it.
             float gy = y + 46 + Stats.Count * rowH;
@@ -3494,10 +3495,10 @@ namespace Deepbound.UI
             GUI.Label(new Rect(x + 12, gy, 70, 20), "CRIT", small);
             GUI.Label(new Rect(x + 80, gy, pw - 90, 20), Mathf.RoundToInt(GearEffects.CritChance(progress) * 100f) + "%  (x" + (progress.HasRelic(Relic.WhettedFang) ? (2f + 0.25f * progress.RelicTier(Relic.WhettedFang)).ToString("0.##") : "1.75") + " damage)", small);
             gy += 22;
-            GUI.Label(new Rect(x + 12, gy, 70, 20), "COOLDOWNS", small);
+            GUI.Label(new Rect(x + 12, gy, 70, 20), "HASTE", small);
             {
                 float cdQ = 1f - progress.CooldownMultiplier * (1f - Classes.AbilityRanks.CooldownPerRank * (progress.Rank(AbilitySlot.Q) - 1));
-                GUI.Label(new Rect(x + 80, gy, pw - 90, 20), "-" + Mathf.RoundToInt(progress.CooldownCut * 100f) + "% from items"
+                GUI.Label(new Rect(x + 80, gy, pw - 90, 20), "cooldowns -" + Mathf.RoundToInt(progress.CooldownCut * 100f) + "% (items)"
                     + (cdQ > progress.CooldownCut + 0.005f ? ", Q -" + Mathf.RoundToInt(cdQ * 100f) + "% in all" : ""), small);
             }
             gy += 22;
@@ -3526,22 +3527,24 @@ namespace Deepbound.UI
                     new GUIStyle(small) { normal = { textColor = progress.Rank(slot) > 1 ? LootInfo.SigilColor : new Color(1f, 1f, 1f, 0.6f) } });
                 gy += 22;
             }
-            // ATTACKS (2026-11-24): what a plain hit deals now, and how much more than at the start of a run.
+            // DAMAGE (2026-11-24): its own panel at the top left, which the sheet leaves empty (inside the stat panel it ran
+            // up under the minimap and its header wrapped over the first row).
             if (hits.Count > 0)
             {
-                gy += 6;
-                GUI.Label(new Rect(x + 12, gy, pw - 24, 20), "DAMAGE  (a plain hit; +: since the run began)", new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = Gold } });
-                gy += 22;
+                float dw = 330, dh = 44 + hits.Count * 22, dx = 24, dy = 24;
+                Rect(dx, dy, dw, dh, Panel);
+                GUI.Label(new Rect(dx + 12, dy + 10, dw - 24, 20), "DAMAGE", new GUIStyle(label) { normal = { textColor = Gold } });
+                GUI.Label(new Rect(dx + 12, dy + 12, dw - 24, 20), "a plain hit  ·  since the run began", new GUIStyle(small) { alignment = TextAnchor.UpperRight, wordWrap = false, normal = { textColor = new Color(1f, 1f, 1f, 0.5f) } });
+                float ry2 = dy + 36;
                 var nameStyle = new GUIStyle(small) { wordWrap = false };
                 foreach (var l in hits)
                 {
-                    GUI.Label(new Rect(x + 12, gy, 40, 20), l.Key, new GUIStyle(small) { normal = { textColor = new Color(1f, 1f, 1f, 0.5f) } });
-                    GUI.Label(new Rect(x + 46, gy, 130, 20), UiSkin.Fit(l.Name, nameStyle, 128), nameStyle);
-                    GUI.Label(new Rect(x + 176, gy, 70, 20), Mathf.RoundToInt(l.Now) + l.Unit, new GUIStyle(small) { wordWrap = false, normal = { textColor = Color.white } });
+                    GUI.Label(new Rect(dx + 12, ry2, 40, 20), l.Key, new GUIStyle(small) { wordWrap = false, normal = { textColor = new Color(1f, 1f, 1f, 0.5f) } });
+                    GUI.Label(new Rect(dx + 52, ry2, 140, 20), UiSkin.Fit(l.Name, nameStyle, 138), nameStyle);
+                    GUI.Label(new Rect(dx + 196, ry2, 80, 20), Mathf.RoundToInt(l.Now) + l.Unit, new GUIStyle(small) { wordWrap = false, fontStyle = FontStyle.Bold, normal = { textColor = Color.white } });
                     int pct = l.Start > 0.01f ? Mathf.RoundToInt((l.Now / l.Start - 1f) * 100f) : 0;
-                    if (pct != 0)
-                        GUI.Label(new Rect(x + pw - 62, gy, 50, 20), (pct > 0 ? "+" : "") + pct + "%", new GUIStyle(small) { alignment = TextAnchor.UpperRight, normal = { textColor = pct > 0 ? Gold : new Color(0.9f, 0.45f, 0.4f) } });
-                    gy += 20;
+                    GUI.Label(new Rect(dx + dw - 62, ry2, 50, 20), pct == 0 ? "-" : (pct > 0 ? "+" : "") + pct + "%", new GUIStyle(small) { alignment = TextAnchor.UpperRight, normal = { textColor = pct > 0 ? Gold : pct < 0 ? new Color(0.9f, 0.45f, 0.4f) : new Color(1f, 1f, 1f, 0.4f) } });
+                    ry2 += 22;
                 }
             }
             GUI.Label(new Rect(x + 12, y + 10, pw, 22), progress.Class.Name.ToUpperInvariant() + "  -  " + ClassDefinition.WeaponName(progress.ClassId.Value) + " +" + progress.WeaponLevel.Value

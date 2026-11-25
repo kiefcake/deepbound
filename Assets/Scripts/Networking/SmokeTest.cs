@@ -6008,6 +6008,7 @@ namespace Deepbound.Networking
                 string after = UI.Codex.BodyOf(combos);
                 bool combosOk = knownBefore > 0 && (fresh.Key == null || (!before.Contains(fresh.Text) && after.Contains(fresh.Text)))
                     && UI.Codex.TitleOf(combos).Contains("(" + (knownBefore + (fresh.Key != null ? 1 : 0)) + " / ");
+                // The run itself may have met and killed brutes already (the watcher counts real kills): check the stages only rise.
                 int bi = UI.Bestiary.IndexOf("BruteBrain");
                 UI.Bestiary.See("BruteBrain");
                 int st1 = UI.Bestiary.Stage(bi);
@@ -6018,7 +6019,7 @@ namespace Deepbound.Networking
                 int st3 = UI.Bestiary.Stage(bi);
                 bool lastEntry = UI.Bestiary.See(UI.Bestiary.Entries[UI.Bestiary.Entries.Length - 1].Type) || UI.Bestiary.Seen(UI.Bestiary.Entries.Length - 1);
                 Log("guide and bestiary fill in", "combo learned once " + newOnce + ", combos page " + UI.Codex.TitleOf(combos) + " ok " + combosOk + "; brute stages " + st1 + " -> " + st2 + " -> " + st3 + " ('" + t2 + "'), entry " + UI.Bestiary.Entries.Length + " recorded " + lastEntry,
-                    newOnce && combosOk && st1 == 1 && st2 == 2 && st3 == 3 && t2.Contains("defeated to learn more") && lastEntry && UI.Bestiary.Entries.Length > 32);
+                    newOnce && combosOk && st1 >= 1 && st2 >= 2 && st2 >= st1 && st3 == 3 && (st2 == 3 || t2.Contains("defeated to learn more")) && lastEntry && UI.Bestiary.Entries.Length > 32);
 
                 var dl = Progression.DamageSheet.For(cp);
                 float ratio = cp.AttackMultiplier / Progression.DamageSheet.StartMultiplier(cp);
@@ -8585,6 +8586,30 @@ namespace Deepbound.Networking
             // distinct"). A bare stage far off to the side of the dungeon (at floor height: below y -3 the pit rescue takes you back) (its own floor, navmesh and lights, nothing to block the camera), one
             // station per ability 40 m apart so nothing lingers into the next shot. Each cast is shot from a three-quarter view
             // beside the caster, twice (_1 early, _2 later) to see it move; a few from the caster's own eyes (_eye).
+            // -galpart t (2026-11-25): the Proving Path - each lesson's line on arrival, then met.
+            if (part.Contains("t"))
+            {
+                UI.GameHud.PhotoMode = false;
+                dd.ServerDebugTutorial();
+                yield return new WaitForSeconds(4f);
+                var tl = DungeonDirector.Layout;
+                for (int li = 0; li < DungeonLayout.TutorialRooms && tl != null; li++)
+                {
+                    var tutRoom = tl.Rooms[li];
+                    if (li > 0)
+                    {
+                        motor.Teleport(tutRoom.Center + Vector3.back * (tutRoom.Size.y / 2f - 3f) + Vector3.up * 0.1f, Quaternion.LookRotation(Vector3.forward));
+                        motor.SetPitch(4f);
+                        yield return new WaitForSeconds(1.6f);
+                    }
+                    yield return Shot(dir, "tut_" + li + "_" + (DungeonDirector.Lesson)li);
+                    if (li == DungeonLayout.TutorialRooms - 1) break;
+                    dd.ServerDebugMeetLesson();
+                    yield return new WaitForSeconds(0.5f);
+                    if (li == 0 || li == 7) yield return Shot(dir, "tut_" + li + "_met");
+                }
+                UI.GameHud.PhotoMode = true;
+            }
             if (part.Contains("a"))
             {
                 dd.ServerDebugStartFloor(0);

@@ -178,7 +178,7 @@ namespace Deepbound.UI
 
             // The potions' own glows, under everything else.
             if (sanctK > 0f) DrawColumn(sanctK, t, calm);
-            if (mendK > 0f) DrawRising(mendK, t, calm, new Color(1f, 0.5f, 0.3f), 101, 22, 0.55f);
+            if (mendK > 0f) DrawRising(mendK, t, calm, new Color(1f, 0.5f, 0.3f), 101, 36, 0.6f, 1.6f); // bigger, more (2026-11-25 -shots: barely seen)
             if (surgeK > 0f) DrawSurge(surgeK, t, calm, surgeColor);
             if (furyK > 0f) DrawFuryBeat(furyK, t, calm);
             if (lastStandK > 0f)

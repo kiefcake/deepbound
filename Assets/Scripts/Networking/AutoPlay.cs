@@ -556,9 +556,30 @@ namespace Deepbound.Networking
             // Board: a seat on the carriage; it leaves when everyone sits.
             var ride = CarriageRide.Instance;
             if (ride == null) { Problem("no carriage at camp"); yield break; }
-            yield return WalkTo(ride.SeatGround(seatNo), 1.5f);
-            life.SitRpc(seatNo);
-            L("sat on the carriage");
+            // The server refuses a seat when its copy of us is over 3.5 m from it or the seat is held, and the bot used to log
+            // "sat" either way (2026-11-25: two followers "sat" and the party waited at camp for good). Ask, check, say why.
+            int want = seatNo;
+            for (int tries = 0; tries < 8 && life.Seat.Value < 0; tries++)
+            {
+                yield return WalkTo(ride.SeatGround(want), 1.0f);
+                yield return new WaitForSeconds(0.6f); // let our position reach the server
+                life.SitRpc(want);
+                for (float t = 0f; t < 1.5f && life.Seat.Value < 0; t += 0.25f) yield return new WaitForSeconds(0.25f);
+                if (life.Seat.Value >= 0) break;
+                string holder = "nobody";
+                foreach (var pl in PlayerLife.All) if (pl != null && pl != life && pl.Seat.Value == want) holder = pl.name;
+                L("seat " + want + " refused: " + Vector3.Distance(transform.position, ride.SeatGround(want)).ToString("F1") + " m from it, held by " + holder);
+                // Held: take the next seat nobody holds.
+                if (holder != "nobody")
+                    for (int s2 = 0; s2 < CarriageRide.SeatCount; s2++)
+                    {
+                        bool taken = false;
+                        foreach (var pl in PlayerLife.All) if (pl != null && pl.Seat.Value == s2) taken = true;
+                        if (!taken) { want = s2; break; }
+                    }
+            }
+            if (life.Seat.Value >= 0) L("sat on the carriage (seat " + life.Seat.Value + ")");
+            else Problem("could not sit on the carriage (seat " + want + ")");
             yield return new WaitForSeconds(4f);
             if (!follower) yield return Shot("carriage_F" + (floorNo + 2));
             // It leaves when everyone sits: the others may still be at the shops.

@@ -109,8 +109,15 @@ namespace Deepbound.UI
             var pivot = new Vector2(w / 2f, h / 2f);
             var keep = GUI.matrix;
             UiScale.Rotate(t * 160f, pivot);
-            GUI.color = new Color(0.95f, 0.25f, 0.8f, k * 0.2f * calm);
+            // 2026-11-25 (-shots): at 0.2 the spiral did not show at all and mania read as a plain magenta haze.
+            GUI.color = new Color(0.95f, 0.25f, 0.8f, k * 0.36f * calm);
             GUI.DrawTexture(new Rect(pivot.x - s / 2f, pivot.y - s / 2f, s, s), spiral);
+            GUI.matrix = keep;
+            // A second, smaller one turning the other way: the two shear against each other.
+            float s2 = s * 0.55f;
+            UiScale.Rotate(-t * 230f, pivot);
+            GUI.color = new Color(1f, 0.55f, 0.9f, k * 0.22f * calm);
+            GUI.DrawTexture(new Rect(pivot.x - s2 / 2f, pivot.y - s2 / 2f, s2, s2), spiral);
             GUI.matrix = keep;
         }
 
@@ -133,7 +140,7 @@ namespace Deepbound.UI
         }
 
         /// <summary>A mending potion: warm red-gold motes rising up the view, thick at the bottom.</summary>
-        private static void DrawRising(float k, float t, float calm, Color c, int seed, int count, float height)
+        private static void DrawRising(float k, float t, float calm, Color c, int seed, int count, float height, float size = 1f)
         {
             float w = UiScale.W, h = UiScale.H;
             for (int i = 0; i < count; i++)
@@ -142,7 +149,7 @@ namespace Deepbound.UI
                 float phase = (t * (0.15f + 0.2f * Hash(i, 2, seed)) + Hash(i, 3, seed)) % 1f;
                 float y = h - phase * h * height;
                 float sway = Mathf.Sin(t * 2f + i * 1.3f) * 8f;
-                Dot(new Vector2(x + sway, y), h * (0.008f + 0.012f * Hash(i, 4, seed)), new Color(c.r, c.g, c.b, k * (1f - phase) * 0.8f * calm));
+                Dot(new Vector2(x + sway, y), h * (0.008f + 0.012f * Hash(i, 4, seed)) * size, new Color(c.r, c.g, c.b, k * (1f - phase) * 0.8f * calm));
             }
         }
 
