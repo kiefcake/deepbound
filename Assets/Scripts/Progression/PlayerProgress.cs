@@ -54,6 +54,7 @@ namespace Deepbound.Progression
         [Rpc(SendTo.Server)]
         public void UseRopeRpc()
         {
+            RunLog.Note("action", "UseRope", this);
             if (!CanUseRope) return;
             Rope.Value = false;
             World.DungeonDirector.Instance.ServerRetreat(name);
@@ -122,6 +123,7 @@ namespace Deepbound.Progression
         [Rpc(SendTo.Server)]
         public void TakeQuestRpc(byte who)
         {
+            RunLog.Note("action", "TakeQuest" + " " + who, this);
             var d = World.DungeonDirector.Instance;
             if (d == null || !World.DungeonDirector.InLobby || !World.FolkPlaces.InReach((World.FolkId)who, transform.position, 2f)) return;
             if (Grudge((World.FolkId)who) >= 3) return;
@@ -136,6 +138,7 @@ namespace Deepbound.Progression
         [Rpc(SendTo.Server)]
         public void AmendsRpc(Shop.Vendor vendor)
         {
+            RunLog.Note("action", "Amends" + " " + vendor, this);
             int cost = AmendsCost(vendor);
             if (cost <= 0 || Gold.Value < cost || !Shop.InReach(vendor, transform.position, 1f)) return;
             Gold.Value -= cost;
@@ -211,6 +214,7 @@ namespace Deepbound.Progression
         [Rpc(SendTo.Server)]
         public void MeltSigilRpc()
         {
+            RunLog.Note("action", "MeltSigil", this);
             if (!AtRunewright || Sigils.Value < 1 || Rank(AbilitySlot.Q) < AbilityRanks.MaxRank || Rank(AbilitySlot.E) < AbilityRanks.MaxRank) return;
             Sigils.Value--;
             Embers.Value += AbilityRanks.MeltEmbers;
@@ -260,6 +264,7 @@ namespace Deepbound.Progression
         [Rpc(SendTo.Server)]
         public void ChooseEdgeRpc(byte edge)
         {
+            RunLog.Note("action", "ChooseEdge" + " " + edge, this);
             if (World.Anvil.Near(transform.position) == null) return;
             ServerChooseEdge((Edge)edge);
         }
@@ -290,6 +295,7 @@ namespace Deepbound.Progression
         [Rpc(SendTo.Server)]
         public void RespecEdgeRpc(byte slot)
         {
+            RunLog.Note("action", "RespecEdge" + " " + slot, this);
             if (World.Anvil.Near(transform.position) == null) return;
             ServerRespecEdge(slot);
         }
@@ -335,6 +341,7 @@ namespace Deepbound.Progression
         [Rpc(SendTo.Server)]
         public void HoneRpc()
         {
+            RunLog.Note("action", "Hone", this);
             var anvil = World.Anvil.Near(transform.position);
             if (anvil != null && ServerHone()) anvil.WorkFxRpc(World.Anvil.Work.Grindstone, 1f);
         }
@@ -402,6 +409,7 @@ namespace Deepbound.Progression
         [Rpc(SendTo.Server)]
         public void BagEquipRpc(int i)
         {
+            RunLog.Note("action", "BagEquip" + " " + i, this);
             if (!CanManagePack(i)) return;
             var item = bag[i];
             bag.RemoveAt(i);
@@ -412,6 +420,7 @@ namespace Deepbound.Progression
         [Rpc(SendTo.Server)]
         public void BagScrapRpc(int i)
         {
+            RunLog.Note("action", "BagScrap" + " " + i, this);
             if (!CanManagePack(i) || !AtAnvil) return;
             var item = bag[i];
             bag.RemoveAt(i);
@@ -425,6 +434,7 @@ namespace Deepbound.Progression
         [Rpc(SendTo.Server)]
         public void BagDropRpc(int i)
         {
+            RunLog.Note("action", "BagDrop" + " " + i, this);
             if (!CanManagePack(i)) return;
             var item = bag[i];
             bag.RemoveAt(i);
@@ -435,6 +445,7 @@ namespace Deepbound.Progression
         [Rpc(SendTo.Server)]
         public void UnequipRpc(byte slot)
         {
+            RunLog.Note("action", "Unequip" + " " + slot, this);
             if (!IsServer || slot > 1 || GetComponent<Player.PlayerLife>().Downed.Value || bag.Count >= BagSize) return;
             var item = Equipped((GearSlot)slot);
             if (item.IsEmpty) return;
@@ -479,6 +490,7 @@ namespace Deepbound.Progression
         [Rpc(SendTo.Server)]
         public void ReforgeRpc(byte slot, byte mode)
         {
+            RunLog.Note("action", "Reforge" + " " + slot + " " + mode, this);
             var anvil = World.Anvil.Near(transform.position);
             if (anvil == null || slot > 1) return;
             var item = Equipped((GearSlot)slot);
@@ -592,6 +604,7 @@ namespace Deepbound.Progression
         [Rpc(SendTo.Server)]
         public void ChooseClassRpc(ClassId id)
         {
+            RunLog.Note("action", "ChooseClass" + " " + id, this);
             if (!CanChangeClass || (int)id < 0 || (int)id >= System.Enum.GetValues(typeof(ClassId)).Length) return;
             ClassId.Value = id;
         }
@@ -630,6 +643,7 @@ namespace Deepbound.Progression
         [Rpc(SendTo.Server)]
         public void MeldRunesRpc(byte rune)
         {
+            RunLog.Note("action", "MeldRunes" + " " + rune, this);
             var r = (Rune)rune;
             int tier = Runes.Tier(r);
             if (!AtRunewright || r == Rune.None || tier >= Runes.MaxTier || RuneCount(r) < 3) return;
@@ -674,6 +688,7 @@ namespace Deepbound.Progression
         [Rpc(SendTo.Server)]
         public void SocketRuneRpc(byte rune, sbyte socketIndex = -1)
         {
+            RunLog.Note("action", "SocketRune" + " " + rune + " " + socketIndex, this);
             int sockets = Runes.SocketsAt(WeaponLevel.Value);
             int bagIndex = runeBag.IndexOf(rune);
             if (!AtRunewright || sockets == 0 || bagIndex < 0) return;
@@ -927,6 +942,7 @@ namespace Deepbound.Progression
         public bool ServerAddRelic(Relic r, int tier)
         {
             if (!IsServer || !CanTakeRelic(r)) return false;
+            RunLog.Note("relic", Relics.Name(r) + (tier > 0 ? " +" + tier : ""), this);
             if (HasRelic(r))
             {
                 for (int i = 0; i < relics.Count; i++) if (RelicAt(i) == r) { ServerEmpower(i, r); break; }
@@ -1336,6 +1352,7 @@ namespace Deepbound.Progression
         [Rpc(SendTo.Server)]
         public void TemperRpc()
         {
+            RunLog.Note("action", "Temper", this);
             var anvil = World.Anvil.Near(transform.position);
             if (anvil != null && ServerUpgradeWeapon()) anvil.ForgeFxRpc(WeaponLevel.Value);
         }
@@ -1343,6 +1360,7 @@ namespace Deepbound.Progression
         [Rpc(SendTo.Server)]
         public void ChoosePathRpc(byte path)
         {
+            RunLog.Note("action", "ChoosePath" + " " + path, this);
             if (World.Anvil.Near(transform.position) == null) return;
             if (WeaponPath.Value != 0 || WeaponLevel.Value < WeaponPaths.PathLevel || path < 1 || path > WeaponPaths.Count) return;
             WeaponPath.Value = path;
@@ -1441,6 +1459,7 @@ namespace Deepbound.Progression
         [Rpc(SendTo.Server)]
         public void GiveGoldRpc(ulong toPlayer, int amount)
         {
+            RunLog.Note("action", "GiveGold" + " " + toPlayer + " " + amount, this);
             amount = Mathf.Min(amount, Gold.Value);
             if (amount <= 0 || !NetworkManager.SpawnManager.SpawnedObjects.TryGetValue(toPlayer, out var obj) || !obj.TryGetComponent<PlayerProgress>(out var to) || to == this) return;
             Gold.Value -= amount;
@@ -1451,6 +1470,7 @@ namespace Deepbound.Progression
         [Rpc(SendTo.Server)]
         public void EvenOutGoldRpc()
         {
+            RunLog.Note("action", "EvenOutGold", this);
             var party = Party();
             if (party.Count <= 1) return;
             int total = 0;
@@ -1472,6 +1492,7 @@ namespace Deepbound.Progression
         [Rpc(SendTo.Server)]
         public void BagGiftRpc(int i)
         {
+            RunLog.Note("action", "BagGift" + " " + i, this);
             if (!CanManagePack(i)) return;
             PlayerProgress to = null;
             float best = float.MaxValue;
@@ -1635,6 +1656,7 @@ namespace Deepbound.Progression
 
             if (bought)
             {
+                RunLog.Note("buy", vendor + ": " + item.Name + " (" + item.Price + "g)", this);
                 Gold.Value -= item.Price;
                 if (HasRelic(Relic.PilgrimsPurse) && World.DungeonDirector.InLobby) ServerAddEmbers(item.Price / 10);
                 PurchasedRpc();

@@ -17,6 +17,7 @@ def parse_args():
     ap = argparse.ArgumentParser(description='Play a real party of bots over localhost and fail if any member does nothing.')
     ap.add_argument('--classes', nargs='+', default=['Mage', 'Knight', 'Cleric', 'Rogue'])
     ap.add_argument('--floors', type=int, default=1)
+    ap.add_argument('--depth', type=int, default=0, help='start on this floor index with a matching loadout (0 = camp, floor 1)')
     ap.add_argument('--build', default=os.path.join(ROOT, 'Builds', 'Deepbound'))
     ap.add_argument('--out', default=None, help='log folder (default <build>/partycheck)')
     ap.add_argument('--port', default='7797')
@@ -27,7 +28,7 @@ def parse_args():
 def launch(args, build, out):
     exe = os.path.join(build, 'Deepbound.exe')
     window = ['-port', args.port, '-screen-fullscreen', '0', '-screen-width', '640', '-screen-height', '360',
-              '-autofloors', str(args.floors)]
+              '-autofloors', str(args.floors)] + (['-autodepth', str(args.depth)] if args.depth > 0 else [])
     procs, logs = [], []
     for i, cls in enumerate(args.classes):
         d = os.path.join(out, f'{i}_{cls}')

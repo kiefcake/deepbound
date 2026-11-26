@@ -49,6 +49,7 @@ namespace Deepbound.Networking
         private bool follower;
 
         private int floorsWanted = int.MaxValue;
+        private bool deepStart;
         private int seatNo, partySize = 1;
         private class Member
         {
@@ -87,7 +88,7 @@ namespace Deepbound.Networking
 
             if (System.Array.IndexOf(args, "-forcelair") >= 0) DungeonDirector.ForceLair = true;
                         int af = System.Array.IndexOf(args, "-autofollow");
-            if (af >= 0) { follower = true; seatNo = af + 1 < args.Length && int.TryParse(args[af + 1], out var k0) ? Mathf.Clamp(k0, 1, 3) : 1; startFloor = 0; }
+            if (af >= 0) { follower = true; seatNo = af + 1 < args.Length && int.TryParse(args[af + 1], out var k0) ? Mathf.Clamp(k0, 1, 3) : 1; deepStart = startFloor > 0; startFloor = 0; }
 
             Cosmetics.TestMode = true;
             UI.Journal.TestMode = true;
@@ -106,7 +107,83 @@ namespace Deepbound.Networking
             int seedAt = System.Array.IndexOf(args, "-floorseed");
             if (seedAt >= 0 && seedAt + 1 < args.Length && int.TryParse(args[seedAt + 1], out var forced)) DungeonDirector.ForcedSeed = forced;
             if (System.Array.IndexOf(args, "-navvert") >= 0) DungeonLayout.ForceFeatures = new[] { RoomFeature.Ruin, RoomFeature.Rampart, RoomFeature.Belfry, RoomFeature.Mezzanine, RoomFeature.Undercroft };
-            StartCoroutine(System.Array.IndexOf(args, "-navcheck") >= 0 ? NavCheck() : Main());
+            StartCoroutine(System.Array.IndexOf(args, "-clipcheck") >= 0 ? ClipCheck()
+                : System.Array.IndexOf(args, "-navcheck") >= 0 ? NavCheck() : Main());
+        }
+
+        private static readonly Collider[] ClipHits = new Collider[16];
+
+        private static string Embedded(Vector3 bottom, Vector3 top, float radius, Transform self)
+        {
+            int n = Physics.OverlapCapsuleNonAlloc(bottom, top, radius, ClipHits, ~0, QueryTriggerInteraction.Ignore);
+            for (int i = 0; i < n; i++)
+            {
+                var c = ClipHits[i];
+                if (self != null && c.transform.IsChildOf(self)) continue;
+                if (c.name.StartsWith("Structure") || c.name.StartsWith("Dressing")) return c.name;
+            }
+            return null;
+        }
+
+        private IEnumerator ClipCheck()
+        {
+            launcher.StartHost();
+            for (float t = 0f; t < 15f && NetworkPlayer.Local == null; t += 0.2f) yield return new WaitForSeconds(0.2f);
+            yield return new WaitForSeconds(2f);
+            var dd = DungeonDirector.Instance;
+            var totals = new Dictionary<string, int>();
+            int checkedCount = 0;
+            void Count(string key) { totals.TryGetValue(key, out var v); totals[key] = v + 1; }
+            for (int depth = 0; depth < DungeonDirector.FloorsPerRun; depth++)
+                for (int seed = 0; seed < 2; seed++)
+                {
+                    dd.ServerDebugStartFloor(depth);
+                    yield return new WaitForSeconds(3f);
+                    var layout = DungeonDirector.Layout;
+                    if (layout == null) continue;
+                    floorNo = depth;
+                    string Where(Vector3 p)
+                    {
+                        var room = layout.RoomAt(p);
+                        return Fmt(p) + (room != null ? " room " + room.Id + " " + room.Kind + "/" + room.Feature : " corridor");
+                    }
+                    void Report(string what, string name, Vector3 at, string hit)
+                    {
+                        checkedCount++;
+                        if (hit == null) return;
+                        string key = what + " in " + hit;
+                        Count(key);
+                        if (totals[key] <= 3) L("CLIP " + what + " " + name + " at " + Where(at) + " touches " + hit);
+                    }
+                    for (ulong id = 0; id < 4; id++)
+                    {
+                        var p = DungeonDirector.SpawnFor(id);
+                        Report("player spawn", "#" + id, p, Embedded(p + Vector3.up * 0.4f, p + Vector3.up * 1.5f, 0.3f, null));
+                    }
+                    foreach (var e in FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None))
+                    {
+                        if (e == null || e.IsDead) continue;
+                        var p = e.transform.position;
+                        var h = e.GetComponent<Health>();
+                        float r = Mathf.Clamp(h != null ? h.BodyRadius * 0.6f : 0.3f, 0.2f, 0.6f);
+                        Report("enemy", e.name.Replace("(Clone)", ""), p, Embedded(p + Vector3.up * (0.35f + r), p + Vector3.up * 1.4f, r, e.transform));
+                    }
+                    foreach (var it in FindObjectsByType<Interactable>(FindObjectsSortMode.None))
+                    {
+                        if (it == null) continue;
+                        var p = it.transform.position;
+                        Report("interactable", it.GetType().Name, p, Embedded(p + Vector3.up * 0.3f, p + Vector3.up * 0.6f, 0.15f, it.transform));
+                    }
+                    foreach (var ld in FindObjectsByType<LootDrop>(FindObjectsSortMode.None))
+                    {
+                        if (ld == null) continue;
+                        var p = ld.transform.position;
+                        Report("loot", ld.name.Replace("(Clone)", ""), p, Embedded(p + Vector3.up * 0.25f, p + Vector3.up * 0.35f, 0.12f, ld.transform));
+                    }
+                }
+            L("== CLIPCHECK: " + checkedCount + " placements checked ==");
+            foreach (var kv in totals.OrderByDescending(k => k.Value)) L("  " + kv.Value + "x " + kv.Key);
+            Application.Quit();
         }
 
         private IEnumerator NavCheck()
@@ -428,26 +505,10 @@ namespace Deepbound.Networking
 
             if (startFloor > 0)
             {
-                for (int i = 0; i < Mathf.Min(10, Mathf.RoundToInt(startFloor * 1.5f)); i++)
-                {
-                    var why = prog.CannotTemperReason();
-
-                    if (why != null && why.ToLowerInvariant().Contains("path") && prog.WeaponPath.Value == 0) { prog.WeaponPath.Value = (byte)Random.Range(1, Classes.WeaponPaths.Count + 1); yield return null; }
-                    if (prog.OpenEdgeSlot >= 0) { prog.ServerChooseEdge(prog.EdgeOffer(prog.OpenEdgeSlot)[0]); yield return null; }
-                    prog.ServerFreeTemper();
-                    yield return null;
-                }
-                prog.RankQ.Value = (byte)Mathf.Min(Classes.AbilityRanks.MaxRank, 1 + startFloor / 3 + 1);
-                prog.RankE.Value = (byte)Mathf.Min(Classes.AbilityRanks.MaxRank, 1 + startFloor / 3);
-                prog.RankChoice.Value = (byte)Random.Range(0, 256);
-
-                for (int i = 0; i < startFloor + 1; i++) prog.ServerAddRelic(Relics.Random());
-                byte q = (byte)Mathf.Min(2, 1 + startFloor / 3);
-                prog.ServerEquip(new GearItem(Gear.RollableOf(GearSlot.Armor)[0], q, (byte)startFloor));
-                prog.ServerEquip(new GearItem(Gear.RollableOf(GearSlot.Charm)[0], q, (byte)startFloor));
-                var pouch = prog.GetComponent<Flasks>();
-                if (pouch != null) pouch.ServerAdd(Flasks.Kind.Health, 2);
-                prog.Gold.Value = 150 * startFloor;
+                if (partySize > 1) yield return new WaitForSeconds(12f);
+                L("party classes: " + string.Join(", ", PlayerLife.All.Where(m => m != null).Select(m => m.name + " " + m.GetComponent<PlayerProgress>().ClassId.Value)));
+                foreach (var member in PlayerLife.All.ToArray())
+                    if (member != null && member.TryGetComponent<PlayerProgress>(out var mp)) yield return GiveLoadout(mp);
                 L("== starting at floor " + (startFloor + 1) + " with a loadout ==");
                 Status("loadout");
                 DungeonDirector.Instance.ServerDebugStartFloor(startFloor);
@@ -455,11 +516,14 @@ namespace Deepbound.Networking
             }
             for (int f = startFloor > 0 ? startFloor + 1 : 0; f < (endless ? startFloor + floorsWanted + 1 : DungeonDirector.FloorsPerRun); f++)
             {
-                for (int wait = 0; wait < 4 && (wait == 0 || DungeonDirector.InLobby); wait++) yield return Camp();
+                if (deepStart && f == 0)
+                    for (float t = 0f; t < 90f && DungeonDirector.Layout == null; t += 0.5f) yield return new WaitForSeconds(0.5f);
+                else
+                    for (int wait = 0; wait < 4 && (wait == 0 || DungeonDirector.InLobby); wait++) yield return Camp();
                 yield return Guarded(Floor);
                 var ph = DungeonDirector.Instance.Phase.Value;
                 if (ph == RunPhase.RunComplete || ph == RunPhase.Wiped) break;
-                if (f + 1 >= floorsWanted) break;
+                if (f - startFloor + 1 >= floorsWanted) break;
             }
 
             L("KIT " + KitLine());
@@ -493,6 +557,29 @@ namespace Deepbound.Networking
                 yield return new WaitForSeconds(0.25f);
             }
             if (made > 0) L("crafted " + made + " (parts left: " + prog.PartCount(Part.Bone) + " bone, " + prog.PartCount(Part.Cloth) + " cloth, " + prog.PartCount(Part.Iron) + " iron; lining " + prog.Lining + ", edge " + prog.Whetted + ", boots " + prog.Boots + ")");
+        }
+
+        private IEnumerator GiveLoadout(PlayerProgress p)
+        {
+            for (int i = 0; i < Mathf.Min(10, Mathf.RoundToInt(startFloor * 1.5f)); i++)
+            {
+                var why = p.CannotTemperReason();
+
+                if (why != null && why.ToLowerInvariant().Contains("path") && p.WeaponPath.Value == 0) { p.WeaponPath.Value = (byte)Random.Range(1, Classes.WeaponPaths.Count + 1); yield return null; }
+                if (p.OpenEdgeSlot >= 0) { p.ServerChooseEdge(p.EdgeOffer(p.OpenEdgeSlot)[0]); yield return null; }
+                p.ServerFreeTemper();
+                yield return null;
+            }
+            p.RankQ.Value = (byte)Mathf.Min(Classes.AbilityRanks.MaxRank, 1 + startFloor / 3 + 1);
+            p.RankE.Value = (byte)Mathf.Min(Classes.AbilityRanks.MaxRank, 1 + startFloor / 3);
+            p.RankChoice.Value = (byte)Random.Range(0, 256);
+
+            for (int i = 0; i < startFloor + 1; i++) p.ServerAddRelic(Relics.Random());
+            byte q = (byte)Mathf.Min(2, 1 + startFloor / 3);
+            p.ServerEquip(new GearItem(Gear.RollableOf(GearSlot.Armor)[0], q, (byte)startFloor));
+            p.ServerEquip(new GearItem(Gear.RollableOf(GearSlot.Charm)[0], q, (byte)startFloor));
+            if (p.TryGetComponent<Flasks>(out var pouch)) pouch.ServerAdd(Flasks.Kind.Health, 2);
+            p.Gold.Value = 150 * startFloor;
         }
 
         private IEnumerator Camp()

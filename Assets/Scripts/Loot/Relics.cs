@@ -220,6 +220,8 @@ namespace Deepbound.Loot
 
         private static bool hooked;
         private static readonly Dictionary<ulong, int> HitCounters = new Dictionary<ulong, int>();
+        private static readonly Dictionary<ulong, float> LastLightning = new Dictionary<ulong, float>();
+        public const float LightningGap = 0.6f;
 
         public static void EnsureServerHooks()
         {
@@ -230,7 +232,7 @@ namespace Deepbound.Loot
 
         private static bool resolvingProc;
 
-        public static void ResetRun() => HitCounters.Clear();
+        public static void ResetRun() { HitCounters.Clear(); LastLightning.Clear(); }
 
         private static void OnServerAnyDamaged(Health target, float dealt, ulong attackerId)
         {
@@ -259,19 +261,20 @@ namespace Deepbound.Loot
                 {
                     var at = target.transform.position;
                     foreach (var foe in CombatQuery.Circle(at, 4f, Team.Enemies))
-                        foe.Tag("Relics").ServerDamage(22f * p.RelicPower(Relic.WraithChain) * p.AttackMultiplier, at, attackerId);
+                        foe.Tag("Wraith Chain").ServerDamage(22f * p.RelicPower(Relic.WraithChain) * p.AttackMultiplier, at, attackerId);
                     p.WraithNovaFxRpc(at);
                 }
                 finally { resolvingProc = false; }
             }
 
-            if (!tick && p.HasRelic(Relic.ThunderSigil))
+            if (!tick && p.HasRelic(Relic.ThunderSigil) && (!LastLightning.TryGetValue(attackerId, out var lastBolt) || Time.time - lastBolt >= LightningGap))
             {
                 HitCounters.TryGetValue(attackerId, out int hits);
                 hits++;
                 if (hits >= Mathf.Max(3, (Has(p, Synergy.StormCaller) ? 3 : 6) - p.RelicTier(Relic.ThunderSigil)))
                 {
                     hits = 0;
+                    LastLightning[attackerId] = Time.time;
                     resolvingProc = true;
                     try { Lightning(target, p, attackerId); }
                     finally { resolvingProc = false; }
@@ -304,7 +307,7 @@ namespace Deepbound.Loot
             for (int i = 0; i < struck.Count; i++)
             {
                 points[i] = struck[i].Center;
-                struck[i].Tag("Relics").ServerDamage(i == 0 ? dmg : dmg * 0.6f, struck[i].Center + Vector3.up, attackerId);
+                struck[i].Tag("Thunder Idol").ServerDamage(i == 0 ? dmg : dmg * 0.6f, struck[i].Center + Vector3.up, attackerId);
             }
             caster.LightningFxRpc(points);
         }

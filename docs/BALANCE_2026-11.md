@@ -462,3 +462,24 @@ The economy section expects about 5,700 gold a run, so three quests a floor add 
 Guardian damage, Plague Doctor / Knight: 1.30, 1.63, 0.70 across floors 1-3 (Mage 1.13, 1.08, 0.82). No class leads
 every floor. Bot fault found: followers' Sigil ranking was refused because the request left before their position
 reached the server; they now wait 0.6 s and retry once (the host bot was unaffected).
+
+## Deep party runs D5-D8, 2026-11-25/26 (Knight host, Mage, Cleric, Plague Doctor; floors 5-7 with a loadout)
+
+`test_party.py --depth 5` starts on floor 5; the host now gives every member the loadout and waits for their classes.
+
+| Run | Plague Doctor / Knight on the guardian, floors 5 / 6 | What it showed |
+|---|---|---|
+| D5 | 2.9 / 1.8 | Blight 181 per tick: Patient Zero's x3 rot base never expired while vials kept the blight going |
+| D7 | 2.2 / 2.4 | blight fixed (82 per tick); Thunder Idol II + Echo Stone fired on every splash target, 40k "Relics" |
+| D8 | 1.25 / 0.82 | with both fixes; Relics 1.9k / 9k |
+
+- `Health.ServerBlight`: a stronger blight base only lasts for its own duration (`blightBaseUntil`); a weaker refresh
+  after it no longer inherits it.
+- `Relics`: Thunder Idol calls lightning at most once per `LightningGap` 0.6 s per player, so area hits (vial splash, the
+  Cleric's beam) cannot multiply it.
+- Thermal Shock gives ~1,300 per proc on a deep guardian to whichever class chills and scorches; not class-specific, kept.
+- Guardians on floors 5-7 take 2-4 min for a party of four; near-downs 0-33 per floor.
+- OPEN (2026-11-26): in the "festering blight" smoke check, a 2 s window after four stacks measured less than the
+  one-stack window (51 vs 58), as if the blight stopped ~1 s in; with 1 s windows the ratio is 1.5-1.76 as expected, and
+  party logs show blight ticking all through guardian fights. Cause not found; the check uses 1 s windows and a bar at
+  65% of the theoretical x2.05.

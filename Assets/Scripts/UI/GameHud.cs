@@ -3157,6 +3157,63 @@ namespace Deepbound.UI
             GUI.Label(new Rect(tx + 10, ty + 26, tw - 20, th - 28), hrText, body);
         }
 
+        private static readonly string[] RunStatNames = { "Kills", "Damage dealt", "Damage taken", "Critical hits", "Combos", "Times downed", "Allies revived", "Gold earned" };
+
+        private static int RunStat(PlayerProgress p, int i) => i switch
+        {
+            0 => p.Kills.Value,
+            1 => p.DamageDealt.Value,
+            2 => p.DamageTaken.Value,
+            3 => p.Crits.Value,
+            4 => p.CombosTriggered.Value,
+            5 => p.Downs.Value,
+            6 => p.Revives.Value,
+            _ => p.GoldEarned.Value,
+        };
+
+        private void DrawRunStats(float x, float y, float h)
+        {
+            var party = new List<PlayerProgress>();
+            foreach (var life in PlayerLife.All)
+                if (life != null && life.TryGetComponent<PlayerProgress>(out var pp)) party.Add(pp);
+            if (party.Count == 0) return;
+            party.Sort((a, b) => a == progress ? -1 : b == progress ? 1 : b.Kills.Value.CompareTo(a.Kills.Value));
+            int cols = Mathf.Min(party.Count, 4);
+            const float nameW = 120f, colW = 70f, rowH = 21f;
+            float w = 24f + nameW + cols * colW, ph = 62f + RunStatNames.Length * rowH + 30f;
+            if (y + ph > h - 160f) return;
+            Rect(x, y, w, ph, Panel);
+            GUI.Label(new Rect(x + 12, y + 10, w - 24, 20), "THIS RUN", UiSkin.Derive(label, Gold));
+            var dd = DungeonDirector.Instance;
+            string floorLine = dd != null && dd.RunInProgress ? (DungeonDirector.InLobby ? "at camp, next floor " + (dd.NextDepth.Value + 1) : "floor " + (DungeonDirector.Layout != null ? DungeonDirector.Layout.Depth + 1 : 0) + " of " + DungeonDirector.FloorsPerRun) : "no run";
+            GUI.Label(new Rect(x + 12, y + 12, w - 24, 20), floorLine, UiSkin.Derive(small, new Color(1f, 1f, 1f, 0.5f), align: TextAnchor.UpperRight, wrap: false));
+            float ry = y + 36;
+            var head = UiSkin.Derive(small, Gold, fontStyle: FontStyle.Bold, align: TextAnchor.UpperRight, wrap: false);
+            for (int c = 0; c < cols; c++)
+            {
+                string who = party[c] == progress ? "You" : party[c].name;
+                GUI.Label(new Rect(x + 12 + nameW + c * colW, ry, colW - 6, 20), UiSkin.Fit(who, head, colW - 6), head);
+            }
+            ry += rowH + 2;
+            var nameStyle = UiSkin.Derive(small, new Color(1f, 1f, 1f, 0.6f), wrap: false);
+            var cell = UiSkin.Derive(small, Color.white, align: TextAnchor.UpperRight, wrap: false);
+            for (int i = 0; i < RunStatNames.Length; i++)
+            {
+                GUI.Label(new Rect(x + 12, ry, nameW, 20), RunStatNames[i], nameStyle);
+                int best = int.MinValue;
+                for (int c = 0; c < cols; c++) best = Mathf.Max(best, RunStat(party[c], i));
+                for (int c = 0; c < cols; c++)
+                {
+                    int v = RunStat(party[c], i);
+                    cell.normal.textColor = cols > 1 && v == best && v > 0 && i != 5 ? Gold : Color.white;
+                    GUI.Label(new Rect(x + 12 + nameW + c * colW, ry, colW - 6, 20), v >= 10000 ? (v / 1000f).ToString("0.#") + "k" : v.ToString(), cell);
+                }
+                ry += rowH;
+            }
+            float runFor = dd != null && dd.RunInProgress ? (float)(Unity.Netcode.NetworkManager.Singleton != null ? Unity.Netcode.NetworkManager.Singleton.ServerTime.Time - dd.RunStartedAt.Value : 0) : 0f;
+            if (runFor > 0f) GUI.Label(new Rect(x + 12, ry + 4, w - 24, 20), "Run time " + Mathf.FloorToInt(runFor / 60f) + ":" + Mathf.FloorToInt(runFor % 60f).ToString("00"), UiSkin.Derive(small, new Color(1f, 1f, 1f, 0.5f), wrap: false));
+        }
+
         private void DrawStatSheet(float w, float h)
         {
             float cardY = h - 150;
@@ -3178,7 +3235,7 @@ namespace Deepbound.UI
                 float rx = w - 300 - 24 - rw - 12, ry = Mathf.Max(20f, Mathf.Min(h / 2f - rh / 2f, cardY - 12f - rh));
                 Rect(rx, ry, rw, rh, Panel);
                 GUI.Label(new Rect(rx + 12, ry + 10, rw, 22), "RELICS  (" + count + " / " + Relics.MaxCarried + ")", UiSkin.Derive(label, Gold));
-                var desc = new GUIStyle(small) { wordWrap = false };
+                var desc = UiSkin.Derive(small, small.normal.textColor, wrap: false);
                 for (int i = 0; i < count; i++)
                 {
                     var r = progress.RelicAt(i);
@@ -3235,7 +3292,7 @@ namespace Deepbound.UI
             }
             gy += 22;
             GUI.Label(new Rect(x + 12, gy, 70, 20), "EDGES", small);
-            var edgeStyle = new GUIStyle(small) { wordWrap = false, normal = { textColor = edgeList.Length > 0 ? new Color(1f, 0.6f, 0.35f) : new Color(1f, 1f, 1f, 0.4f) } };
+            var edgeStyle = UiSkin.Derive(small, edgeList.Length > 0 ? new Color(1f, 0.6f, 0.35f) : new Color(1f, 1f, 1f, 0.4f), wrap: false);
             GUI.Label(new Rect(x + 80, gy, pw - 90, 20), UiSkin.Fit(edgeList.Length > 0 ? edgeList : "none yet (anvil +" + Edges.Levels[0] + ")", edgeStyle, pw - 90), edgeStyle);
             gy += 22;
 
@@ -3247,7 +3304,7 @@ namespace Deepbound.UI
                 for (int b = 0; b < Progression.PlayerProgress.BargainCount; b++)
                     if (progress.HasBargain((Progression.PlayerProgress.Bargain)b)) parts.Add(Progression.PlayerProgress.BargainName((Progression.PlayerProgress.Bargain)b));
                 GUI.Label(new Rect(x + 12, gy, 70, 20), "BUILD", small);
-                var bs = new GUIStyle(small) { wordWrap = false, normal = { textColor = parts.Count > 0 ? new Color(0.6f, 0.85f, 1f) : new Color(1f, 1f, 1f, 0.4f) } };
+                var bs = UiSkin.Derive(small, parts.Count > 0 ? new Color(0.6f, 0.85f, 1f) : new Color(1f, 1f, 1f, 0.4f), wrap: false);
                 string text = parts.Count > 0 ? string.Join(", ", parts) : "no set, mastery or bargain yet";
                 GUI.Label(new Rect(x + 80, gy, pw - 90, 20), new GUIContent(UiSkin.Fit(text, bs, pw - 90), text), bs);
                 gy += 22;
@@ -3267,7 +3324,7 @@ namespace Deepbound.UI
                 GUI.Label(new Rect(dx + 12, dy + 10, dw - 24, 20), "DAMAGE", UiSkin.Derive(label, Gold));
                 GUI.Label(new Rect(dx + 12, dy + 12, dw - 24, 20), "a plain hit  ·  since the run began", UiSkin.Derive(small, new Color(1f, 1f, 1f, 0.5f), align: TextAnchor.UpperRight, wrap: false));
                 float ry2 = dy + 36;
-                var nameStyle = new GUIStyle(small) { wordWrap = false };
+                var nameStyle = UiSkin.Derive(small, small.normal.textColor, wrap: false);
                 foreach (var l in hits)
                 {
                     GUI.Label(new Rect(dx + 12, ry2, 40, 20), l.Key, UiSkin.Derive(small, new Color(1f, 1f, 1f, 0.5f), wrap: false));
@@ -3278,6 +3335,8 @@ namespace Deepbound.UI
                     ry2 += 22;
                 }
             }
+            DrawRunStats(24f, hits.Count > 0 ? 24f + 44f + hits.Count * 22f + 12f : 24f, h);
+
             GUI.Label(new Rect(x + 12, y + 10, pw, 22), progress.Class.Name.ToUpperInvariant() + "  -  " + ClassDefinition.WeaponName(progress.ClassId.Value) + " +" + progress.WeaponLevel.Value
                 + (progress.Hones.Value > 0 ? "  (honed " + progress.Hones.Value + ")" : ""),
                 UiSkin.Derive(label, Gold));

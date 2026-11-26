@@ -5,7 +5,7 @@ namespace Deepbound.World
 {
     public static partial class DungeonBuilder
     {
-        private const float WallThickness = 0.8f;
+        public const float WallThickness = 0.8f;
         private const float FloorThickness = 0.4f;
 
         private static DungeonTheme theme = DungeonTheme.ByDepth[0];

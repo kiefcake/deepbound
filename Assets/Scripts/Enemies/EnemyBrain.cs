@@ -1312,7 +1312,7 @@ namespace Deepbound.Enemies
 
         public virtual void ServerStun(float seconds)
         {
-            if (IsDead) return;
+            if (IsDead || !IsSpawned) return;
             stunnedUntil = Mathf.Max(stunnedUntil, Time.time + seconds);
             attacking = false;
             lunging = false;

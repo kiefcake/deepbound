@@ -1,11 +1,12 @@
-using UnityEngine;
+using Deepbound.Classes;
 using Deepbound.Core;
+using UnityEngine;
 
 namespace Deepbound.Progression
 {
     public static class Cosmetics
     {
-        public enum Kind { Cloak, Aura, Heraldry, Pattern, WeaponGlow, Title, Pet }
+        public enum Kind { Cloak, Aura, Heraldry, Pattern, WeaponGlow, Title, Pet, Regalia }
 
         public struct Item
         {
@@ -15,6 +16,7 @@ namespace Deepbound.Progression
             public int NeedsBoss;
             public Motif Motif;
             public bool Glows, Gilded;
+            public ClassId? ForClass;
         }
 
         public static readonly Item[] Dyes =
@@ -169,11 +171,32 @@ namespace Deepbound.Progression
             new Item { Name = "Mimic Pup", Cloak = new Color(0.55f, 0.35f, 0.18f), Cost = 200, NeedsBoss = -1 },
         };
 
+        public static readonly Item[] Regalia =
+        {
+            new Item { Name = "No Regalia", NeedsBoss = -1 },
+            new Item { Name = "Ravenhold Mantle", Cloak = new Color(0.55f, 0.08f, 0.08f), Trim = new Color(0.72f, 0.74f, 0.78f), NeedsBoss = -1, ForClass = ClassId.Knight },
+            new Item { Name = "Kingsguard Mantle", Cloak = new Color(0.12f, 0.12f, 0.16f), Trim = new Color(1f, 0.8f, 0.35f), NeedsBoss = -1, Gilded = true, ForClass = ClassId.Knight },
+            new Item { Name = "Frost Sigils", Cloak = new Color(0.45f, 0.8f, 1f), NeedsBoss = -1, Glows = true, ForClass = ClassId.Mage },
+            new Item { Name = "Ember Sigils", Cloak = new Color(1f, 0.45f, 0.12f), NeedsBoss = -1, Glows = true, ForClass = ClassId.Mage },
+            new Item { Name = "Halo of the Dawn", Cloak = new Color(1f, 0.85f, 0.45f), NeedsBoss = -1, Glows = true, ForClass = ClassId.Cleric },
+            new Item { Name = "Silver Vigil Halo", Cloak = new Color(0.85f, 0.9f, 1f), NeedsBoss = -1, Glows = true, ForClass = ClassId.Cleric },
+            new Item { Name = "Nightveil Scarf", Cloak = new Color(0.06f, 0.06f, 0.08f), Trim = new Color(0.35f, 0.35f, 0.4f), NeedsBoss = -1, ForClass = ClassId.Rogue },
+            new Item { Name = "Cutthroat Scarf", Cloak = new Color(0.5f, 0.05f, 0.07f), Trim = new Color(0.15f, 0.02f, 0.03f), NeedsBoss = -1, ForClass = ClassId.Rogue },
+            new Item { Name = "Raven Mantle", Cloak = new Color(0.08f, 0.08f, 0.1f), Trim = new Color(0.25f, 0.28f, 0.35f), NeedsBoss = -1, ForClass = ClassId.Ranger },
+            new Item { Name = "Hawk Mantle", Cloak = new Color(0.55f, 0.38f, 0.2f), Trim = new Color(0.92f, 0.86f, 0.72f), NeedsBoss = -1, ForClass = ClassId.Ranger },
+            new Item { Name = "Crown of Thorns", Cloak = new Color(0.32f, 0.3f, 0.28f), Trim = new Color(0.4f, 0.38f, 0.36f), NeedsBoss = -1, ForClass = ClassId.Flagellant },
+            new Item { Name = "Bleeding Crown", Cloak = new Color(0.45f, 0.04f, 0.04f), Trim = new Color(0.9f, 0.1f, 0.08f), NeedsBoss = -1, Glows = true, ForClass = ClassId.Flagellant },
+            new Item { Name = "Brass Censer", Cloak = new Color(0.75f, 0.55f, 0.25f), Trim = new Color(0.6f, 0.9f, 0.35f), NeedsBoss = -1, ForClass = ClassId.PlagueDoctor },
+            new Item { Name = "Bone Censer", Cloak = new Color(0.86f, 0.82f, 0.72f), Trim = new Color(0.75f, 0.4f, 1f), NeedsBoss = -1, ForClass = ClassId.PlagueDoctor },
+        };
+
+        public static Item? RegaliaFor(ClassId cls, int i) => i > 0 && i < Regalia.Length && Regalia[i].ForClass == cls ? Regalia[i] : (Item?)null;
+
         public static Color? WeaponGlowColor(int i) => i > 0 && i < WeaponGlows.Length ? WeaponGlows[i].Cloak : (Color?)null;
         public static string TitleOf(int i) => i > 0 && i < Titles.Length ? Titles[i].Name : null;
 
         public static Item[] Of(Kind kind) => kind == Kind.Aura ? Auras : kind == Kind.Heraldry ? Heraldries : kind == Kind.Pattern ? Patterns
-            : kind == Kind.WeaponGlow ? WeaponGlows : kind == Kind.Title ? Titles : kind == Kind.Pet ? Pets : Dyes;
+            : kind == Kind.WeaponGlow ? WeaponGlows : kind == Kind.Title ? Titles : kind == Kind.Pet ? Pets : kind == Kind.Regalia ? Regalia : Dyes;
 
         public static Item? PatternOf(int i) => i > 0 && i < Patterns.Length ? Patterns[i] : (Item?)null;
 
@@ -182,9 +205,9 @@ namespace Deepbound.Progression
         private const string KeyRenown = "db.renown", KeyBosses = "db.bosses", KeyLastRun = "db.lastRun", KeyRuns = "db.runs";
 
         private static string KeyOwned(Kind k) => k == Kind.Aura ? "db.auras" : k == Kind.Heraldry ? "db.heraldries" : k == Kind.Pattern ? "db.patterns"
-            : k == Kind.WeaponGlow ? "db.glows" : k == Kind.Title ? "db.titles" : k == Kind.Pet ? "db.pets" : "db.dyes";
+            : k == Kind.WeaponGlow ? "db.glows" : k == Kind.Title ? "db.titles" : k == Kind.Pet ? "db.pets" : k == Kind.Regalia ? "db.regalia" : "db.dyes";
         private static string KeyWorn(Kind k) => k == Kind.Aura ? "db.aura" : k == Kind.Heraldry ? "db.heraldry" : k == Kind.Pattern ? "db.pattern"
-            : k == Kind.WeaponGlow ? "db.glow" : k == Kind.Title ? "db.title" : k == Kind.Pet ? "db.pet" : "db.cloak";
+            : k == Kind.WeaponGlow ? "db.glow" : k == Kind.Title ? "db.title" : k == Kind.Pet ? "db.pet" : k == Kind.Regalia ? "db.regaliaWorn" : "db.cloak";
 
         public static bool TestMode;
 
@@ -199,9 +222,34 @@ namespace Deepbound.Progression
 
         public const bool AllFree = true;
 
-        public static bool Owns(Kind kind, int i) => AllFree || i == 0 || (Prefs.GetInt(KeyOwned(kind), 0) & (1 << i)) != 0;
+        private const string KeyClassWins = "db.classWins";
+        private static int testClassWins;
+
+        public static int ClassWinMask => TestMode ? testClassWins : Prefs.GetInt(KeyClassWins, 0);
+
+        public static bool WonAs(ClassId cls) => (ClassWinMask & (1 << (int)cls)) != 0;
+
+        public static bool RecordClassWin(ClassId cls)
+        {
+            if (WonAs(cls)) return false;
+            if (TestMode) testClassWins |= 1 << (int)cls;
+            else
+            {
+                Prefs.SetInt(KeyClassWins, ClassWinMask | (1 << (int)cls));
+                Prefs.Save();
+            }
+            return true;
+        }
+
+        public static void ResetTestWins() => testClassWins = 0;
+
+        public static bool Owns(Kind kind, int i) => kind == Kind.Regalia ? Unlocked(kind, i) : AllFree || i == 0 || (Prefs.GetInt(KeyOwned(kind), 0) & (1 << i)) != 0;
         public static bool BossFelled(int depth) => (BossMask & (1 << depth)) != 0;
-        public static bool Unlocked(Kind kind, int i) => AllFree || Of(kind)[i].NeedsBoss < 0 || BossFelled(Of(kind)[i].NeedsBoss);
+        public static bool Unlocked(Kind kind, int i)
+        {
+            if (kind == Kind.Regalia) return i == 0 || (Regalia[i].ForClass is ClassId c && WonAs(c));
+            return AllFree || Of(kind)[i].NeedsBoss < 0 || BossFelled(Of(kind)[i].NeedsBoss);
+        }
 
         public static Item? Get(int dye) => dye > 0 && dye < Dyes.Length ? Dyes[dye] : (Item?)null;
 

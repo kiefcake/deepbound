@@ -17,7 +17,7 @@ namespace Deepbound.UI
         private PlayerProgress progress;
         private PlayerLife life;
         private GameObject mannequin;
-        private int mannequinDye = -1, mannequinHeraldry = -1, mannequinPattern = -1, previewIndex = -1;
+        private int mannequinDye = -1, mannequinHeraldry = -1, mannequinPattern = -1, mannequinRegalia = -1, previewIndex = -1;
         private Classes.ClassId mannequinClass;
         private Cosmetics.Kind tab = Cosmetics.Kind.Cloak;
         private Vector2 scroll;
@@ -31,7 +31,7 @@ namespace Deepbound.UI
         private Transform turntable;
         private Camera stageCam;
         private RenderTexture portrait;
-        private int portraitDye = -1, portraitHeraldry = -1, portraitPattern = -1;
+        private int portraitDye = -1, portraitHeraldry = -1, portraitPattern = -1, portraitRegalia = -1;
         private Classes.ClassId portraitClass = (Classes.ClassId)255;
 
         public void Init(NetworkPlayer owner)
@@ -59,9 +59,9 @@ namespace Deepbound.UI
                              FolkPlaces.InReach(FolkId.Vey, player.transform.position, 1f);
 
         private int WornNow(Cosmetics.Kind kind) => kind == Cosmetics.Kind.Aura ? player.Aura.Value : kind == Cosmetics.Kind.Heraldry ? player.Heraldry.Value
-            : kind == Cosmetics.Kind.Pattern ? player.Pattern.Value : kind == Cosmetics.Kind.WeaponGlow ? player.WeaponGlowCos.Value : kind == Cosmetics.Kind.Title ? player.TitleCos.Value : kind == Cosmetics.Kind.Pet ? player.PetKind.Value : player.CloakDye.Value;
+            : kind == Cosmetics.Kind.Pattern ? player.Pattern.Value : kind == Cosmetics.Kind.WeaponGlow ? player.WeaponGlowCos.Value : kind == Cosmetics.Kind.Title ? player.TitleCos.Value : kind == Cosmetics.Kind.Regalia ? player.RegaliaCos.Value : kind == Cosmetics.Kind.Pet ? player.PetKind.Value : player.CloakDye.Value;
 
-        private static readonly Cosmetics.Kind[] TabOrder = { Cosmetics.Kind.Cloak, Cosmetics.Kind.Pattern, Cosmetics.Kind.Heraldry, Cosmetics.Kind.Aura, Cosmetics.Kind.WeaponGlow, Cosmetics.Kind.Title, Cosmetics.Kind.Pet };
+        private static readonly Cosmetics.Kind[] TabOrder = { Cosmetics.Kind.Cloak, Cosmetics.Kind.Pattern, Cosmetics.Kind.Heraldry, Cosmetics.Kind.Aura, Cosmetics.Kind.WeaponGlow, Cosmetics.Kind.Title, Cosmetics.Kind.Pet, Cosmetics.Kind.Regalia };
 
         private void Update()
         {
@@ -96,14 +96,15 @@ namespace Deepbound.UI
             previewIndex = -1;
         }
 
-        private (int dye, int heraldry, int aura, int pattern) Shown()
+        private (int dye, int heraldry, int aura, int pattern, int regalia) Shown()
         {
             bool previewing = previewIndex >= 0;
             int dye = previewing && tab == Cosmetics.Kind.Cloak ? previewIndex : player.CloakDye.Value;
             int heraldry = previewing && tab == Cosmetics.Kind.Heraldry ? previewIndex : player.Heraldry.Value;
             int aura = previewing && tab == Cosmetics.Kind.Aura ? previewIndex : player.Aura.Value;
             int pattern = previewing && tab == Cosmetics.Kind.Pattern ? previewIndex : player.Pattern.Value;
-            return (dye, heraldry, aura, pattern);
+            int regalia = previewing && tab == Cosmetics.Kind.Regalia ? previewIndex : player.RegaliaCos.Value;
+            return (dye, heraldry, aura, pattern, regalia);
         }
 
         private Color DressFor(int heraldry) => Cosmetics.HeraldryColor(heraldry) ?? player.SlotColor;
@@ -118,7 +119,7 @@ namespace Deepbound.UI
                 return;
             }
             if (mannequin != null) mannequin.transform.Rotate(0f, 30f * Time.deltaTime, 0f);
-            var (dye, heraldry, aura, pattern) = Shown();
+            var (dye, heraldry, aura, pattern, regalia) = Shown();
             var auraColor = Cosmetics.AuraColor(aura);
             if (mannequin != null && auraColor.HasValue && Time.time >= nextMote)
             {
@@ -128,13 +129,14 @@ namespace Deepbound.UI
             }
 
             var cls = progress.ClassId.Value;
-            if (mannequin != null && dye == mannequinDye && heraldry == mannequinHeraldry && pattern == mannequinPattern && cls == mannequinClass) return;
+            if (mannequin != null && dye == mannequinDye && heraldry == mannequinHeraldry && pattern == mannequinPattern && regalia == mannequinRegalia && cls == mannequinClass) return;
             Quaternion? old = mannequin != null ? mannequin.transform.rotation : (Quaternion?)null;
             if (mannequin != null) Destroy(mannequin);
             mannequin = new GameObject("TailorMannequin");
             mannequin.transform.SetPositionAndRotation(Lobby.MannequinSpot, old ?? Quaternion.LookRotation(Lobby.TailorFacing));
-            NetworkPlayer.BuildBody(cls, mannequin.transform, DressFor(heraldry), dye, pattern);
+            NetworkPlayer.BuildBody(cls, mannequin.transform, DressFor(heraldry), dye, pattern, regalia);
             mannequinPattern = pattern;
+            mannequinRegalia = regalia;
             mannequinDye = dye;
             mannequinHeraldry = heraldry;
             mannequinClass = cls;
@@ -187,14 +189,15 @@ namespace Deepbound.UI
             }
             if (stage == null) BuildStage();
             if (!stage.activeSelf) stage.SetActive(true);
-            var (dye, heraldry, _, pattern) = Shown();
+            var (dye, heraldry, _, pattern, regalia) = Shown();
             var cls = progress.ClassId.Value;
-            if (dye != portraitDye || heraldry != portraitHeraldry || pattern != portraitPattern || cls != portraitClass)
+            if (dye != portraitDye || heraldry != portraitHeraldry || pattern != portraitPattern || regalia != portraitRegalia || cls != portraitClass)
             {
                 if (pattern != portraitPattern && portraitPattern >= 0 && tab == Cosmetics.Kind.Pattern) spinTarget = Mathf.Round((spinTarget - 20f) / 360f) * 360f + 20f;
                 portraitPattern = pattern;
+                portraitRegalia = regalia;
                 foreach (Transform c in turntable) Destroy(c.gameObject);
-                NetworkPlayer.BuildBody(cls, turntable, DressFor(heraldry), dye, pattern);
+                NetworkPlayer.BuildBody(cls, turntable, DressFor(heraldry), dye, pattern, regalia);
                 portraitDye = dye;
                 portraitHeraldry = heraldry;
                 portraitClass = cls;
@@ -275,6 +278,7 @@ namespace Deepbound.UI
                 : tab == Cosmetics.Kind.Heraldry ? "Your colours: tabard, plume, sash, hat band - on every class."
                 : tab == Cosmetics.Kind.WeaponGlow ? "A burning edge on your weapon, and the colour of your swings."
                 : tab == Cosmetics.Kind.Title ? "Worn under your name, for the party and the Hall to see."
+                : tab == Cosmetics.Kind.Regalia ? "Earned, not bought: finish a full descent as a class to unlock its regalia."
                 : tab == Cosmetics.Kind.Pet ? "A companion at your heel: fetches gold and embers, finds hidden plates, and each kind has a trick of its own." : "Motes that drift up around you.";
             GUI.Label(new Rect(panel.x + 12, panel.y + 108, pw - 24, 20), UiSkin.Fit(blurb, new GUIStyle(UiSkin.Small), pw - 24), UiSkin.Derive(UiSkin.Small, UiSkin.Small.normal.textColor, align: TextAnchor.MiddleCenter));
             int ownedN = 0;
@@ -287,6 +291,7 @@ namespace Deepbound.UI
             for (int i = 0; i < items.Length; i++)
             {
                 bool own = Cosmetics.Owns(tab, i);
+                if (tab == Cosmetics.Kind.Regalia && i > 0 && items[i].ForClass != progress.ClassId.Value) continue;
                 if (filter == 1 && !own) continue;
                 if (filter == 2 && (own || !Cosmetics.Unlocked(tab, i) || Cosmetics.Renown < items[i].Cost)) continue;
                 shown.Add(i);
@@ -356,7 +361,7 @@ namespace Deepbound.UI
                 GUI.Label(new Rect(row.x + 58, row.y + 4, 260, 22), item.Name, UiSkin.Derive(UiSkin.Body, UiSkin.Body.normal.textColor, fontStyle: FontStyle.Bold));
                 bool owns = Cosmetics.Owns(tab, i), unlocked = Cosmetics.Unlocked(tab, i);
                 string sub = i == 0 ? (tab == Cosmetics.Kind.Cloak ? "Each class's own colours" : tab == Cosmetics.Kind.Heraldry ? "Your party colour" : tab == Cosmetics.Kind.Pattern ? "No pattern" : tab == Cosmetics.Kind.Pet ? "No companion" : "Nothing about you") : owns ? (Cosmetics.AllFree ? "Free" : "Owned")
-                    : !unlocked ? "Fell " + BossName(item.NeedsBoss) + " to unlock" : item.Cost + " Renown";
+                    : !unlocked ? (tab == Cosmetics.Kind.Regalia ? "Finish a full descent as a " + Classes.ClassDefinition.For(item.ForClass ?? Classes.ClassId.Knight).Name + " to unlock" : "Fell " + BossName(item.NeedsBoss) + " to unlock") : tab == Cosmetics.Kind.Regalia ? "Unlocked"  : item.Cost + " Renown";
                 if (tab == Cosmetics.Kind.Pet && i > 0) sub = Player.PetPerks.Short((Player.PetCompanion.Kind)i) + "   ·   " + sub;
                 GUI.Label(new Rect(row.x + 58, row.y + 22, row.width - 58 - 124, 18), sub, UiSkin.Derive(UiSkin.Small, !unlocked ? new Color(0.7f, 0.45f, 0.4f) : UiSkin.Small.normal.textColor));
 
@@ -458,6 +463,7 @@ namespace Deepbound.UI
             else if (kind == Cosmetics.Kind.WeaponGlow) player.WeaponGlowCos.Value = (byte)i;
             else if (kind == Cosmetics.Kind.Title) player.TitleCos.Value = (byte)i;
             else if (kind == Cosmetics.Kind.Pet) player.PetKind.Value = (byte)i;
+            else if (kind == Cosmetics.Kind.Regalia) player.RegaliaCos.Value = (byte)i;
             else player.CloakDye.Value = (byte)i;
             Sfx.Play(Sound.Purchase, player.transform.position + Vector3.up, 0.6f, 1.2f);
             Say("Now wearing " + Cosmetics.Of(kind)[i].Name);

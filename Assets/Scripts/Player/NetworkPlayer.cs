@@ -39,6 +39,7 @@ namespace Deepbound.Player
         public readonly NetworkVariable<byte> Heraldry = new NetworkVariable<byte>(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
 
         public readonly NetworkVariable<byte> Pattern = new NetworkVariable<byte>(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+        public readonly NetworkVariable<byte> RegaliaCos = new NetworkVariable<byte>(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
 
         public readonly NetworkVariable<byte> WeaponGlowCos = new NetworkVariable<byte>(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
         public readonly NetworkVariable<byte> TitleCos = new NetworkVariable<byte>(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
@@ -154,12 +155,14 @@ namespace Deepbound.Player
             CloakDye.OnValueChanged += (_, __) => BuildVisuals();
             Heraldry.OnValueChanged += (_, __) => BuildVisuals();
             Pattern.OnValueChanged += (_, __) => BuildVisuals();
+            RegaliaCos.OnValueChanged += (_, __) => BuildVisuals();
             if (IsOwner)
             {
                 CloakDye.Value = (byte)Cosmetics.Worn(Cosmetics.Kind.Cloak);
                 Aura.Value = (byte)Cosmetics.Worn(Cosmetics.Kind.Aura);
                 Heraldry.Value = (byte)Cosmetics.Worn(Cosmetics.Kind.Heraldry);
                 Pattern.Value = (byte)Cosmetics.Worn(Cosmetics.Kind.Pattern);
+                RegaliaCos.Value = (byte)Cosmetics.Worn(Cosmetics.Kind.Regalia);
                 WeaponGlowCos.Value = (byte)Cosmetics.Worn(Cosmetics.Kind.WeaponGlow);
                 TitleCos.Value = (byte)Cosmetics.Worn(Cosmetics.Kind.Title);
                 PetKind.Value = (byte)Cosmetics.Worn(Cosmetics.Kind.Pet);
@@ -216,7 +219,7 @@ namespace Deepbound.Player
 
             var cls = progress.ClassId.Value;
             bool mage = cls == ClassId.Mage, cleric = cls == ClassId.Cleric, rogue = cls == ClassId.Rogue, ranger = cls == ClassId.Ranger;
-            Rig = BuildBody(cls, transform, DressColor, CloakDye.Value, Pattern.Value);
+            Rig = BuildBody(cls, transform, DressColor, CloakDye.Value, Pattern.Value, RegaliaCos.Value);
             MeshKit.MergeRig(Rig);
 
             if (!IsOwner)
@@ -292,7 +295,7 @@ namespace Deepbound.Player
 
         public static bool DebugShowSelf;
 
-        public static HumanoidRig BuildBody(ClassId cls, Transform root, Color slot, int dye, int pattern = 0)
+        public static HumanoidRig BuildBody(ClassId cls, Transform root, Color slot, int dye, int pattern = 0, int regalia = 0)
         {
             var d = Cosmetics.Get(dye);
             GothicKit.CloakOverride = d?.Cloak;
@@ -300,13 +303,15 @@ namespace Deepbound.Player
             GothicKit.PatternOverride = Cosmetics.PatternOf(pattern);
             try
             {
-                return cls == ClassId.Mage ? CharacterArt.BuildMage(root, slot)
+                var rig = cls == ClassId.Mage ? CharacterArt.BuildMage(root, slot)
                     : cls == ClassId.Cleric ? CharacterArt.BuildCleric(root, slot)
                     : cls == ClassId.Rogue ? CharacterArt.BuildRogue(root, slot)
                     : cls == ClassId.Ranger ? CharacterArt.BuildRanger(root, slot)
                     : cls == ClassId.Flagellant ? CharacterArt.BuildFlagellant(root, slot)
                     : cls == ClassId.PlagueDoctor ? CharacterArt.BuildPlagueDoctor(root, slot)
                     : CharacterArt.BuildKnight(root, slot);
+                Art.Regalia.Dress(rig, cls, regalia);
+                return rig;
             }
             finally
             {

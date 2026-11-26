@@ -336,6 +336,7 @@ namespace Deepbound.Player
             var k = (Kind)kind;
             if (!life.CanAct || Count(k) <= 0 || !Drunk(k)) return;
             Slot(k).Value--;
+            Progression.RunLog.Note("drink", FullName(k), this);
             World.DungeonDirector.Instance?.QuestOnPotion();
             if (k == Kind.Health) StartCoroutine(Mend());
             else ManaOwnerRpc();
@@ -414,6 +415,7 @@ namespace Deepbound.Player
             var k = (Kind)kind;
             if (!life.CanAct || Count(k) <= 0 || Drunk(k)) return;
             Slot(k).Value--;
+            Progression.RunLog.Note("throw", FullName(k), this);
             var from = transform.position + Vector3.up * 1.5f;
             if (Vector3.Distance(aim, from) > Range + 2f) aim = from + (aim - from).normalized * Range;
 

@@ -127,6 +127,7 @@ namespace Deepbound.World
         {
             if (broken) return;
             broken = true;
+            Progression.RunLog.Note("break", Type.Value + " by " + Combat.Health.NameOf(lastHitBy));
             if (Type.Value == Kind.OilJar)
             {
                 bool fire = OilSlick.BurningAt(transform.position);

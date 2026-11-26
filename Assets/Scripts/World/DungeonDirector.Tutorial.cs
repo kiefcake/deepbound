@@ -31,6 +31,7 @@ namespace Deepbound.World
         private float tutLobbyAt = -1f;
         private bool tutPickerSeen;
         private readonly Dictionary<PlayerLife, Vector3> tutLast = new Dictionary<PlayerLife, Vector3>();
+        private readonly Dictionary<PlayerLife, float> tutSampleAt = new Dictionary<PlayerLife, float>();
 
         public int TutorialHits => tutHits;
         public int TutorialDodgeCount => tutDodges;
@@ -93,6 +94,7 @@ namespace Deepbound.World
             tutJumped = tutSprinted = false;
             tutEndAt = -1;
             tutLast.Clear();
+            tutSampleAt.Clear();
             TutStep.Value = (byte)Lesson.Move;
             TutDone.Value = false;
             TutorialCardRpc();
@@ -268,23 +270,28 @@ namespace Deepbound.World
             }
         }
 
+        private const float SprintSample = 0.25f, SprintSpeed = 5.4f, SprintHold = 0.6f;
+
         private bool WatchMovement()
         {
             foreach (var p in PlayerLife.All)
             {
                 if (p == null) continue;
                 var at = p.transform.position;
-                if (tutLast.TryGetValue(p, out var was))
+                if (!tutLast.TryGetValue(p, out var was)) { tutLast[p] = at; tutSampleAt[p] = Time.time; continue; }
+                float since = Time.time - tutSampleAt[p];
+                if (since >= SprintSample)
                 {
-                    var step = at - was; step.y = 0f;
+                    var step = at - was;
+                    step.y = 0f;
                     float d = step.magnitude;
-                    if (d < 2f) tutMoved += d;
-                    float speed = Time.deltaTime > 0f ? d / Time.deltaTime : 0f;
-                    tutSprint = speed > 5.8f && speed < 11f ? tutSprint + Time.deltaTime : Mathf.Max(0f, tutSprint - Time.deltaTime * 0.5f);
-                    if (tutSprint > 0.6f) tutSprinted = true;
+                    if (d < 2f * since / SprintSample) tutMoved += d;
+                    tutSprint = d / since > SprintSpeed ? tutSprint + since : Mathf.Max(0f, tutSprint - since * 0.5f);
+                    if (tutSprint >= SprintHold) tutSprinted = true;
+                    tutLast[p] = at;
+                    tutSampleAt[p] = Time.time;
                 }
                 if (at.y > Layout.StartRoom.Center.y + 0.45f) tutJumped = true;
-                tutLast[p] = at;
             }
             return tutMoved > 6f && tutSprinted && tutJumped;
         }

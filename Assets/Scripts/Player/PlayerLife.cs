@@ -628,6 +628,7 @@ namespace Deepbound.Player
         public void ServerRevive(float healthFraction)
         {
             if (!IsServer) return;
+            Progression.RunLog.NoteRevive(this);
             Soul.Value = false;
             Bleed.Value = 0f;
             var skull = World.SoulSkull.For(NetworkObjectId);

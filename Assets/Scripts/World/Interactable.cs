@@ -30,6 +30,7 @@ namespace Deepbound.World
             if (!user.TryGet(out var obj) || !obj.TryGetComponent<PlayerProgress>(out var who)) return;
             if (Vector3.Distance(obj.transform.position, transform.position) > Range + 1f) return;
             if (Prompt(who) == null) return;
+            Progression.RunLog.Note("use", GetType().Name, who);
             ServerUse(who);
         }
 

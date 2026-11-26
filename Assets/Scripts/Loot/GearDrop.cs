@@ -39,6 +39,7 @@ namespace Deepbound.Loot
         protected override void ServerUse(PlayerProgress who)
         {
             var item = Item.Value;
+            RunLog.Note("gear", Gear.Name(item), who);
             if (who.Equipped(Gear.SlotOf((GearId)item.Id)).IsEmpty)
             {
                 who.ServerEquip(item);

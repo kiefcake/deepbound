@@ -1609,7 +1609,7 @@ namespace Deepbound.Networking
                 var chests = FindObjectsByType<Chest>(FindObjectsSortMode.None);
                 int urns = FindObjectsByType<Breakable>(FindObjectsSortMode.None).Count(b => b.Type.Value == Breakable.Kind.Urn);
                 Log("dungeon objects", chests.Length + " chests for " + sideRooms + " side rooms, " + urns + " urns, " +
-                    FindObjectsByType<SpikeTrap>(FindObjectsSortMode.None).Length + " traps", chests.Length == sideRooms + (layout.Rooms.Any(r => r.Feature == RoomFeature.Vault) ? 2 : 0) + layout.Rooms.Sum(r => r.Holes.Count(hh => !hh.Breach)) - CacheDraughts(layout) - FindObjectsByType<BargainAltar>(FindObjectsSortMode.None).Length + 2 * layout.Rooms.Count(r => r.Cellar) + layout.Rooms.Count(r => r.Feature == RoomFeature.Belfry && r.FeatureSpots.Count > 0) && urns > 0);
+                    FindObjectsByType<SpikeTrap>(FindObjectsSortMode.None).Length + " traps", chests.Length == sideRooms + DungeonDirector.Instance.VaultChestCount + layout.Rooms.Sum(r => r.Holes.Count(hh => !hh.Breach && !hh.Lever)) - CacheDraughts(layout) - FindObjectsByType<BargainAltar>(FindObjectsSortMode.None).Length + 2 * layout.Rooms.Count(r => r.Cellar) + layout.Rooms.Count(r => r.Feature == RoomFeature.Belfry && r.FeatureSpots.Count > 0) && urns > 0);
                 if (chests.Length > 0)
                 {
                     int dropsBefore = FindObjectsByType<LootDrop>(FindObjectsSortMode.None).Length;
@@ -5465,7 +5465,7 @@ namespace Deepbound.Networking
                         }
                         if (fes != null && fes.IsSpawned) fes.NetworkObject.Despawn();
                         Log("festering blight", "stacks " + st1 + " -> " + st4 + ", one second at 1 stack " + oneTick.ToString("F0") + ", at 4 " + fourTick.ToString("F0"),
-                            st1 == 1 && st4 == Health.MaxBlightStacks && fourTick > oneTick * (1f + Health.BlightStackStep * (Health.MaxBlightStacks - 1)) * 0.75f);
+                            st1 == 1 && st4 == Health.MaxBlightStacks && fourTick > oneTick * (1f + Health.BlightStackStep * (Health.MaxBlightStacks - 1)) * 0.65f);
                     }
 
                     {

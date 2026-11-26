@@ -341,6 +341,12 @@ namespace Deepbound.UI
                 GUILayout.Space(8);
                 if (UiSkin.Btn("QUIT GAME", UiSkin.Button, GUILayout.Height(44))) Choose(5);
                 PadFrame(5);
+                GUILayout.Space(8);
+                if (UiSkin.Btn("OPEN RUN LOGS", UiSkin.Button, GUILayout.Height(32)))
+                {
+                    System.IO.Directory.CreateDirectory(Progression.RunLog.Folder);
+                    Application.OpenURL("file:///" + Progression.RunLog.Folder.Replace('\\', '/'));
+                }
                 GUILayout.Space(10);
                 var net = NetworkManager.Singleton;
                 string party = net == null ? "" : (net.IsHost ? "You are hosting" : "In a party") + "   ·   " + (net.IsServer ? net.ConnectedClientsIds.Count : Player.PlayerLife.All.Count) + " in the party";

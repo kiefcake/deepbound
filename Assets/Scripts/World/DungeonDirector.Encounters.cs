@@ -119,7 +119,8 @@ namespace Deepbound.World
             public DungeonLayout.Room Room;
             public readonly List<Portcullis> Gates = new List<Portcullis>();
             public readonly List<Lever> Levers = new List<Lever>();
-            public bool Open;
+            public readonly List<Lever> Hidden = new List<Lever>();
+            public bool Open, HintGiven;
         }
         private Vault vault;
 
@@ -218,6 +219,7 @@ namespace Deepbound.World
                         continue;
                     }
 
+                    if (hole.Lever) continue;
                     var back = face + outward * (0.8f + WallHole.NicheDepth - 1.4f);
                     double roll = rng.NextDouble();
                     if (roll < 0.18 && statDraughtPrefab != null)
@@ -293,6 +295,8 @@ namespace Deepbound.World
         }
 
         public bool VaultOpen => vault != null && vault.Open;
+
+        public int VaultChestCount { get; private set; }
         private readonly Dictionary<PlayerLife, float> rescuedAt = new Dictionary<PlayerLife, float>();
 
         private readonly List<Portcullis> bossGates = new List<Portcullis>();
@@ -357,6 +361,7 @@ namespace Deepbound.World
             ambush = null;
             lair = null;
             vault = null;
+            VaultChestCount = 0;
             leversAnnounced = 0;
             breaches.Clear();
             foreach (var w in FindObjectsByType<CrackedWall>(FindObjectsSortMode.None))
@@ -424,22 +429,26 @@ namespace Deepbound.World
 
                         var lrng = new System.Random(layout.Seed ^ 0x1e7e);
                         var leverRooms = layout.Rooms.FindAll(r => r != room && r.Kind != RoomKind.Boss && r.Kind != RoomKind.Start && !IsAmbushRoom(r));
-                        for (int li = 0; li < 3 && leverRooms.Count > 0; li++)
+                        foreach (var lr in layout.Rooms)
+                            foreach (var hole in lr.Holes)
+                            {
+                                if (!hole.Lever || vault.Levers.Count >= DungeonLayout.VaultLevers) continue;
+                                var outward = DungeonLayout.Room.HoleOutward(hole);
+                                var spot = lr.HoleFace(hole) + outward * (DungeonBuilder.WallThickness / 2f + WallHole.NicheDepth - 0.06f);
+                                var hidden = Spawn(leverPrefab, spot, Quaternion.LookRotation(-outward)).GetComponent<Lever>();
+                                vault.Levers.Add(hidden);
+                                vault.Hidden.Add(hidden);
+                                leverRooms.Remove(lr);
+                            }
+                        if (leverRooms.Count == 0) leverRooms = layout.Rooms.FindAll(r => r != room && r.Kind != RoomKind.Boss && r.Kind != RoomKind.Start);
+                        while (vault.Levers.Count < DungeonLayout.VaultLevers && leverRooms.Count > 0)
                         {
-                            var lr = leverRooms[lrng.Next(leverRooms.Count)];
+                            var lr = PickLeverRoom(leverRooms, layout, lrng);
                             leverRooms.Remove(lr);
                             var spot = WallMount(lr, lrng, out var face);
                             vault.Levers.Add(Spawn(leverPrefab, spot, Quaternion.LookRotation(face)).GetComponent<Lever>());
                         }
-                        if (chestPrefab != null)
-                        {
-                            foreach (float s in new[] { -1f, 1f })
-                            {
-                                var vrot = Quaternion.Euler(0f, s > 0 ? -90f : 90f, 0f);
-                                var chest = Spawn(chestPrefab, DropSpots.ClearForChest(room.Center + new Vector3(s * 2f, 0f, 0f), vrot, room), vrot);
-                                chest.GetComponent<Chest>().SetLootPrefab(lootPrefab);
-                            }
-                        }
+                        SpawnVaultHoard(room, layout.Depth, lrng);
                         break;
 
                     case RoomFeature.Ritual when breakablePrefab != null:
@@ -512,6 +521,106 @@ namespace Deepbound.World
 
         private int leversAnnounced;
 
+        private static DungeonLayout.Room PickLeverRoom(List<DungeonLayout.Room> rooms, DungeonLayout layout, System.Random rng)
+        {
+            if (layout.Depth < 2) return rooms[rng.Next(rooms.Count)];
+            DungeonLayout.Room best = null;
+            float bestScore = float.MinValue;
+            foreach (var r in rooms)
+            {
+                int doors = 0;
+                for (int s = 0; s < 4; s++) if (r.Doors[s]) doors++;
+                float score = Vector3.Distance(r.Center, layout.StartRoom.Center) / DungeonLayout.CellSize + (doors <= 1 ? 1.5f : 0f) + (r.Kind == RoomKind.Side ? 0.8f : 0f) + (float)rng.NextDouble() * 1.5f;
+                if (score > bestScore) { bestScore = score; best = r; }
+            }
+            return best;
+        }
+
+        private enum Hoard { Gold, Embers, Rune, Relic, Sigil, Gear, Potions }
+
+        private static readonly (Hoard kind, int fromDepth, float weight)[] HoardTable =
+        {
+            (Hoard.Gold, 0, 3f), (Hoard.Embers, 0, 2.5f), (Hoard.Potions, 0, 1.5f), (Hoard.Rune, 1, 1.5f),
+            (Hoard.Gear, 2, 1.5f), (Hoard.Relic, 2, 1.2f), (Hoard.Sigil, 3, 1f),
+        };
+
+        public static int VaultChests(int depth, System.Random rng) => 1 + rng.Next(3) + depth / 4;
+
+        public static int VaultExtras(int depth) => 1 + (depth + 1) / 2;
+
+        private void SpawnVaultHoard(DungeonLayout.Room room, int depth, System.Random rng)
+        {
+            var spots = new List<Vector3>();
+            float radius = Mathf.Min(room.Size.x, room.Size.y) / 2f - 2.6f;
+            for (int ring = 0; ring < 2; ring++)
+                for (int i = 0; i < 8; i++)
+                {
+                    float a = (i + ring * 0.5f) * Mathf.PI / 4f;
+                    spots.Add(room.Center + new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)) * (ring == 0 ? radius : radius * 0.5f));
+                }
+            for (int i = spots.Count - 1; i > 0; i--) { int j = rng.Next(i + 1); (spots[i], spots[j]) = (spots[j], spots[i]); }
+            int next = 0;
+            Vector3 NextSpot() => spots[next++ % spots.Count];
+
+            VaultChestCount = chestPrefab != null ? VaultChests(depth, rng) : 0;
+            for (int c = VaultChestCount; c > 0; c--)
+            {
+                var at = NextSpot();
+                var face = room.Center - at;
+                face.y = 0f;
+                var rot = face.sqrMagnitude > 0.01f ? Quaternion.LookRotation(face) : Quaternion.identity;
+                Spawn(chestPrefab, DropSpots.ClearForChest(at, rot, room), rot).GetComponent<Chest>().SetLootPrefab(lootPrefab);
+            }
+
+            var picks = new List<Hoard>();
+            int extras = VaultExtras(depth);
+            if (depth >= 6) { picks.Add(Hoard.Relic); extras--; }
+            float total = 0f;
+            foreach (var h in HoardTable) if (depth >= h.fromDepth) total += h.weight;
+            for (int e = 0; e < extras; e++)
+            {
+                float roll = (float)rng.NextDouble() * total;
+                foreach (var h in HoardTable)
+                {
+                    if (depth < h.fromDepth) continue;
+                    roll -= h.weight;
+                    if (roll <= 0f) { picks.Add(h.kind); break; }
+                }
+            }
+
+            int tier = Mathf.RoundToInt(Tier(depth));
+            foreach (var kind in picks)
+            {
+                var at = NextSpot() + Vector3.up * 0.3f;
+                switch (kind)
+                {
+                    case Hoard.Gold:
+                        for (int g = 0; g < 4; g++) ServerDropLoot(at + Quaternion.Euler(0f, g * 90f, 0f) * Vector3.forward * 0.45f, LootKind.Gold, 14 + 8 * tier);
+                        break;
+                    case Hoard.Embers:
+                        ServerDropEmbers(at, 12 + 6 * tier);
+                        break;
+                    case Hoard.Potions:
+                        ServerDropLoot(at, LootKind.PotionHP, 1 + depth / 4);
+                        ServerDropLoot(at + Vector3.right * 0.5f, LootKind.PotionMP, 1);
+                        break;
+                    case Hoard.Rune:
+                        ServerDropLoot(at, LootKind.Rune, (int)Runes.Random());
+                        break;
+                    case Hoard.Relic:
+                        ServerDropLoot(at, LootKind.Relic, (int)Relics.Random());
+                        break;
+                    case Hoard.Sigil:
+                        ServerDropLoot(at, LootKind.Sigil, 1);
+                        break;
+                    case Hoard.Gear:
+                        foreach (var p in PlayerLife.All)
+                            if (p != null) GearDrop.ServerSpawn(Gear.Roll(depth, depth >= 5 ? 1 : 0), p.OwnerClientId, at);
+                        break;
+                }
+            }
+        }
+
         private static Vector3 WallMount(DungeonLayout.Room room, System.Random rng, out Vector3 face)
         {
             for (int tries = 0; tries < 12; tries++)
@@ -544,6 +653,13 @@ namespace Deepbound.World
                 leversAnnounced = down;
                 if (down < vault.Levers.Count)
                     ServerFeedAll("A vault lever falls into place: " + down + " of " + vault.Levers.Count + ". Somewhere, a vault stirs.", new Color(1f, 0.75f, 0.35f));
+                int hiddenLeft = 0;
+                foreach (var l in vault.Hidden) if (l != null && !l.Pulled.Value) hiddenLeft++;
+                if (!vault.HintGiven && hiddenLeft > 0 && down + hiddenLeft >= vault.Levers.Count)
+                {
+                    vault.HintGiven = true;
+                    ServerFeedAll(hiddenLeft == 1 ? "The last lever is sealed behind a cracked wall. Listen for the draught." : "The last " + hiddenLeft + " levers are sealed behind cracked walls. Listen for the draught.", new Color(1f, 0.75f, 0.35f));
+                }
             }
             if (down < vault.Levers.Count) return;
             vault.Open = true;

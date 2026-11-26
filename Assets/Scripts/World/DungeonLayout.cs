@@ -19,11 +19,17 @@ namespace Deepbound.World
         public float Along;
 
         public bool Breach;
+
+        public bool Lever;
     }
 
     public class DungeonLayout
     {
-        public const float CellSize = 46f;
+        public const float CellSize = 40f;
+
+        public const int VaultLevers = 3;
+
+        public static int HiddenLevers(int depth) => depth < 2 ? 0 : depth < 5 ? 1 : depth < 8 ? 2 : VaultLevers;
 
         public const float CorridorWidth = 4.6f;
         public const float CorridorHeight = 4.4f;
@@ -402,7 +408,7 @@ namespace Deepbound.World
                 r.Feature != RoomFeature.Chasm && r.Feature != RoomFeature.Vault && r.Feature != RoomFeature.Fountain && r.Holes.Count == 0 &&
                 !r.Special && r.Feature != RoomFeature.Terrace && r.Feature != RoomFeature.Ziggurat && r.Decks.Count == 0 && r.Feature != RoomFeature.Undercroft && r.Feature != RoomFeature.Ruin && r.Feature != RoomFeature.Rampart;
 
-            void Place(bool breach, int count)
+            void Place(bool breach, int count, bool lever = false)
             {
                 var pool = layout.Rooms.FindAll(r => Eligible(r, breach));
                 for (int n = 0; n < count && pool.Count > 0;)
@@ -431,13 +437,14 @@ namespace Deepbound.World
                     float along = room.Doors[side]
                         ? (rng.Next(2) == 0 ? -1f : 1f) * Mathf.Lerp(doorClear, Mathf.Max(doorClear, wallLen / 2f - Mathf.Max(2.5f, cornerKeep)), (float)rng.NextDouble())
                         : ((float)rng.NextDouble() * 2f - 1f) * Mathf.Max(0f, wallLen / 2f - cornerKeep);
-                    room.Holes.Add(new WallHole { Side = side, Along = along, Breach = breach });
+                    room.Holes.Add(new WallHole { Side = side, Along = along, Breach = breach, Lever = lever });
                     n++;
                 }
             }
 
             Place(false, 2 + (rng.NextDouble() < 0.5 ? 1 : 0) + (layout.Depth >= 3 ? 1 : 0));
             Place(true, layout.Depth >= 1 ? 2 : 1);
+            if (layout.Rooms.Exists(r => r.Feature == RoomFeature.Vault)) Place(false, HiddenLevers(layout.Depth), lever: true);
         }
 
         private static void AssignOtherFeatures(DungeonLayout layout, System.Random rng)

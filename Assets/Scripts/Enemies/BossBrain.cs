@@ -722,6 +722,7 @@ namespace Deepbound.Enemies
 
         public override void ServerStun(float seconds)
         {
+            if (IsDead || !IsSpawned) return;
             ServerAddStagger(StaggerStun * Mathf.Clamp(seconds, 0.5f, 2f));
             if (attacking) CancelConeRpc();
             base.ServerStun(seconds);

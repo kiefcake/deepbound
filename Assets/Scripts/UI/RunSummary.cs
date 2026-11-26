@@ -36,6 +36,9 @@ namespace Deepbound.UI
             {
                 recordedRun = d.RunStartedAt.Value;
                 if (won) Deeds.AddWin(); else Deeds.AddWipe();
+                var winner = Player.NetworkPlayer.Local != null ? Player.NetworkPlayer.Local.GetComponent<PlayerProgress>() : null;
+                if (won && winner != null && Cosmetics.RecordClassWin(winner.ClassId.Value))
+                    GameHud.Feed("Regalia unlocked: visit Vey to wear your " + Classes.ClassDefinition.For(winner.ClassId.Value).Name + "'s regalia.", UiSkin.Gold);
             }
             var panel = new Rect(w / 2f - pw / 2f, h / 2f - ph / 2f, pw, ph);
             UiSkin.Panel(panel, 0.95f);

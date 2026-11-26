@@ -43,6 +43,7 @@ namespace Deepbound.Progression
         [Rpc(SendTo.Server)]
         public void BringHeirloomRpc(byte relicPlusOne)
         {
+            RunLog.Note("action", "BringHeirloom" + " " + relicPlusOne, this);
             string why = CannotBringHeirloom(relicPlusOne);
             bool ok = why == null && ServerBringHeirloom(relicPlusOne);
             HeirloomResultRpc(ok, ok ? "The heirloom is with you." : why ?? "It could not be brought.", RpcTarget.Single(OwnerClientId, RpcTargetUse.Temp));

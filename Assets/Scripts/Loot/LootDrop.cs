@@ -245,6 +245,13 @@ namespace Deepbound.Loot
 
         private bool TryApply(PlayerProgress progress)
         {
+            if (!ApplyPickup(progress)) return false;
+            if (!crumbled) RunLog.Note("loot", LootInfo.Name(Kind.Value) + (Kind.Value == LootKind.Relic ? " " + Relics.Name(RelicId) : Kind.Value == LootKind.Rune ? " " + Runes.Name((Rune)Amount.Value) : "") + " x" + Amount.Value, routedTo != null ? routedTo : progress);
+            return true;
+        }
+
+        private bool ApplyPickup(PlayerProgress progress)
+        {
             if (progress == null || progress.Stats == null) return false;
             var kind = Kind.Value;
 

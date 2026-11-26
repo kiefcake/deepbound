@@ -62,7 +62,7 @@ namespace Deepbound.Combat
 
         public const float BlightStackStep = 0.35f;
         private float lastFester;
-        private float blightUntil, blightDps, blightBase, nextBlightTick;
+        private float blightUntil, blightDps, blightBase, blightBaseUntil, nextBlightTick;
         private ulong blightSource = ulong.MaxValue;
 
         public ulong BlightSource => blightSource;
@@ -78,7 +78,7 @@ namespace Deepbound.Combat
             if (!Blighted.Value) { BlightStacks.Value = 1; lastFester = Time.time; }
             else if (BlightStacks.Value < MaxBlightStacks && Time.time - lastFester >= FesterGap) { BlightStacks.Value++; lastFester = Time.time; }
 
-            blightBase = Mathf.Max(Blighted.Value ? blightBase : 0f, dps);
+            if (!Blighted.Value || dps >= blightBase || Time.time >= blightBaseUntil) { blightBase = dps; blightBaseUntil = Time.time + seconds; }
             blightDps = blightBase * (1f + BlightStackStep * (Mathf.Max(1, (int)BlightStacks.Value) - 1));
             blightSource = source;
             if (!Blighted.Value) nextBlightTick = Time.time + 0.5f;

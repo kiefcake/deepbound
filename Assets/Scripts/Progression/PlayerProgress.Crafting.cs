@@ -56,6 +56,7 @@ namespace Deepbound.Progression
         [Rpc(SendTo.Server)]
         public void CraftRpc(byte index)
         {
+            RunLog.Note("action", "Craft" + " " + index, this);
             if (Stats == null || CannotCraftReason(index) != null) return;
             var r = Crafting.Recipes[index];
             bool made = false;
@@ -99,6 +100,7 @@ namespace Deepbound.Progression
         [Rpc(SendTo.Server)]
         public void ReadyToolRpc(byte kind)
         {
+            RunLog.Note("action", "ReadyTool" + " " + kind, this);
             var k = (CraftKind)kind;
             if (k != CraftKind.Caltrops && k != CraftKind.Rattle) return;
             Parts.Value = WithField(Parts.Value, 54, 2, k == CraftKind.Caltrops ? 1 : 2);
@@ -107,6 +109,7 @@ namespace Deepbound.Progression
         [Rpc(SendTo.Server)]
         public void UseToolRpc(Vector3 at)
         {
+            RunLog.Note("action", "UseTool", this);
             var tool = ReadiedTool;
             if (tool == null || ToolCount(tool.Value) <= 0) return;
             var life = GetComponent<PlayerLife>();
