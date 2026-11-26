@@ -250,7 +250,7 @@ namespace Deepbound.Player
             Vfx.Embers(at, 16, c, 3f, 0.06f, 0.9f);
             UI.GameHud.Feed(name + (RareItems.IsTome(item) ? " reads the " : " drinks the ") + RareItems.Name(item), c);
             if (item == RareItem.GraveStillness) StillnessShell.Spawn(transform, RareItems.StasisSeconds);
-            if (IsOwner) player.ViewModelCast(false);
+            player.Act(RareItems.IsTome(item) ? RigAction.Cast : RigAction.Drink, 0.7f);
         }
 
         public bool ServerTakeOne(Kind k)
@@ -391,14 +391,13 @@ namespace Deepbound.Player
         [Rpc(SendTo.ClientsAndHost)]
         private void DrinkFxRpc(byte kind)
         {
-            if (!IsOwner) player.Rig?.Play(RigAction.Drink, 0.6f);
+            player.Act(RigAction.Drink, 0.6f);
             var k = (Kind)kind;
             Sfx.Play(Sound.Drink, transform.position + Vector3.up * 1.5f, 0.8f);
             var drunkColor = k == Kind.Mana ? DraughtColor(progress.ClassId.Value) : ColorOf(k);
             Vfx.Embers(transform.position + Vector3.up * 1.2f, 8, drunkColor, 1.5f, 0.05f, 0.9f);
             if (IsOwner) UI.AfflictionOverlay.Drank(k == Kind.Health ? 0 : 1, drunkColor);
             if (k == Kind.Health) healingUntil = Time.time + HealSeconds;
-            if (IsOwner) player.ViewModelCast(false);
         }
 
         public void ServerDebugDrink(Kind k) => DrinkRpc((byte)k);
@@ -458,7 +457,7 @@ namespace Deepbound.Player
         [Rpc(SendTo.ClientsAndHost)]
         private void ThrowFxRpc(byte kind, Vector3 from, Vector3 to)
         {
-            if (!IsOwner) player.Rig?.Play(RigAction.Lob, 0.4f);
+            player.Act(RigAction.Lob, 0.4f);
             Sfx.Play(Sound.Swing, from, 0.6f, 1.4f);
             FlaskFlight.Spawn((Kind)kind, from, to, Flight);
         }

@@ -9,7 +9,7 @@ namespace Deepbound.Art
         private static ExitPortal current;
         private Transform cage, lantern;
         private Light glow;
-        private float born, ascendAt = -1f, ceiling = 9f, nextClank;
+        private float born, ascendAt = -1f, top = 12f, nextClank;
 
         private Player.FirstPersonMotor riding;
 
@@ -28,7 +28,10 @@ namespace Deepbound.Art
             go.transform.position = at;
             current = go.AddComponent<ExitPortal>();
             var room = World.DungeonDirector.Layout?.BossRoom;
-            current.ceiling = room != null ? room.Height : 10f;
+            float ceiling = room != null ? room.Height - at.y : 10f;
+            current.top = ceiling + World.DungeonBuilder.ShaftHeight - 4.5f;
+            var hatch = LiftHatch.Current;
+            if (hatch != null) hatch.Open();
             current.Build();
             Sfx.Play(Sound.Chain, at + Vector3.up * 4f, 1f, 0.7f);
         }
@@ -94,13 +97,13 @@ namespace Deepbound.Art
         private void Build()
         {
             float r = World.DungeonDirector.ExitRadius;
-            born = Time.time;
+            born = Time.time + (LiftHatch.Current != null ? LiftHatch.OpenSeconds * 0.7f : 0f);
 
             var mark = MeshKit.Part(transform, "LandingRing", MeshKit.Lathe("liftRing", new[] { new Vector2(r - 0.15f, 0f), new Vector2(r + 0.05f, 0.02f), new Vector2(r - 0.15f, 0.04f) }, 40, false), Mat.Glow, Vector3.up * 0.03f);
             ArtLibrary.SetGlow(mark.GetComponent<Renderer>(), Lamp * 0.9f);
             mark.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
 
-            cage = MeshKit.Pivot(transform, "Cage", Vector3.up * ceiling);
+            cage = MeshKit.Pivot(transform, "Cage", Vector3.up * top);
             float cr = r * 0.92f, h = 3.1f;
 
             MeshKit.Part(cage, "Floor", MeshKit.Cylinder(cr, cr, 0.12f, 18), Mat.Steel, Vector3.up * 0.06f);
@@ -142,12 +145,12 @@ namespace Deepbound.Art
             if (ascendAt > 0f)
             {
                 float k = Mathf.Clamp01((Time.time - ascendAt) / AscendSeconds);
-                y = Mathf.Lerp(0f, ceiling + 2f, k * k);
+                y = Mathf.Lerp(0f, top, k * k);
             }
             else
             {
                 float k = Mathf.Clamp01(t / DescendSeconds);
-                y = Mathf.Lerp(ceiling, 0f, 1f - Mathf.Pow(1f - k, 3f));
+                y = Mathf.Lerp(top, 0f, 1f - Mathf.Pow(1f - k, 3f));
                 if (k >= 1f) y = Mathf.Abs(Mathf.Sin((t - DescendSeconds) * 9f)) * 0.06f * Mathf.Exp(-(t - DescendSeconds) * 3f);
                 if (k < 1f && Time.time >= nextClank) { nextClank = Time.time + 0.45f; Sfx.Play(Sound.Chain, cage.position + Vector3.up * 2f, 0.4f, 0.8f); }
             }

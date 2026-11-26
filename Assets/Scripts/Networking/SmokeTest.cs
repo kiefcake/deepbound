@@ -691,6 +691,11 @@ namespace Deepbound.Networking
                         sorted && (chosen.w <= 0 || sizes.Contains(new Vector2Int(chosen.w, chosen.h))) && UI.Settings.WindowMode >= 0 && UI.Settings.WindowMode < UI.Settings.WindowModeNames.Length && UI.Settings.FrameLimit < UI.Settings.FrameLimitNames.Length && UI.Settings.UiScaleIndex < UI.Settings.UiScaleNames.Length);
                 }
 
+                Log("trip wires", "low: walk trips " + DungeonDirector.TripsWire(false, 0f, false) + ", jump clears " + !DungeonDirector.TripsWire(false, 0.6f, false)
+                    + "; high: standing trips " + DungeonDirector.TripsWire(true, 0f, false) + ", crouched clears " + !DungeonDirector.TripsWire(true, 0f, true) + ", crouch fits " + (Player.FirstPersonMotor.CrouchHeight < DungeonLayout.TripHighHeight),
+                    DungeonDirector.TripsWire(false, 0f, false) && !DungeonDirector.TripsWire(false, 0.6f, false) && DungeonDirector.TripsWire(true, 0f, false) && !DungeonDirector.TripsWire(true, 0f, true) && Player.FirstPersonMotor.CrouchHeight < DungeonLayout.TripHighHeight);
+                Log("wardrobe tabs", "every cosmetic kind has a tab and labels " + UI.Wardrobe.LabelsCoverEveryKind, UI.Wardrobe.LabelsCoverEveryKind);
+
                 {
                     var silent = System.Enum.GetValues(typeof(Art.Sound)).Cast<Art.Sound>().Where(sd => Resources.LoadAll<AudioClip>("Audio/Sfx/" + sd).Length == 0).ToList();
                     Log("every sound recorded", silent.Count == 0 ? "all " + System.Enum.GetValues(typeof(Art.Sound)).Length + " have clips" : "silent: " + string.Join(", ", silent), silent.Count == 0);
@@ -3610,14 +3615,7 @@ namespace Deepbound.Networking
                         bjT.InsuranceRpc(local.NetworkObject, false);
                         bjT.StandRpc(local.NetworkObject);
                         yield return new WaitForSeconds(0.3f);
-                        bjT.ServerDebugWinnings(gp, BlackjackTable.CutOff);
-                        int g4 = gp.Gold.Value;
-                        bjT.DealRpc(local.NetworkObject, 20);
-                        yield return new WaitForSeconds(0.3f);
-                        bool cut = bjT.CutOffFor(gp) && gp.Gold.Value == g4;
-                        bjT.ServerDebugWinnings(gp, 0);
-                        Log("blackjack limits", "a 500 bet staked " + stake + " (max " + BlackjackTable.MaxBet + "), cut off after " + BlackjackTable.CutOff + " won " + cut,
-                            stake == BlackjackTable.MaxBet && cut);
+                        Log("blackjack limits", "a 500 bet staked " + stake + " (no table limit)", stake == 500);
                     }
                     int solid = 0;
                     foreach (var bc in FindObjectsByType<BoxCollider>(FindObjectsSortMode.None)) if (bc.GetComponent<MeshRenderer>() != null && bc.GetComponentInParent<Unity.Netcode.NetworkObject>() == null) solid++;
@@ -3797,6 +3795,38 @@ namespace Deepbound.Networking
                             if (Lobby.InTavern(at) || Vector3.Distance(new Vector3(at.x, 0f, at.z), new Vector3(Lobby.TentCenter.x, 0f, Lobby.TentCenter.z)) < 4.8f) flClear = false;
                         Log("fire logs", "seats " + flSeats.Length + ", prompt " + flPrompted + ", sat " + flSat + ", stood " + flStood + ", clear of tavern and tent " + flClear,
                             flSeats.Length == 12 && flPrompted && flSat && flStood && flClear);
+                    }
+
+                    {
+                        Physics.SyncTransforms();
+                        var cpFoot = Lobby.Footprints;
+                        var cpHits = new System.Collections.Generic.List<string>();
+                        string Where(Props.Footprint f) => f.What + " (" + (f.At.x - Lobby.Origin.x).ToString("F1") + ", " + (f.At.z - Lobby.Origin.z).ToString("F1") + ")";
+                        var cpAll = new System.Collections.Generic.List<Props.Footprint>(cpFoot);
+                        foreach (var (kind, at) in Lobby.CampBreakables)
+                            cpAll.Add(new Props.Footprint { At = at, Half = Vector2.one * (kind == Breakable.Kind.Crate ? 0.42f : 0.34f), Height = 1f, What = kind.ToString() });
+                        for (int i = 0; i < cpAll.Count; i++)
+                            for (int j = i + 1; j < cpAll.Count; j++)
+                                if (Props.Overlap(cpAll[i], cpAll[j], 0.04f)) cpHits.Add(Where(cpAll[i]) + " x " + Where(cpAll[j]));
+                        foreach (var f in cpFoot)
+                        {
+                            float low = 0.15f, high = f.Height * 0.85f;
+                            var half = new Vector3(f.Half.x * 0.85f, (high - low) / 2f, f.Half.y * 0.85f);
+                            foreach (var c in Physics.OverlapBox(f.At + Vector3.up * (low + high) / 2f, half, Quaternion.Euler(0f, f.Yaw, 0f), ~0, QueryTriggerInteraction.Ignore))
+                            {
+                                if (c.name.StartsWith("LobbyDressing") || c.GetComponentInParent<NetworkPlayer>() != null || c.GetComponentInParent<CampFolk>() != null || c.GetComponentInParent<CampCat>() != null) continue;
+                                cpHits.Add(Where(f) + " in " + c.name + (c.transform.parent != null ? "/" + c.transform.parent.name : ""));
+                            }
+                        }
+                        foreach (var (who, at) in Lobby.FolkBodies)
+                        {
+                            var body = new Props.Footprint { At = at, Half = Vector2.one * 0.3f, Height = 1.8f, What = who.ToString() };
+                            foreach (var f in cpAll)
+                                if (Props.Overlap(body, f, 0.02f)) cpHits.Add(Where(f) + " x " + who);
+                        }
+                        foreach (var hit in cpHits) Debug.Log("[Smoke] camp clutter: " + hit);
+                        Log("camp props clear", cpFoot.Count + " crates and barrels, " + cpHits.Count + " clipping" + (cpHits.Count > 0 ? ": " + string.Join("; ", cpHits.GetRange(0, Mathf.Min(6, cpHits.Count))) : ""),
+                            cpFoot.Count > 0 && cpHits.Count == 0);
                     }
 
                     {
@@ -5478,6 +5508,10 @@ namespace Deepbound.Networking
                         float hp0 = meH.Current.Value;
                         meH.ServerDamage(30f, local.transform.position + local.transform.forward * 2f, ulong.MaxValue);
                         bool untouched = meH.Current.Value >= hp0;
+                        pl.ServerDebugDodge();
+                        float hpTrap = meH.Current.Value;
+                        meH.Unavoidable().ServerDamage(30f, local.transform.position + Vector3.down, ulong.MaxValue);
+                        Log("traps ignore dodge", "a trap hit during dodge frames took " + (hpTrap - meH.Current.Value).ToString("F0"), meH.Current.Value < hpTrap);
                         bool ready = Time.time < pp.PerfectStrikeUntil;
                         var foeP = DungeonDirector.Instance.ServerDebugSpawn("skeleton", local.transform.position + local.transform.forward * 4f, false, calm: true);
                         var fhp = foeP != null ? foeP.GetComponent<Health>() : null;
@@ -7606,6 +7640,30 @@ namespace Deepbound.Networking
                         yield return new WaitForSeconds(0.3f);
                     }
                     Time.timeScale = 1f;
+
+                    var casts = new (Classes.ClassId cls, Art.RigAction pose, string what)[]
+                    {
+                        (Classes.ClassId.Mage, Art.RigAction.Thrust, "wave"), (Classes.ClassId.Mage, Art.RigAction.Summon, "meteor"),
+                        (Classes.ClassId.Cleric, Art.RigAction.Pray, "consecrate"), (Classes.ClassId.Cleric, Art.RigAction.Point, "aegis"),
+                        (Classes.ClassId.Knight, Art.RigAction.Plant, "banner"), (Classes.ClassId.Knight, Art.RigAction.Roar, "warcry"),
+                        (Classes.ClassId.Ranger, Art.RigAction.Draw, "volley"), (Classes.ClassId.Rogue, Art.RigAction.Vanish, "smoke"),
+                        (Classes.ClassId.Rogue, Art.RigAction.Fan, "fan"), (Classes.ClassId.Flagellant, Art.RigAction.Lash, "chain"),
+                        (Classes.ClassId.PlagueDoctor, Art.RigAction.Siphon, "expunge"), (Classes.ClassId.PlagueDoctor, Art.RigAction.Cast, "miasma"),
+                    };
+                    foreach (var (castCls, pose, what) in casts)
+                    {
+                        if (pclass.ClassId.Value != castCls)
+                        {
+                            pclass.ClassId.Value = castCls;
+                            yield return new WaitForSeconds(1f);
+                        }
+                        Time.timeScale = 0.25f;
+                        local.Gesture(pose, 0.8f);
+                        yield return new WaitForSeconds(0.36f);
+                        yield return Shot(dir, "2g_cast_" + castCls.ToString().ToLowerInvariant() + "_" + what);
+                        Time.timeScale = 1f;
+                        yield return new WaitForSeconds(0.9f);
+                    }
                     pclass.ClassId.Value = was;
                     yield return new WaitForSeconds(0.6f);
                 }

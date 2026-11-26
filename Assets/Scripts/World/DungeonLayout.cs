@@ -117,6 +117,12 @@ namespace Deepbound.World
         public struct FlameTrap { public Vector3 At, Across; public int Phase; }
         public readonly List<FlameTrap> FlameTraps = new List<FlameTrap>();
 
+        public struct TripWire { public Vector3 At, Across; public bool High; }
+        public readonly List<TripWire> TripWires = new List<TripWire>();
+        public const float TripLowHeight = 0.32f, TripHighHeight = 1.25f;
+
+        public static float TripWireChance(int depth) => Mathf.Min(0.5f, 0.15f + 0.05f * depth);
+
         public Vector3? PeddlerSpot;
 
         public const float CellarDrop = 14f, CellarSize = 9f, CellarHeight = 3.6f;
@@ -345,6 +351,7 @@ namespace Deepbound.World
             AssignSpecialRooms(layout, rng);
             PlaceEnemySpawns(layout, rng, depth);
             PlaceFlameTraps(layout, rng);
+            PlaceTripWires(layout, new System.Random(layout.Seed ^ 0x7121));
             return layout;
         }
 
@@ -1041,6 +1048,27 @@ namespace Deepbound.World
                 room.Peaceful = true;
                 room.EnemySpawns.Clear();
                 return;
+            }
+        }
+
+        private static void PlaceTripWires(DungeonLayout layout, System.Random rng)
+        {
+            foreach (var link in layout.Links)
+            {
+                var a = layout.Rooms[link.A];
+                var b = layout.Rooms[link.B];
+                if (a.Kind == RoomKind.Boss || b.Kind == RoomKind.Boss || a.Kind == RoomKind.Start || b.Kind == RoomKind.Start) continue;
+                if (rng.NextDouble() > TripWireChance(layout.Depth)) continue;
+                var d = Dir[link.Dir];
+                bool alongX = d.x != 0;
+                var axis = new Vector3(d.x, 0f, d.y);
+                var start = a.Center + axis * ((alongX ? a.Size.x : a.Size.y) / 2f + 1.5f);
+                var end = b.Center - axis * ((alongX ? b.Size.x : b.Size.y) / 2f + 1.5f);
+                if (Vector3.Distance(start, end) < 6f) continue;
+                var at = Vector3.Lerp(start, end, 0.3f + (float)rng.NextDouble() * 0.4f);
+                at.y = 0f;
+                if (layout.FlameTraps.Exists(f => Vector3.Distance(f.At, at) < 4f)) continue;
+                layout.TripWires.Add(new TripWire { At = at, Across = new Vector3(-axis.z, 0f, axis.x), High = layout.Depth >= 1 && rng.NextDouble() < 0.5 });
             }
         }
 

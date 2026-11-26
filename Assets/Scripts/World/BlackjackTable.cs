@@ -10,9 +10,7 @@ namespace Deepbound.World
 {
     public class BlackjackTable : Interactable
     {
-        public const int MinBet = 5, MaxBet = 100, Decks = 6, MaxHands = 4;
-
-        public const int CutOff = 300;
+        public const int MinBet = 5, Decks = 6, MaxHands = 4;
 
         public const int Stools = 4;
         public enum Phase : byte { Betting, Insurance, Playing, Done }
@@ -28,8 +26,6 @@ namespace Deepbound.World
             public bool SplitAces;
             public string Result = "";
             public float LastAction;
-
-            public int NetThisVisit, Visit = -1;
         }
 
         private readonly Dictionary<ulong, Seat> seats = new Dictionary<ulong, Seat>();
@@ -63,7 +59,6 @@ namespace Deepbound.World
         public override string Prompt(PlayerProgress who)
         {
             if (who.IsOwner && LocalOpen && localTable == this) return null;
-            if (CutOffFor(who)) return "Deadman's Hand: the dealer has cut you off until the next floor";
             return who.Gold.Value < MinBet ? "Deadman's Hand: you need " + MinBet + " gold" : "Sit at Deadman's Hand (blackjack, up to " + Stools + " players)";
         }
 
@@ -123,32 +118,13 @@ namespace Deepbound.World
 
             if (who.Grudge(FolkId.Bones) >= 3) { RefusedRpc(who.name); return; }
 
-            if (CutOffFor(who)) { CutOffRpc(who.name); return; }
-            bet = Mathf.Clamp(bet, MinBet, MaxBet);
+            bet = Mathf.Max(bet, MinBet);
             if (who.Gold.Value < bet) return;
             ServerDeal(who, seat, bet, null);
         }
 
-        private static int Visit => DungeonDirector.Instance != null ? DungeonDirector.Instance.NextDepth.Value : 0;
-
-        public bool CutOffFor(PlayerProgress who) => seats.TryGetValue(who.NetworkObjectId, out var seat) && seat.Visit == Visit && seat.NetThisVisit >= CutOff;
-
-        [Rpc(SendTo.ClientsAndHost)]
-        private void CutOffRpc(string who)
-        {
-            UI.CampChatter.Say(FolkId.Bones, "*The dealer gathers " + who + "'s cards, taps the table twice and points down the shaft. Come back after the next floor.*", 6f);
-            if (NetworkPlayer.Local != null && NetworkPlayer.Local.name == who) UI.GameHud.Feed("Mister Bones has cut you off: you've won " + CutOff + "+ gold this visit. Come back after the next floor.", new Color(1f, 0.75f, 0.4f));
-        }
-
         [Rpc(SendTo.ClientsAndHost)]
         private void RefusedRpc(string who) => UI.CampChatter.Say(FolkId.Bones, "*The dealer slides " + who + "'s chips back across the felt. Not tonight.*", 5f);
-
-        public void ServerDebugWinnings(PlayerProgress who, int net)
-        {
-            if (!seats.TryGetValue(who.NetworkObjectId, out var seat)) seats[who.NetworkObjectId] = seat = new Seat();
-            seat.Visit = Visit;
-            seat.NetThisVisit = net;
-        }
 
         public int ServerStake(PlayerProgress who) => seats.TryGetValue(who.NetworkObjectId, out var s) ? s.LastBet : 0;
 
@@ -329,9 +305,6 @@ namespace Deepbound.World
             }
             who.ServerAddGold(paid);
             int net = paid - staked;
-            if (seat.Visit != Visit) { seat.Visit = Visit; seat.NetThisVisit = 0; }
-            seat.NetThisVisit += net;
-            if (seat.NetThisVisit >= CutOff) CutOffRpc(who.name);
             lines.Append(net > 0 ? "  +" + net + " gold" : net < 0 ? "  " + net + " gold" : "  even");
             seat.Result = lines.ToString();
             seat.Phase = Phase.Done;
@@ -366,7 +339,6 @@ namespace Deepbound.World
                 var st = kv.Value;
                 string state = st.Phase == Phase.Playing || st.Phase == Phase.Insurance ? (st.Hands.Count > 0 ? "playing " + Total(st.Hands[Mathf.Min(st.Active, st.Hands.Count - 1)]) : "playing")
                     : st.Phase == Phase.Done ? (st.Result.Contains("+") ? "won" : st.Result.Contains("-") ? "lost" : "even") : "betting";
-                if (st.Visit == Visit && st.NetThisVisit >= CutOff) state = "cut off";
                 sb.Append(n > 0 ? "   ·   " : "").Append(o.name.Replace("(Clone)", "").Trim()).Append(": ").Append(state);
                 n++;
             }
@@ -386,7 +358,7 @@ namespace Deepbound.World
             int at = 0;
             for (int i = 0; i < lengths.Length; i++) { seenHands[i] = new byte[lengths[i]]; System.Array.Copy(cards, at, seenHands[i], 0, lengths[i]); at += lengths[i]; }
             seenFlags = flags; seenBets = bets; seenHouse = house; seenHoleHidden = holeHidden; seenActive = active; seenInsurance = insurance; seenResult = result;
-            if (!LocalOpen) betChoice = Mathf.Clamp(lastBet, MinBet, MaxBet);
+            if (!LocalOpen) betChoice = Mathf.Max(lastBet, MinBet);
             if (!string.IsNullOrEmpty(result) && result != lastResult && seenPhase == Phase.Done) resultShownAt = Time.time;
             lastResult = result;
             bool opening = !LocalOpen || localTable != this;
@@ -462,7 +434,7 @@ namespace Deepbound.World
                     float wheel = UnityEngine.InputSystem.Mouse.current != null ? UnityEngine.InputSystem.Mouse.current.scroll.ReadValue().y : 0f;
                     if (kb.rightArrowKey.wasPressedThisFrame || kb.upArrowKey.wasPressedThisFrame || kb.wKey.wasPressedThisFrame || kb.dKey.wasPressedThisFrame || wheel > 0.1f) betChoice += step;
                     if (kb.leftArrowKey.wasPressedThisFrame || kb.downArrowKey.wasPressedThisFrame || kb.sKey.wasPressedThisFrame || kb.aKey.wasPressedThisFrame || wheel < -0.1f) betChoice -= step;
-                    betChoice = Mathf.Clamp(betChoice, MinBet, Mathf.Max(MinBet, Mathf.Min(MaxBet, prog.Gold.Value)));
+                    betChoice = Mathf.Clamp(betChoice, MinBet, Mathf.Max(MinBet, prog.Gold.Value));
                     if ((kb.spaceKey.wasPressedThisFrame || kb.enterKey.wasPressedThisFrame) && prog.Gold.Value >= betChoice) DealRpc(no, betChoice);
                     break;
                 case Phase.Insurance:
@@ -514,7 +486,7 @@ namespace Deepbound.World
 
             UI.UiSkin.Rect(new Rect(0, 0, w, 64), new Color(0f, 0f, 0f, 0.45f));
             GUI.Label(new Rect(24, 8, 400, 28), "DEADMAN'S HAND", UiSkin.Derive(UI.UiSkin.Heading, UI.UiSkin.Heading.normal.textColor, fontSize: 22));
-            GUI.Label(new Rect(24, 36, w * 0.6f, 20), "Blackjack pays 3 to 2  ·  Dealer stands on all 17s  ·  Insurance pays 2 to 1  ·  Bets " + MinBet + "-" + MaxBet,
+            GUI.Label(new Rect(24, 36, w * 0.6f, 20), "Blackjack pays 3 to 2  ·  Dealer stands on all 17s  ·  Insurance pays 2 to 1  ·  Minimum bet " + MinBet,
                 UiSkin.Derive(UI.UiSkin.Small, new Color(0.85f, 0.8f, 0.6f), wrap: false));
             GUI.Label(new Rect(w - 324, 10, 300, 28), prog.Gold.Value + " gold", UiSkin.Derive(UI.UiSkin.Heading, UI.UiSkin.Gold, fontSize: 22, align: TextAnchor.MiddleRight));
             if (!string.IsNullOrEmpty(tableLine))
@@ -555,7 +527,7 @@ namespace Deepbound.World
                 case Phase.Betting:
                 case Phase.Done:
                 {
-                    int max = Mathf.Min(MaxBet, prog.Gold.Value);
+                    int max = prog.Gold.Value;
                     betChoice = Mathf.Clamp(betChoice, MinBet, Mathf.Max(MinBet, max));
                     GUI.Label(new Rect(x, by, 90, 40), "BET", UiSkin.Derive(label, UI.UiSkin.Gold, fontStyle: FontStyle.Bold));
                     x += 56;
@@ -567,7 +539,7 @@ namespace Deepbound.World
                     x += 30;
                     bool can = prog.Gold.Value >= betChoice && betChoice >= MinBet;
                     if (Act(ref x, by, "SPACE", can ? (seenPhase == Phase.Done ? "DEAL AGAIN" : "DEAL") : "NOT ENOUGH GOLD", can, wide: true)) DealRpc(no, betChoice);
-                    Hint(by, "Wheel or arrows change the bet (Shift: 25)   ·   Win " + CutOff + " in one visit and the dealer stops dealing to you until the next floor");
+                    Hint(by, "Wheel or arrows change the bet (Shift: 25)");
                     break;
                 }
                 case Phase.Insurance:

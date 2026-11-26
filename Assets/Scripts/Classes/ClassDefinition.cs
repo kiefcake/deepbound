@@ -75,7 +75,7 @@ namespace Deepbound.Classes
             {
                 ("PASSIVE", "Hunter's Mark", "Three consecutive hits Mark an enemy: it takes 25% more damage from all sources. Landed arrows build Focus; at full Focus, your next full draw is a Deadeye shot (2.2x damage)."),
                 ("LMB", "Longbow", "Hold to draw, release to fire. Fully drawn arrows pierce."),
-                ("RMB", "Disengage", "Leap backwards out of danger."),
+                ("RMB", "Disengage", "Leap backwards and loose a frost arrow that chills what it hits."),
                 ("Q", "Snare Shot", "Fire a weighted net that roots and damages enemies where it lands. Snared enemies take 25% more damage from your arrows."),
                 ("E", "Volley", "Rain arrows on the target area."),
             }

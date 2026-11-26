@@ -5,6 +5,41 @@ namespace Deepbound.World
 {
     public static class Props
     {
+        public struct Footprint
+        {
+            public Vector3 At;
+            public Vector2 Half;
+            public float Yaw, Height;
+            public string What;
+        }
+
+        public static System.Collections.Generic.List<Footprint> Recording;
+
+        private static void Record(Vector3 at, Vector2 half, float yaw, float height, string what) =>
+            Recording?.Add(new Footprint { At = at, Half = half, Yaw = yaw, Height = height, What = what });
+
+        public static bool Overlap(Footprint a, Footprint b, float margin)
+        {
+            if (a.At.y >= b.At.y + b.Height - 0.02f || b.At.y >= a.At.y + a.Height - 0.02f) return false;
+            var axes = new[] { Axis(a.Yaw, 0f), Axis(a.Yaw, 90f), Axis(b.Yaw, 0f), Axis(b.Yaw, 90f) };
+            var d = new Vector2(b.At.x - a.At.x, b.At.z - a.At.z);
+            foreach (var n in axes)
+            {
+                float ra = Reach(a, n), rb = Reach(b, n);
+                if (Mathf.Abs(Vector2.Dot(d, n)) >= ra + rb - margin) return false;
+            }
+            return true;
+        }
+
+        private static Vector2 Axis(float yaw, float extra)
+        {
+            float r = (yaw + extra) * Mathf.Deg2Rad;
+            return new Vector2(Mathf.Cos(r), -Mathf.Sin(r));
+        }
+
+        private static float Reach(Footprint f, Vector2 n) =>
+            Mathf.Abs(Vector2.Dot(Axis(f.Yaw, 0f), n)) * f.Half.x + Mathf.Abs(Vector2.Dot(Axis(f.Yaw, 90f), n)) * f.Half.y;
+
         private static readonly Vector2[] PillarProfile =
         {
             new Vector2(0.75f, 0f), new Vector2(0.75f, 0.35f), new Vector2(0.55f, 0.5f),
@@ -22,7 +57,13 @@ namespace Deepbound.World
 
         public static void Crate(MeshKit.Batcher b, Vector3 floor, float size, float yaw)
         {
-            if (b.AddModel(((int)(floor.x * 3f + floor.z * 5f) & 1) == 0 ? "wooden_crate_01" : "wooden_crate_02", size, floor, yaw)) return;
+            string slug = ((int)(floor.x * 3f + floor.z * 5f) & 1) == 0 ? "wooden_crate_01" : "wooden_crate_02";
+            if (b.AddModel(slug, size, floor, yaw))
+            {
+                if (Recording != null && ModelKit.Size(slug, size, out var dims)) Record(floor, new Vector2(dims.x, dims.z) / 2f, yaw, size, "crate");
+                return;
+            }
+            Record(floor, Vector2.one * size / 2f, yaw, size, "crate");
             var rot = Quaternion.Euler(0f, yaw, 0f);
             var c = floor + Vector3.up * size / 2f;
             b.AddBox(c, Vector3.one * size, Mat.Wood, rot);
@@ -56,7 +97,9 @@ namespace Deepbound.World
         public static void Barrel(MeshKit.Batcher b, Vector3 floor)
         {
             int seed = (int)(floor.x * 7f + floor.z * 13f);
-            if (b.AddModel("wine_barrel_01", 0.95f + (seed & 3) * 0.04f, floor, (seed * 37) % 360)) return;
+            float tall = 0.95f + (seed & 3) * 0.04f;
+            Record(floor, Vector2.one * 0.36f, 0f, tall, "barrel");
+            if (b.AddModel("wine_barrel_01", tall, floor, (seed * 37) % 360)) return;
             StavedBarrel((mesh, mat, pos, yaw) => b.Add(mesh, mat, Matrix4x4.TRS(floor + pos, Quaternion.Euler(0f, yaw, 0f), Vector3.one)),
                 1f, 0.32f, 0.42f, new[] { 0.22f, 0.72f }, (int)(floor.x * 7f + floor.z * 13f));
         }

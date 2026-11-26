@@ -1093,7 +1093,7 @@ namespace Deepbound.Enemies
             foreach (var p in PlayerLife.All)
             {
                 if (p == null || !p.Targetable) continue;
-                float d = FlatDistance(p.transform.position);
+                float d = FlatDistance(p.transform.position) / (p.Crouched.Value && !engaged ? PlayerLife.CrouchSightScale : 1f);
                 if (d < bestDist && CombatQuery.ClearLine(transform.position + Vector3.up * 1.5f, p.Health))
                 {
                     best = p.Health;

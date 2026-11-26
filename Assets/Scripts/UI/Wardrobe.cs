@@ -61,6 +61,18 @@ namespace Deepbound.UI
         private int WornNow(Cosmetics.Kind kind) => kind == Cosmetics.Kind.Aura ? player.Aura.Value : kind == Cosmetics.Kind.Heraldry ? player.Heraldry.Value
             : kind == Cosmetics.Kind.Pattern ? player.Pattern.Value : kind == Cosmetics.Kind.WeaponGlow ? player.WeaponGlowCos.Value : kind == Cosmetics.Kind.Title ? player.TitleCos.Value : kind == Cosmetics.Kind.Regalia ? player.RegaliaCos.Value : kind == Cosmetics.Kind.Pet ? player.PetKind.Value : player.CloakDye.Value;
 
+        private static readonly string[] SlotNames = { "Cloak", "Aura", "Heraldry", "Pattern", "Glow", "Title", "Pet", "Regalia" };
+        private static readonly string[] TabNames = { "CLOAKS", "AURAS", "HERALDRY", "PATTERNS", "GLOWS", "TITLES", "PETS", "REGALIA" };
+
+        public static bool LabelsCoverEveryKind
+        {
+            get
+            {
+                int kinds = System.Enum.GetValues(typeof(Cosmetics.Kind)).Length;
+                return SlotNames.Length == kinds && TabNames.Length == kinds && TabOrder.Length == kinds;
+            }
+        }
+
         private static readonly Cosmetics.Kind[] TabOrder = { Cosmetics.Kind.Cloak, Cosmetics.Kind.Pattern, Cosmetics.Kind.Heraldry, Cosmetics.Kind.Aura, Cosmetics.Kind.WeaponGlow, Cosmetics.Kind.Title, Cosmetics.Kind.Pet, Cosmetics.Kind.Regalia };
 
         private void Update()
@@ -245,14 +257,13 @@ namespace Deepbound.UI
                 UiSkin.Rect(new Rect(pic.x, wy - 4, pic.width, 1), new Color(1f, 1f, 1f, 0.12f));
                 GUI.Label(new Rect(pic.x, wy, pic.width, 18), "YOU ARE WEARING", UiSkin.Derive(UiSkin.Small, new Color(1f, 1f, 1f, 0.5f), fontSize: 11, fontStyle: FontStyle.Bold));
                 wy += 20f;
-                string[] slotNames = { "Cloak", "Aura", "Heraldry", "Pattern", "Glow", "Title", "Pet" };
                 foreach (var k in TabOrder)
                 {
                     var list = Cosmetics.Of(k);
                     int wi = Mathf.Clamp(WornNow(k), 0, list.Length - 1);
-                    var ls = new GUIStyle(UiSkin.Small) { fontSize = 12, wordWrap = false };
-                    GUI.Label(new Rect(pic.x, wy, 70, 17), slotNames[(int)k], ls);
-                    var vs = new GUIStyle(ls) { normal = { textColor = wi == 0 ? new Color(1f, 1f, 1f, 0.35f) : k == tab ? UiSkin.Gold : new Color(0.92f, 0.9f, 0.86f) } };
+                    var ls = UiSkin.Derive(UiSkin.Small, UiSkin.Small.normal.textColor, fontSize: 12, wrap: false);
+                    GUI.Label(new Rect(pic.x, wy, 70, 17), SlotNames[(int)k], ls);
+                    var vs = UiSkin.Derive(UiSkin.Small, wi == 0 ? new Color(1f, 1f, 1f, 0.35f) : k == tab ? UiSkin.Gold : new Color(0.92f, 0.9f, 0.86f), fontSize: 12, wrap: false);
                     GUI.Label(new Rect(pic.x + 72, wy, pic.width - 72, 17), UiSkin.Fit(wi == 0 ? "-" : list[wi].Name, vs, pic.width - 72), vs);
                     wy += 17f;
                 }
@@ -265,14 +276,13 @@ namespace Deepbound.UI
             GUI.Label(new Rect(panel.x, panel.y + 50, pw, 22), Cosmetics.AllFree ? "EVERYTHING IS UNLOCKED  ·  pick and wear" : "RENOWN  " + Cosmetics.Renown + "      ·      earned at the end of every run",
                 UiSkin.Derive(UiSkin.Small, UiSkin.Gold, fontSize: 14, align: TextAnchor.MiddleCenter));
 
-            string[] names = { "CLOAKS", "AURAS", "HERALDRY", "PATTERNS", "GLOWS", "TITLES", "PETS" };
             float tabW = Mathf.Min(112f, (pw - 20f) / TabOrder.Length - 6f);
             for (int t = 0; t < TabOrder.Length; t++)
             {
                 var k = TabOrder[t];
                 var r = new Rect(panel.x + pw / 2f - TabOrder.Length * (tabW + 6f) / 2f + t * (tabW + 6f), panel.y + 76, tabW, 30);
                 bool on = tab == k;
-                if (GUI.Button(r, names[(int)k], UiSkin.Derive(UiSkin.Button, on ? UiSkin.Gold : new Color(0.7f, 0.67f, 0.62f), fontSize: TabOrder.Length > 4 ? 13 : UiSkin.Button.fontSize, fontStyle: on ? FontStyle.Bold : FontStyle.Normal)) && !on) SwitchTab(k);
+                if (GUI.Button(r, TabNames[(int)k], UiSkin.Derive(UiSkin.Button, on ? UiSkin.Gold : new Color(0.7f, 0.67f, 0.62f), fontSize: TabOrder.Length > 4 ? 13 : UiSkin.Button.fontSize, fontStyle: on ? FontStyle.Bold : FontStyle.Normal)) && !on) SwitchTab(k);
             }
             string blurb = tab == Cosmetics.Kind.Cloak ? "The cloak on your back, and its trim." : tab == Cosmetics.Kind.Pattern ? "Bones sewn on the back of your cloak, in any dye."
                 : tab == Cosmetics.Kind.Heraldry ? "Your colours: tabard, plume, sash, hat band - on every class."
@@ -280,7 +290,7 @@ namespace Deepbound.UI
                 : tab == Cosmetics.Kind.Title ? "Worn under your name, for the party and the Hall to see."
                 : tab == Cosmetics.Kind.Regalia ? "Earned, not bought: finish a full descent as a class to unlock its regalia."
                 : tab == Cosmetics.Kind.Pet ? "A companion at your heel: fetches gold and embers, finds hidden plates, and each kind has a trick of its own." : "Motes that drift up around you.";
-            GUI.Label(new Rect(panel.x + 12, panel.y + 108, pw - 24, 20), UiSkin.Fit(blurb, new GUIStyle(UiSkin.Small), pw - 24), UiSkin.Derive(UiSkin.Small, UiSkin.Small.normal.textColor, align: TextAnchor.MiddleCenter));
+            GUI.Label(new Rect(panel.x + 12, panel.y + 108, pw - 24, 20), UiSkin.Fit(blurb, UiSkin.Small, pw - 24), UiSkin.Derive(UiSkin.Small, UiSkin.Small.normal.textColor, align: TextAnchor.MiddleCenter));
             int ownedN = 0;
             for (int i = 1; i < items.Length; i++) if (Cosmetics.Owns(tab, i)) ownedN++;
             GUI.Label(new Rect(panel.x + 16, panel.y + 130, 200, 20), "Owned " + ownedN + " of " + (items.Length - 1), UiSkin.Derive(UiSkin.Small, UiSkin.Gold, fontSize: 12));

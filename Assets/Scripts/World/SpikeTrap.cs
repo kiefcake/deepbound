@@ -130,7 +130,7 @@ namespace Deepbound.World
                 if (!OnBed(h.transform.position)) continue;
                 struck.Add(h);
                 bool player = h.Team == Team.Players;
-                h.ServerDamage(player ? DungeonDirector.TrapBite(h) : Damage * (1f + 0.25f * DungeonDirector.Tier(depth)) * 2f, h.transform.position + Vector3.down, NetworkObjectId);
+                h.Unavoidable().ServerDamage(player ? DungeonDirector.TrapBite(h) : Damage * (1f + 0.25f * DungeonDirector.Tier(depth)) * 2f, h.transform.position + Vector3.down, NetworkObjectId);
                 if (player && h.IsAlive && h.TryGetComponent<PlayerDebuffs>(out var deb)) deb.ServerRoot(ImpaleSeconds);
             }
         }

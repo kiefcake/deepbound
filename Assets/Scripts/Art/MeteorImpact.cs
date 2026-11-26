@@ -15,6 +15,7 @@ namespace Deepbound.Art
 
         public static void Spawn(Vector3 at, float radius, bool shattered)
         {
+            at = Vfx.Settle(at);
             Vfx.Flash(at + Vector3.up * 1.5f, Fire, 16f, 16f, 0.9f);
             Vfx.Fireball(at + Vector3.up * 0.6f, radius * 1.1f, Fire);
             FxSprite.Scorch(at, radius);

@@ -63,6 +63,15 @@ namespace Deepbound.Art
             return null;
         }
 
+        public static bool Size(string slug, float height, out Vector3 size)
+        {
+            size = Vector3.zero;
+            if (Prefab(slug) == null) return false;
+            var b = bounds[slug];
+            size = b.size * (b.size.y > 0.001f ? height / b.size.y : 1f);
+            return true;
+        }
+
         public static Transform Place(string slug, Transform parent, Vector3 localPos, float yaw, float height, bool shadows = true)
         {
             var p = Prefab(slug);

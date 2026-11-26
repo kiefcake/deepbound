@@ -30,6 +30,11 @@ namespace Deepbound.Player
 
         public HumanoidRig Rig { get; private set; }
 
+        private const float CrouchSquash = 0.3f;
+        private HumanoidRig crouchRig;
+        private Vector3 crouchBase;
+        private float crouchK;
+
         public readonly NetworkVariable<byte> CloakDye = new NetworkVariable<byte>(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
 
         public readonly NetworkVariable<Unity.Collections.FixedString64Bytes> SteamName = new NetworkVariable<Unity.Collections.FixedString64Bytes>(default, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
@@ -119,6 +124,7 @@ namespace Deepbound.Player
         private IClassKit[] kits;
         private CharacterArt.ViewModel viewModel;
         private IViewAnim viewAnim;
+        private ViewGesture gesture;
         private float shake;
         private int teleportedForArena = -1;
 
@@ -215,6 +221,7 @@ namespace Deepbound.Player
             viewModel = null;
             vmRestKnown = false;
             viewAnim = null;
+            gesture = null;
             vmRaisedAt = Time.time;
 
             var cls = progress.ClassId.Value;
@@ -264,6 +271,7 @@ namespace Deepbound.Player
                 viewModel = CharacterArt.BuildKnightViewModel(playerCamera.transform, DressColor);
                 viewAnim = new ViewModelAnimator(viewModel);
             }
+            gesture = new ViewGesture(viewModel, Ultimates.UltColor(cls));
             RefreshWeaponGlow();
             ViewModelLayer(viewModel.Root);
         }
@@ -407,7 +415,7 @@ namespace Deepbound.Player
             stepDistance = 0f;
             bool wet = DungeonDirector.Layout != null && !DungeonDirector.InLobby && (DungeonTheme.ForDepth(DungeonDirector.Layout.Depth).WaterDepth > 0f || DungeonDirector.InWater(p));
 
-            Sfx.Play(wet ? Sound.Splash : DungeonDirector.InLobby ? Sound.StepSoft : Sound.Step, p, wet ? 0.35f : 0.25f);
+            Sfx.Play(wet ? Sound.Splash : DungeonDirector.InLobby ? Sound.StepSoft : Sound.Step, p, (wet ? 0.35f : 0.25f) * (life.Crouched.Value ? PlayerLife.CrouchStepVolume : 1f));
         }
 
         [Rpc(SendTo.ClientsAndHost)]
@@ -482,6 +490,13 @@ namespace Deepbound.Player
                 Vfx.Mote(transform.position, aura.Value);
             }
 
+            if (Rig != null && life != null)
+            {
+                if (crouchRig != Rig) { crouchRig = Rig; crouchBase = Rig.transform.localScale; crouchK = 0f; }
+                crouchK = Mathf.MoveTowards(crouchK, life.Crouched.Value && !life.Downed.Value ? 1f : 0f, Time.deltaTime * 5f);
+                Rig.transform.localScale = new Vector3(crouchBase.x, crouchBase.y * (1f - CrouchSquash * crouchK), crouchBase.z);
+            }
+
             if (!IsOwner) return;
             Footsteps();
 
@@ -490,6 +505,7 @@ namespace Deepbound.Player
 
             viewAnim?.SetCharge(ActiveKit.Charge);
             viewAnim?.Update(knight.Blocking.Value, life.Downed.Value, motor.IsSprinting);
+            if (gesture != null) shake = Mathf.Min(1f, shake + gesture.Apply());
 
             shake = Mathf.MoveTowards(shake, 0f, Time.deltaTime * 2.5f);
             var cam = playerCamera.transform;
@@ -595,6 +611,14 @@ namespace Deepbound.Player
         public void AddShake(float amount) => shake = Mathf.Min(1f, shake + amount);
         public void ViewModelBlockImpact() { viewAnim?.BlockImpact(); shake = Mathf.Min(1f, shake + 0.3f); }
         public void ViewModelCast(bool frost) => viewAnim?.Cast(frost);
+
+        public void Act(RigAction action, float seconds)
+        {
+            Rig?.Play(action, seconds);
+            if (IsOwner && gesture != null && !gesture.Recent(action)) gesture.Play(action, seconds);
+        }
+
+        public void Gesture(RigAction action, float seconds) => gesture?.Play(action, seconds);
 
         public void ConfirmHit(float strength)
         {

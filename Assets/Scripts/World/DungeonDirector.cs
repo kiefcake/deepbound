@@ -147,6 +147,16 @@ namespace Deepbound.World
 
         [SerializeField] private NetworkObject magusPrefab, lampreyPrefab, hagPrefab, ringerPrefab;
         [SerializeField] private NetworkObject fateWheelPrefab;
+
+        private static bool WheelFloorOk(DungeonLayout.Room r) => r.Feature != RoomFeature.Chasm && r.Feature != RoomFeature.Crypt && r.Feature != RoomFeature.SunkenCourt
+            && r.Feature != RoomFeature.Cistern && r.Feature != RoomFeature.Terrace && r.Feature != RoomFeature.Ziggurat && r.Feature != RoomFeature.Undercroft && r.Feature != RoomFeature.Rampart;
+
+        private static Vector3 OnFloor(DungeonLayout.Room room, Vector3 at)
+        {
+            at.y = room.RaisedAt(at);
+            if (Physics.Raycast(at + Vector3.up * 4f, Vector3.down, out var hit, 8f, ~0, QueryTriggerInteraction.Ignore) && hit.collider.name.StartsWith("Structure")) at.y = hit.point.y;
+            return at;
+        }
         [SerializeField] private NetworkObject bountyNoticePrefab;
         [SerializeField] private NetworkObject omenStonePrefab;
 
@@ -529,6 +539,7 @@ namespace Deepbound.World
             if (IsServer) Combat.Health.ServerAnyDamaged += ServerHitMark;
             Instance = this;
             Floor.OnValueChanged += (_, now) => BuildLocal(now);
+            TripSprung.OnValueChanged += (_, now) => Art.TripWireArt.Sprung(now);
             Phase.OnValueChanged += (_, now) =>
             {
                 if (now == RunPhase.FloorCleared && Layout != null && built != null) Art.ExitPortal.Spawn(ExitPosition, built.transform);
@@ -1202,7 +1213,7 @@ namespace Deepbound.World
             if (fateWheelPrefab != null && (rng.NextDouble() < 0.55 || TestMode))
             {
                 var ambushRoom = portcullisPrefab != null ? PickAmbushRoom(layout) : null;
-                var pool = layout.Rooms.FindAll(r => r.Kind == RoomKind.Combat && r != altarRoom && r != ambushRoom && r.Feature != RoomFeature.Chasm && r.Feature != RoomFeature.Crypt);
+                var pool = layout.Rooms.FindAll(r => r.Kind == RoomKind.Combat && r != altarRoom && r != ambushRoom && WheelFloorOk(r));
                 if (pool.Count > 0) wheelRoom = pool[rng.Next(pool.Count)];
             }
 
@@ -1245,7 +1256,7 @@ namespace Deepbound.World
                         var d = DungeonLayout.Dir[side];
                         var outward = new Vector3(d.x, 0f, d.y);
                         float half = (side == 0 || side == 2 ? room.Size.y : room.Size.x) / 2f;
-                        Spawn(fateWheelPrefab, room.Center + outward * (half - 0.7f), Quaternion.LookRotation(-outward));
+                        Spawn(fateWheelPrefab, OnFloor(room, room.Center + outward * (half - 0.7f)), Quaternion.LookRotation(-outward));
                         placed = true;
                     }
                     if (!placed)
@@ -1253,7 +1264,7 @@ namespace Deepbound.World
                         var corner = room.Center + new Vector3(room.Size.x / 2f - 2.2f, 0f, room.Size.y / 2f - 2.2f);
                         var face = room.Center - corner;
                         face.y = 0f;
-                        Spawn(fateWheelPrefab, corner, Quaternion.LookRotation(face));
+                        Spawn(fateWheelPrefab, OnFloor(room, corner), Quaternion.LookRotation(face));
                     }
                 }
 

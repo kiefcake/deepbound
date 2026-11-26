@@ -62,6 +62,33 @@ namespace Deepbound.Player
 
         public bool IsSliding => Time.time < slideUntil;
 
+        public const float CrouchSpeed = 0.5f, CrouchHeight = 1.05f, CrouchCameraDrop = 0.6f;
+        public bool Crouching { get; private set; }
+        private float standHeight, standCenterY;
+        private PlayerLife lifeRef;
+
+        private void TickCrouch(bool want)
+        {
+            if (standHeight <= 0f) { standHeight = controller.height; standCenterY = controller.center.y; }
+            if (want == Crouching) return;
+            if (!want && HeadroomBlocked()) return;
+            Crouching = want;
+            float h = want ? CrouchHeight : standHeight;
+            controller.height = h;
+            controller.center = new Vector3(controller.center.x, standCenterY - (standHeight - h) / 2f, controller.center.z);
+            lifeRef ??= GetComponent<PlayerLife>();
+            if (lifeRef != null && lifeRef.IsOwner) lifeRef.Crouched.Value = want;
+        }
+
+        private bool HeadroomBlocked()
+        {
+            var bottom = transform.position + Vector3.up * (CrouchHeight - controller.radius);
+            var top = transform.position + Vector3.up * (standHeight - controller.radius);
+            foreach (var c in Physics.OverlapCapsule(bottom, top, controller.radius * 0.9f, ~(1 << 2 | 1 << 8), QueryTriggerInteraction.Ignore))
+                if (c.transform.root != transform.root) return true;
+            return false;
+        }
+
         public float CameraDrop { get; set; }
 
         public bool HasControl => BotControl || Cursor.lockState == CursorLockMode.Locked;
@@ -142,6 +169,8 @@ namespace Deepbound.Player
             else if (debuffs != null && debuffs.Confused && canMove) MoveInput = ConfuseInput(MoveInput);
             if (debuffs != null && debuffs.Rooted) jumpKey = false;
 
+            TickCrouch(canMove && controller.enabled && !IsSprinting && !IsSliding && UI.Binds.Held(UI.Bind.Slide) && !(UI.Binds.Down(UI.Bind.Slide) && sprintKey));
+            if (Crouching) sprintKey = false;
             if (mantling) TickMantle();
             else if (controller.enabled) ApplyMovement(MoveInput, canMove && (CanSprint || manic) && sprintKey, canMove && jumpKey);
 
@@ -164,7 +193,7 @@ namespace Deepbound.Player
             if (cameraPivot != null)
             {
                 var p = cameraPivot.localPosition;
-                p.y = Mathf.Lerp(p.y, pivotRestHeight - CameraDrop - (IsSliding ? 0.7f : 0f) - landDip, Time.deltaTime * (IsSliding ? 14f : 12f));
+                p.y = Mathf.Lerp(p.y, pivotRestHeight - CameraDrop - (IsSliding ? 0.7f : Crouching ? CrouchCameraDrop : 0f) - landDip, Time.deltaTime * (IsSliding ? 14f : 12f));
                 cameraPivot.localPosition = p + Vector3.up * (bobY - lastBobY);
                 lastBobY = bobY;
             }
@@ -301,7 +330,7 @@ namespace Deepbound.Player
             verticalVelocity += gravity * Time.deltaTime;
 
             IsSprinting = sprint && input.y > 0.1f;
-            float speed = (IsSprinting ? sprintSpeed : walkSpeed) * SpeedMultiplier * PaceCut;
+            float speed = (IsSprinting ? sprintSpeed : walkSpeed) * SpeedMultiplier * PaceCut * (Crouching ? CrouchSpeed : 1f);
             Vector3 wish = (transform.right * input.x + transform.forward * input.y) * speed;
             if (IsSliding)
             {

@@ -259,7 +259,8 @@ namespace Deepbound.Player
 
             else if (cls == ClassId.Ranger) CastRpc(player.AimOrigin + player.AimForward * WyrmAimPoint, ulong.MaxValue);
             else CastRpc(aim, ulong.MaxValue);
-            player.ViewModelCast(cls == ClassId.Mage);
+            var (pose, secs) = UltPose(cls);
+            player.Gesture(pose, secs);
         }
 
         private static void GameHudFeed(string text) => UI.GameHud.Feed(text, new Color(0.8f, 0.75f, 0.7f));
@@ -349,6 +350,7 @@ namespace Deepbound.Player
                 if (UnityEngine.AI.NavMesh.SamplePosition(p, out var hit, 3f, UnityEngine.AI.NavMesh.AllAreas)) p = hit.position;
                 spots.Add(p);
             }
+            for (int i = 0; i < spots.Count; i++) spots[i] = Art.Vfx.Settle(spots[i]);
             for (int i = 0; i < spots.Count; i++)
             {
                 MeteorWarnRpc(spots[i], i);
@@ -470,20 +472,8 @@ namespace Deepbound.Player
         [Rpc(SendTo.ClientsAndHost)]
         private void CastFxRpc(byte cls)
         {
-            if (!IsOwner)
-            {
-                var (pose, secs) = (ClassId)cls switch
-                {
-                    ClassId.Knight => (RigAction.Plant, 0.9f),
-                    ClassId.Cleric => (RigAction.Pray, 1f),
-                    ClassId.Rogue => (RigAction.Vanish, 0.45f),
-                    ClassId.Ranger => (RigAction.Draw, 0.7f),
-                    ClassId.Flagellant => (RigAction.Roar, 0.8f),
-                    ClassId.PlagueDoctor => (RigAction.Point, 0.6f),
-                    _ => (RigAction.Cast, 0.8f),
-                };
-                player.Rig?.Play(pose, secs);
-            }
+            var (pose, secs) = UltPose((ClassId)cls);
+            player.Act(pose, secs);
             var c = UltColor((ClassId)cls);
             Sfx.Play(Sound.Relic, transform.position + Vector3.up * 1.5f, 1f, 0.8f);
             Vfx.AbilityFlash(transform.position + Vector3.up * 1.6f, c, 6f, 8f, 0.5f);
@@ -502,6 +492,17 @@ namespace Deepbound.Player
 
             if (!IsOwner) UI.GameHud.Feed(name + ": " + Name((ClassId)cls).ToUpperInvariant() + "!", c);
         }
+
+        public static (RigAction pose, float seconds) UltPose(ClassId cls) => cls switch
+        {
+            ClassId.Knight => (RigAction.Plant, 0.9f),
+            ClassId.Cleric => (RigAction.Pray, 1f),
+            ClassId.Rogue => (RigAction.Vanish, 0.45f),
+            ClassId.Ranger => (RigAction.Draw, 0.7f),
+            ClassId.Flagellant => (RigAction.Roar, 0.8f),
+            ClassId.PlagueDoctor => (RigAction.Point, 0.6f),
+            _ => (RigAction.Channel, 0.9f),
+        };
 
         public static Color UltColor(ClassId cls) =>
             cls == ClassId.Mage ? new Color(1f, 0.5f, 0.15f)

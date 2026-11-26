@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Deepbound.Art;
 using UnityEngine;
 
@@ -54,10 +55,10 @@ namespace Deepbound.World
         public static readonly (Breakable.Kind kind, Vector3 at)[] CampBreakables =
         {
             (Breakable.Kind.Crate, MerchantSpot + new Vector3(1.6f, 0f, 3.0f)),
-            (Breakable.Kind.Cask, MerchantSpot + new Vector3(2.3f, 0f, 3.1f)),
+            (Breakable.Kind.Cask, MerchantSpot + new Vector3(2.75f, 0f, 2.55f)),
             (Breakable.Kind.Crate, AnvilSpot + new Vector3(-2.7f, 0f, 3.1f)),
-            (Breakable.Kind.Cask, TavernCenter + new Vector3(TavernHalfX + 0.9f, 0f, 2.2f)),
-            (Breakable.Kind.Cask, TavernCenter + new Vector3(TavernHalfX + 0.9f, 0f, 2.95f)),
+            (Breakable.Kind.Cask, TavernCenter + new Vector3(TavernHalfX + 0.9f, 0f, 2.0f)),
+            (Breakable.Kind.Cask, TavernCenter + new Vector3(TavernHalfX + 0.9f, 0f, 2.85f)),
             (Breakable.Kind.Crate, TavernCenter + new Vector3(TavernHalfX + 1.0f, 0f, -2.4f)),
             (Breakable.Kind.Urn, ShrineSpot + new Vector3(-1.6f, 0f, -2.9f)),
             (Breakable.Kind.Urn, ShrineSpot + new Vector3(-2.1f, 0f, 2.9f)),
@@ -193,6 +194,7 @@ namespace Deepbound.World
         public static GameObject Build()
         {
             FolkRounds.Reset();
+            Props.Recording = new List<Props.Footprint>();
             var root = new GameObject("Lobby (Castle Ravenhold)");
             var structure = new MeshKit.Batcher();
             var dressing = new MeshKit.Batcher();
@@ -219,11 +221,7 @@ namespace Deepbound.World
             BuildSky(lights);
 
             var fire = o + S(0f, 0f, -14f);
-            for (int i = 0; i < 12; i++)
-            {
-                float a = i * Mathf.PI * 2f / 12f;
-                dressing.AddBox(fire + new Vector3(Mathf.Cos(a), 0.14f, Mathf.Sin(a)) * 1.3f, new Vector3(0.4f, 0.28f, 0.35f), Mat.Rubble, Quaternion.Euler(0f, a * Mathf.Rad2Deg, 0f));
-            }
+            BuildHearthStones(dressing, fire);
 
             for (int i = 0; i < FireLogCount; i++)
             {
@@ -252,7 +250,28 @@ namespace Deepbound.World
             root.AddComponent<CampWeather>();
             ApplyCastleAtmosphere();
             Art.PropColliders.Add(root.transform);
+            Footprints = Props.Recording;
+            Props.Recording = null;
             return root;
+        }
+
+        public static IReadOnlyList<Props.Footprint> Footprints { get; private set; } = new List<Props.Footprint>();
+
+        public const int HearthStoneCount = 14;
+        public const float HearthRadius = 1.35f;
+
+        private static void BuildHearthStones(MeshKit.Batcher d, Vector3 fire)
+        {
+            var stone = MeshKit.Ball(0.5f, 8, 6);
+            for (int i = 0; i < HearthStoneCount; i++)
+            {
+                float yaw = i * 360f / HearthStoneCount + (i % 3) * 4f;
+                var outward = Quaternion.Euler(0f, yaw, 0f) * Vector3.forward;
+                float width = 0.4f + (i % 3) * 0.04f, height = 0.22f + (i % 2) * 0.05f;
+                var at = fire + outward * HearthRadius + Vector3.up * height * 0.42f;
+                var rot = Quaternion.LookRotation(outward) * Quaternion.Euler((i % 2) * 6f - 3f, 0f, (i % 3) * 5f - 5f);
+                d.Add(stone, Mat.Rubble, Matrix4x4.TRS(at, rot, new Vector3(width, height, 0.32f)));
+            }
         }
 
         public static void ApplyCastleAtmosphere()
@@ -271,8 +290,6 @@ namespace Deepbound.World
         {
             s.Add(MeshKit.Cylinder(Radius + 2f, Radius + 2f, 0.4f, 48), Mat.Flagstone, Matrix4x4.Translate(o + Vector3.down * 0.4f));
 
-            foreach (var c in new[] { new Vector3(-15f, 0f, 0f), new Vector3(15f, 0f, -12f), new Vector3(14f, 0f, 14f) })
-                d.Add(MeshKit.Cylinder(4.5f, 4.5f, 0.06f, 20), Mat.Rubble, Matrix4x4.Translate(o + c));
         }
 
         private static void BuildCurtainWall(Vector3 o, MeshKit.Batcher s, MeshKit.Batcher d, Transform lights)
@@ -426,11 +443,9 @@ namespace Deepbound.World
 
         private static void BuildPlaza(Vector3 o, MeshKit.Batcher d, Transform lights)
         {
-            var rng = new System.Random(7717);
             var lamp = new Color(1f, 0.72f, 0.4f);
 
-            int k = 0;
-            for (float z = -22f; z <= 24f; z += 9f, k++)
+            for (float z = -22f; z <= 24f; z += 9f)
                 foreach (float s in new[] { -1f, 1f })
                 {
                     var foot = o + new Vector3(s * 4.6f, 0f, z);
@@ -442,29 +457,15 @@ namespace Deepbound.World
                     var glass = MeshKit.Part(lights, "LampGlass", MeshKit.Box(new Vector3(0.2f, 0.28f, 0.2f)), Mat.Glow, lanternAt);
                     ArtLibrary.SetGlow(glass.GetComponent<Renderer>(), lamp * 1.3f);
                     glass.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-                    if (true)
-                    {
-                        var l = new GameObject("LampLight").AddComponent<Light>();
-                        l.transform.SetParent(lights, false);
-                        l.transform.position = lanternAt;
-                        l.type = LightType.Point;
-                        l.color = lamp;
-                        l.range = 10f;
-                        l.intensity = 2.2f;
-                        l.shadows = LightShadows.None;
-                    }
+                    var l = new GameObject("LampLight").AddComponent<Light>();
+                    l.transform.SetParent(lights, false);
+                    l.transform.position = lanternAt;
+                    l.type = LightType.Point;
+                    l.color = lamp;
+                    l.range = 10f;
+                    l.intensity = 2.2f;
+                    l.shadows = LightShadows.None;
                 }
-
-            foreach (var (x, z) in new[] { (-12f, -2f), (12.5f, 9f), (-4f, -21f), (7f, 18f) })
-            {
-                var at = o + S(x, 0f, z);
-                for (int n = 0; n < 3; n++)
-                {
-                    var p = at + new Vector3((float)rng.NextDouble() * 1.6f - 0.8f, 0f, (float)rng.NextDouble() * 1.6f - 0.8f);
-                    if (rng.NextDouble() < 0.5) Props.Crate(d, p, 0.7f + (float)rng.NextDouble() * 0.3f, (float)rng.NextDouble() * 90f);
-                    else Props.Barrel(d, p);
-                }
-            }
 
             foreach (var (x, z, r) in new[] { (-18f, -16f, 3.2f), (18f, -15f, 2.8f), (-19f, -9f, 2.5f), (19f, 1f, 3f) })
             {
@@ -517,8 +518,8 @@ namespace Deepbound.World
                     MeshKit.Part(bale.transform, "Twine", MeshKit.Box(new Vector3(0.03f, 0.52f, 0.57f)), Mat.Leather, new Vector3(bx, 0f, 0f));
                 }
             }
-            Props.Barrel(d, o + S(4.4f, 0f, 18.2f));
-            Props.Barrel(d, o + S(5f, 0f, 17.4f));
+            Props.Barrel(d, o + S(4.2f, 0f, 15.6f));
+            Props.Barrel(d, o + S(4.9f, 0f, 16.2f));
             d.AddBox(o + S(-4.2f, 0.4f, 22.5f), new Vector3(0.8f, 0.5f, 2.2f), Mat.Wood);
 
             var keep = o + new Vector3(0f, 0f, -Radius + 3f);
@@ -616,7 +617,7 @@ namespace Deepbound.World
             lamp.intensity = 2.6f;
 
             Props.Crate(d, front + right * 2.25f + facing * 0.15f, 0.55f, 12f);
-            Props.Crate(d, front + right * 2.3f + back * 0.5f, 0.42f, -20f);
+            Props.Crate(d, front + right * 2.25f + facing * 0.15f + Vector3.up * 0.55f, 0.42f, -20f);
             d.Add(MeshKit.Ball(0.5f, 10, 8), Mat.Cloth, Matrix4x4.TRS(front - right * 2.2f + facing * 0.1f + Vector3.up * 0.3f, rot, new Vector3(0.42f, 0.6f, 0.38f)));
             d.Add(MeshKit.Ball(0.5f, 10, 8), Mat.Cloth, Matrix4x4.TRS(front - right * 2.45f + back * 0.35f + Vector3.up * 0.25f, rot * Quaternion.Euler(0f, 30f, 8f), new Vector3(0.38f, 0.5f, 0.36f)));
 

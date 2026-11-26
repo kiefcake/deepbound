@@ -127,7 +127,7 @@ namespace Deepbound.Player
                 {
                     Mana -= WaveMana;
                     waveReadyAt = Time.time + WaveCooldown * progress.CooldownFor(AbilitySlot.Q);
-                    player.ViewModelCast(true);
+                    player.Gesture(RigAction.Thrust, 0.5f);
                     player.AddShake(0.1f);
                     WaveRpc(dir.normalized);
                 }
@@ -138,7 +138,7 @@ namespace Deepbound.Player
             {
                 Mana -= MeteorMana;
                 meteorReadyAt = Time.time + MeteorCooldown * progress.CooldownFor(AbilitySlot.E);
-                player.ViewModelCast(false);
+                player.Gesture(RigAction.Summon, 0.7f);
                 MeteorRpc(spot);
             }
         }
@@ -295,6 +295,7 @@ namespace Deepbound.Player
         public void ServerMeteor(Vector3 spot)
         {
             if (!life.CanAct || Vector3.Distance(spot, transform.position) > MeteorAimRange * RangeMul + 3f) return;
+            spot = Vfx.Settle(spot);
             var from = transform.position;
             meteors.Add(new PendingMeteor { At = spot, From = from, When = Time.time + MeteorDelay, Radius = MeteorRadius, Scale = 1f });
 
@@ -461,7 +462,7 @@ namespace Deepbound.Player
             else TidalWave.Spawn(from, dir, length, WaveArc, WaveSeconds, wet);
             Sfx.Play(Sound.Splash, from + Vector3.up, 1f, 0.75f);
             Sfx.Play(Sound.Splash, from + dir * (length * 0.5f) + Vector3.up, 0.8f, 0.6f);
-            if (!IsOwner) player.Rig?.Play(RigAction.Thrust, 0.5f);
+            player.Act(RigAction.Thrust, 0.5f);
         }
 
         private void ResolveMeteors()
@@ -581,7 +582,7 @@ namespace Deepbound.Player
         private void MeteorWarnRpc(Vector3 at, bool twin)
         {
             Telegraph.Show(at, MeteorRadius, MeteorDelay, null, Telegraph.Friendly);
-            if (!IsOwner) player.Rig?.Play(RigAction.Cast, 0.6f);
+            player.Act(RigAction.Summon, 0.7f);
             Sfx.Play(Sound.Fire, at + Vector3.up * 8f, 0.9f, 0.5f);
             int seed = (int)(at.x * 13f + at.z * 7f + Time.time * 100f);
             MeteorFall.Spawn(at, MeteorDelay, seed);

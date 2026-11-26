@@ -73,12 +73,14 @@ namespace Deepbound.Art
             return shade ? s.Shade(mesh, c, Vector3.zero, Quaternion.identity) : s.Light(mesh, c, Vector3.zero, Quaternion.identity);
         }
 
+        private static Mesh rubbleMesh;
+
         public static void Rubble(Vector3 at, int count, float speed)
         {
             for (int i = 0; i < count; i++)
             {
                 var dir = Quaternion.Euler(0f, Random.Range(0f, 360f), 0f) * Vector3.forward;
-                var p = Vfx.Spawn(MeshKit.Box(Vector3.one), Mat.Rubble, at + dir * Random.Range(0.2f, 0.8f) + Vector3.up * 0.1f,
+                var p = Vfx.Spawn(rubbleMesh ??= MeshKit.Box(Vector3.one), Mat.Rubble, at + dir * Random.Range(0.2f, 0.8f) + Vector3.up * 0.1f,
                     dir * speed * Random.Range(0.4f, 1f) + Vector3.up * speed * Random.Range(0.9f, 1.6f), Random.Range(0.6f, 0.9f), Random.Range(0.1f, 0.2f), 0.04f, null, 16f, 0.3f);
                 p.transform.rotation = Random.rotation;
             }

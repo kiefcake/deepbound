@@ -91,6 +91,22 @@ namespace Deepbound.Art
             nextGlance = Time.time + Random.Range(1f, 4f);
         }
 
+        private const float TalkFaceRange = 6f;
+
+        private static Vector3 NearestPlayer(Vector3 from)
+        {
+            Vector3 best = Vector3.zero;
+            float bestD = TalkFaceRange * TalkFaceRange;
+            foreach (var p in Player.PlayerLife.All)
+            {
+                if (p == null) continue;
+                var to = p.transform.position - from;
+                to.y = 0f;
+                if (to.sqrMagnitude < bestD) { bestD = to.sqrMagnitude; best = to; }
+            }
+            return best;
+        }
+
         private void Update()
         {
             float t = Time.time + seed;
@@ -101,6 +117,12 @@ namespace Deepbound.Art
             {
                 pose = World.FolkRounds.At(Who.Value);
                 World.FolkRounds.Chatter(Who.Value, pose);
+            }
+            if (pose.Away && Who.HasValue && World.DungeonDirector.Instance != null && World.DungeonDirector.Instance.IsFolkHeld(Who.Value))
+            {
+                pose.Walking = false;
+                var talker = NearestPlayer(pose.Position);
+                if (talker.sqrMagnitude > 0.01f) pose.Facing = talker;
             }
             away = pose.Away;
             if (away) transform.position = new Vector3(pose.Position.x, HomePos.y + (pose.Walking ? Mathf.Abs(Mathf.Sin(t * 6.5f)) * 0.035f : 0f), pose.Position.z);

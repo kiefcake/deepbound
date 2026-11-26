@@ -146,7 +146,7 @@ namespace Deepbound.Player
                 else
                 {
                     chainReadyAt = Time.time + ChainCooldown * progress.CooldownFor(AbilitySlot.Q);
-                    player.ViewModelCast(false);
+                    player.Gesture(RigAction.Lash, 0.45f);
                     ChainRpc(target.NetworkObjectId);
                 }
             }
@@ -383,7 +383,7 @@ namespace Deepbound.Player
         [Rpc(SendTo.ClientsAndHost)]
         private void LeapTakeoffFxRpc()
         {
-            if (!IsOwner) player.Rig?.Play(RigAction.Leap, 0.6f);
+            player.Act(RigAction.Leap, 0.6f);
             ClassFx.FlagLeapTrail(transform, 0.65f);
         }
 
@@ -602,7 +602,7 @@ namespace Deepbound.Player
         [Rpc(SendTo.ClientsAndHost)]
         private void ScourgeFxRpc()
         {
-            if (!IsOwner) player.Rig?.Play(RigAction.Lash, 0.45f);
+            player.Act(RigAction.Lash, 0.45f);
             Sfx.Play(Sound.Hit, transform.position + Vector3.up * 1.2f, 0.9f, 1.4f);
             Sfx.Play(Sound.Hurt, transform.position + Vector3.up * 1.2f, 0.6f, 0.8f);
 
@@ -622,7 +622,7 @@ namespace Deepbound.Player
             ClassFx.FlagHook(from, to);
             Vfx.HitImpact(to, from, 0.8f, new Color(1f, 0.65f, 0.4f), Mat.Steel);
             if (dragged) Sfx.Play(Sound.Chain, to, 0.7f, 0.8f);
-            if (!IsOwner) player.Rig?.Play(RigAction.Hurl, 0.4f);
+            player.Act(RigAction.Hurl, 0.4f);
         }
 
         [Rpc(SendTo.ClientsAndHost)]

@@ -173,14 +173,14 @@ namespace Deepbound.Player
                 Reagents -= ExpungeCost;
                 lastThrowAt = Time.time;
                 expungeReadyAt = Time.time + ExpungeCooldown;
-                player.ViewModelCast(false);
+                player.Gesture(RigAction.Siphon, 0.8f);
                 ExpungeRpc();
             }
 
             if (UI.Binds.Down(UI.Bind.AbilityQ) && Time.time >= miasmaReadyAt)
             {
                 miasmaReadyAt = Time.time + MiasmaCooldown * progress.CooldownFor(AbilitySlot.Q);
-                player.ViewModelCast(false);
+                player.Gesture(RigAction.Cast, 0.45f);
                 MiasmaRpc(AimGround(18f * RangeMul));
             }
 
@@ -309,7 +309,7 @@ namespace Deepbound.Player
         [Rpc(SendTo.ClientsAndHost)]
         private void ExpungeFxRpc(ulong[] drained, byte[] counts, ulong[] healed)
         {
-            if (!IsOwner) player.Rig?.Play(RigAction.Siphon, 0.8f);
+            player.Act(RigAction.Siphon, 0.8f);
             Sfx.Play(Sound.Slime, transform.position + Vector3.up, 0.7f, 0.6f);
             Sfx.Play(Sound.Revive, transform.position + Vector3.up, 0.4f, 0.8f);
             var nm = NetworkManager.Singleton;
@@ -459,7 +459,7 @@ namespace Deepbound.Player
         [Rpc(SendTo.ClientsAndHost)]
         private void ZeroFxRpc(ulong target, Vector3 from, float seconds)
         {
-            if (!IsOwner) player.Rig?.Play(RigAction.Point, 0.6f);
+            player.Act(RigAction.Point, 0.6f);
             var nm = NetworkManager.Singleton;
             if (nm == null || !nm.SpawnManager.SpawnedObjects.TryGetValue(target, out var o)) return;
             var h = o.GetComponent<Health>();
@@ -664,7 +664,7 @@ namespace Deepbound.Player
             shownClouds[key] = shown;
             if (shownClouds.Count > 40) { var stale = new List<int>(); foreach (var kv in shownClouds) if (kv.Value == null) stale.Add(kv.Key); foreach (var k in stale) shownClouds.Remove(k); }
             Vfx.Ring(at + Vector3.up * 0.05f, radius, black ? new Color(0.25f, 0.6f, 0.15f) : Plague, 0.5f);
-            if (!IsOwner) player.Rig?.Play(RigAction.Cast, 0.3f);
+            player.Act(RigAction.Cast, 0.45f);
 
             if (shown != null) ClassFx.Flies(shown.transform, shown.transform.position, radius * 0.6f, 1.6f, seconds, 22, dark: true);
         }
@@ -686,7 +686,7 @@ namespace Deepbound.Player
         [Rpc(SendTo.ClientsAndHost)]
         private void MaskFxRpc(Vector3 at)
         {
-            if (!IsOwner) player.Rig?.Play(RigAction.Drink, 0.55f);
+            player.Act(RigAction.Drink, 0.55f);
             Sfx.Play(Sound.Potion, at + Vector3.up, 0.9f, 0.8f);
             Sfx.Play(Sound.Whisper, at + Vector3.up, 0.6f, 1.3f);
 

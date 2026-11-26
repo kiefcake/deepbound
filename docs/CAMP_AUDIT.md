@@ -29,6 +29,16 @@ checked on a fresh tour.
 ### Open (beyond placement)
 - [~] The carriage horse needs updating (the user, 2026-11-07). REBUILT 2026-11-07 (`World/CarriageRide.cs` BuildHorse/AnimateHorse: spine, ribcage, pelvis, jointed legs with a diagonal trot, skull with a hinged jaw and glowing sockets, harness, idle head toss / stamp / jaw chatter / tail swish). To check on a tour: hooves may float ~6 cm at full stride, knee/hock bend directions, bit vs reins during a head toss, hind legs clear of the shafts.
 
+## Round 6 (2026-11-26, the user: "look at the spawn area and fix clipping boxes, and remove things that have no business being there")
+
+- [x] Three bare gravel discs (old layout: one under Hobb's forge, one cut by the gaming tent, one empty in the NE) removed.
+- [x] Four random crate/barrel heaps (`BuildPlaza`, three crates or barrels within 1.6 m at random yaws, so they always interpenetrated; one in the empty NE, one against the south wall, one under the stable oak) removed.
+- [x] Stable barrels sat inside the hay bales: moved to S(4.2, 15.6) / S(4.9, 16.2).
+- [x] Merchant crate + cask and the two tavern casks touched: spaced.
+- [x] Each market stall's two side crates clipped (found by the new check): the small one now sits on top of the big one.
+- [x] The spawn fire's stone ring: 12 boxes yawed by the wrong angle (the maths angle used as a Unity yaw) and raised, so their corners cut into each other and the bonfire logs. Now 14 rounded hearth stones laid along the ring at `HearthRadius` 1.35 m with gaps (`Lobby.BuildHearthStones`).
+- New smoke check "camp props clear" (`Props.Recording` -> `Lobby.Footprints`): any crate/barrel/camp breakable touching another, a building or station collider, or a folk's home spot fails it. Not covered: overlaps between two pieces of batched dressing (stalls, logs, planks).
+
 ## Round 5 (2026-11-08, new camp stations, checked on `-talkshots` renders)
 
 - [x] Brann stood by the tavern, 28 m from his own yard: `Lobby.YardSpot` was declared before `YardShift`, so it read the shift as zero (static fields initialise in order). Swapped; Brann, his stool, sticks, the Drills sign, his lamp post, the Squad Standard and the Warden's jaw now sit at the yard.

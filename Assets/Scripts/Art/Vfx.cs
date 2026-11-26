@@ -186,6 +186,21 @@ namespace Deepbound.Art
             return best.HasValue ? best.Value.point : p;
         }
 
+        public static Vector3 Settle(Vector3 p)
+        {
+            var hits = Physics.RaycastAll(p + Vector3.up * 0.5f, Vector3.down, 30f, ~(1 << 2), QueryTriggerInteraction.Ignore);
+            if (hits.Length == 0) return p;
+            System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
+            RaycastHit? lowest = null;
+            foreach (var h in hits)
+            {
+                if (h.normal.y < 0.55f || h.collider.GetComponentInParent<Combat.Health>() != null) continue;
+                if (h.collider.name.Contains("Structure") || h.collider.transform.root.name.Contains("Structure")) return h.point;
+                lowest = h;
+            }
+            return lowest.HasValue ? lowest.Value.point : p;
+        }
+
         public static Vector3 Ground(Vector3 p) =>
             Physics.Raycast(p + Vector3.up * 0.2f, Vector3.down, out var hit, 4f, ~(1 << 2), QueryTriggerInteraction.Ignore) ? hit.point : p;
 

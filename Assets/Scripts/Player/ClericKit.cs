@@ -172,7 +172,7 @@ namespace Deepbound.Player
             {
                 Mana -= ConsecrateMana;
                 consecrateReadyAt = Time.time + ConsecrateCooldown * progress.CooldownFor(AbilitySlot.Q);
-                player.ViewModelCast(true);
+                player.Gesture(RigAction.Pray, 0.8f);
 
                 if (progress.B(AbilitySlot.Q, 1) && player.TryAimFloor(ThrowRange * RangeMul, out var aimed)) ConsecrateAtRpc(aimed);
                 else ConsecrateRpc();
@@ -182,7 +182,7 @@ namespace Deepbound.Player
             {
                 Mana -= AegisMana;
                 aegisReadyAt = Time.time + AegisCooldown * progress.CooldownFor(AbilitySlot.E);
-                player.ViewModelCast(true);
+                player.Gesture(RigAction.Point, 0.5f);
                 AegisRpc();
             }
         }
@@ -248,7 +248,7 @@ namespace Deepbound.Player
         [Rpc(SendTo.ClientsAndHost)]
         private void PlantFxRpc(bool planted)
         {
-            if (!IsOwner) player.Rig?.Play(RigAction.Pray, 0.6f);
+            player.Act(RigAction.Pray, 0.6f);
             if (!planted) return;
             var gold = new Color(1f, 0.85f, 0.45f);
             Vfx.Ring(transform.position + Vector3.up * 0.05f, 1.2f, gold, 0.5f);
@@ -511,7 +511,7 @@ namespace Deepbound.Player
 
             ClassFx.ClericConsecrate(at, ConsecrateRadius, ConsecrateSeconds, transform.forward, follow ? transform : null);
             Sfx.Play(Sound.Revive, at + Vector3.up, 0.9f, 0.85f);
-            if (!IsOwner) player.Rig?.Play(RigAction.Pray, 0.8f);
+            player.Act(RigAction.Pray, 0.8f);
         }
 
         [Rpc(SendTo.ClientsAndHost)]
@@ -520,7 +520,7 @@ namespace Deepbound.Player
             Sfx.Play(Sound.Relic, transform.position + Vector3.up, 0.9f, 1.2f);
             var gold = new Color(1f, 0.85f, 0.45f);
             Vfx.AbilityFlash(transform.position + Vector3.up * 1.5f, gold, 4f, 10f, 0.5f);
-            player.Rig?.Play(RigAction.Point, 0.5f);
+            player.Act(RigAction.Point, 0.5f);
 
             foreach (var ally in PlayerLife.All)
             {

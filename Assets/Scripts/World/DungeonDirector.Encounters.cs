@@ -362,6 +362,7 @@ namespace Deepbound.World
             lair = null;
             vault = null;
             VaultChestCount = 0;
+            ResetTripWires();
             leversAnnounced = 0;
             breaches.Clear();
             foreach (var w in FindObjectsByType<CrackedWall>(FindObjectsSortMode.None))
@@ -755,6 +756,7 @@ namespace Deepbound.World
             TickRitual();
             TickGimmicks();
             TickFlameJets();
+            TickTripWires();
             TickHearing();
             TickContract();
         }
@@ -782,7 +784,7 @@ namespace Deepbound.World
                     burnedAt[h] = Time.time;
                     if (h.Team == Team.Players) VentBurns++;
 
-                    h.ServerDamage(h.Team == Team.Players ? TrapBite(h) : 50f + 15f * Tier(Layout.Depth), trap.At);
+                    h.Unavoidable().ServerDamage(h.Team == Team.Players ? TrapBite(h) : 50f + 15f * Tier(Layout.Depth), trap.At);
                     if (!h.IsAlive && h.Team == Team.Enemies) EnvKillRpc(h.Center, 1);
                 }
             }
@@ -846,7 +848,7 @@ namespace Deepbound.World
                         var push = Pendulum.SwingDirection(room, i, now);
                         if (h.Team == Team.Players)
                         {
-                            h.ServerDamage(TrapHurt(46f + 15f * Tier(Layout.Depth)), blade);
+                            h.Unavoidable().ServerDamage(TrapHurt(46f + 15f * Tier(Layout.Depth)), blade);
                             if (h.TryGetComponent<KnockbackReceiver>(out var k)) k.KnockbackRpc(push * 13f + Vector3.up * 3.5f);
                         }
                         else
@@ -887,7 +889,7 @@ namespace Deepbound.World
             hazardHitAt[h] = Time.time;
             if (h.Team == Team.Players)
             {
-                h.ServerDamage(TrapHurt(playerDamage), from);
+                h.Unavoidable().ServerDamage(TrapHurt(playerDamage), from);
                 if (pin > 0f && h.IsAlive && h.TryGetComponent<PlayerDebuffs>(out var deb)) deb.ServerRoot(pin);
                 if (push.sqrMagnitude > 0.01f && h.TryGetComponent<KnockbackReceiver>(out var k)) k.KnockbackRpc(push);
             }
@@ -925,7 +927,7 @@ namespace Deepbound.World
                             HazardHit(h, c, 62f + 20f * tier, 160f + 40f * tier, flat.normalized * 11f + Vector3.up * 3.5f, 1, 0.2f);
                         else if (coreTick && dist < PyreFire.CoreRadius)
                         {
-                            if (h.Team == Team.Players) h.ServerDamage(TrapHurt(12f + 4f * tier), c);
+                            if (h.Team == Team.Players) h.Unavoidable().ServerDamage(TrapHurt(12f + 4f * tier), c);
                             else { h.ServerDamage(30f + 10f * tier, c); if (!h.IsAlive) EnvKillRpc(h.Center, 1); }
                         }
                     }

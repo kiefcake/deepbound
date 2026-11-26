@@ -10,9 +10,18 @@ namespace Deepbound.World
 
         private static DungeonTheme theme = DungeonTheme.ByDepth[0];
 
+        public const float ShaftHeight = 16f, ShaftWall = 0.6f;
+
+        public static float LiftHoleHalf => DungeonDirector.ExitRadius + 0.5f;
+
+        private static DungeonLayout.Room liftRoom;
+        private static Vector3 liftHole;
+
         public static GameObject Build(DungeonLayout layout)
         {
             theme = DungeonTheme.ForDepth(layout.Depth);
+            liftRoom = layout.BossRoom;
+            liftHole = liftRoom != null ? layout.LiftSpot : Vector3.zero;
             Furnished.Clear();
             var root = new GameObject("Dungeon (seed " + layout.Seed + ", depth " + layout.Depth + ")");
             ThemeSpots.Clear();
@@ -26,6 +35,7 @@ namespace Deepbound.World
             foreach (var room in layout.Rooms) if (room.Cellar) BuildCellar(room, structure, dressing, lights);
             foreach (var link in layout.Links) BuildCorridor(layout.Rooms[link.A], layout.Rooms[link.B], link.Dir, structure, dressing, lights);
             for (int ti = 0; ti < layout.FlameTraps.Count; ti++) FlameJet.Build(lights, layout.FlameTraps[ti], dressing, ti);
+            for (int wi = 0; wi < layout.TripWires.Count; wi++) Art.TripWireArt.Build(lights, layout.TripWires[wi], wi);
             if (layout.PeddlerSpot.HasValue)
             {
                 var at = layout.PeddlerSpot.Value;
@@ -84,6 +94,37 @@ namespace Deepbound.World
             foreach (var cam in Camera.allCameras) cam.backgroundColor = t.Fog;
         }
 
+        private static void BuildLiftShaft(DungeonLayout.Room room, MeshKit.Batcher structure, MeshKit.Batcher dressing, Transform lights)
+        {
+            float h = room.Height, half = LiftHoleHalf, y = h + FloorThickness / 2f;
+            float minX = room.Center.x - room.Size.x / 2f - WallThickness, maxX = room.Center.x + room.Size.x / 2f + WallThickness;
+            float minZ = room.Center.z - room.Size.y / 2f - WallThickness, maxZ = room.Center.z + room.Size.y / 2f + WallThickness;
+            float hx0 = liftHole.x - half, hx1 = liftHole.x + half, hz0 = liftHole.z - half, hz1 = liftHole.z + half;
+
+            void Slab(float x0, float x1, float z0, float z1)
+            {
+                if (x1 - x0 < 0.01f || z1 - z0 < 0.01f) return;
+                structure.AddBox(new Vector3((x0 + x1) / 2f, y, (z0 + z1) / 2f), new Vector3(x1 - x0, FloorThickness, z1 - z0), Mat.StoneWall);
+            }
+            Slab(minX, maxX, minZ, hz0);
+            Slab(minX, maxX, hz1, maxZ);
+            Slab(minX, hx0, hz0, hz1);
+            Slab(hx1, maxX, hz0, hz1);
+
+            float mid = h + ShaftHeight / 2f, span = half * 2f + ShaftWall * 2f;
+            var centre = new Vector3(liftHole.x, 0f, liftHole.z);
+            structure.AddBox(centre + new Vector3(-half - ShaftWall / 2f, mid, 0f), new Vector3(ShaftWall, ShaftHeight, span), Mat.StoneWall);
+            structure.AddBox(centre + new Vector3(half + ShaftWall / 2f, mid, 0f), new Vector3(ShaftWall, ShaftHeight, span), Mat.StoneWall);
+            structure.AddBox(centre + new Vector3(0f, mid, -half - ShaftWall / 2f), new Vector3(half * 2f, ShaftHeight, ShaftWall), Mat.StoneWall);
+            structure.AddBox(centre + new Vector3(0f, mid, half + ShaftWall / 2f), new Vector3(half * 2f, ShaftHeight, ShaftWall), Mat.StoneWall);
+            structure.AddBox(centre + Vector3.up * (h + ShaftHeight + 0.2f), new Vector3(span, 0.4f, span), Mat.StoneWall);
+            for (float band = h + 2.5f; band < h + ShaftHeight - 1f; band += 3.5f)
+                foreach (var (dx, dz) in new[] { (1f, 0f), (-1f, 0f), (0f, 1f), (0f, -1f) })
+                    dressing.AddBox(centre + new Vector3(dx * (half - 0.08f), band, dz * (half - 0.08f)), dx != 0f ? new Vector3(0.16f, 0.25f, half * 2f) : new Vector3(half * 2f, 0.25f, 0.16f), Mat.Wood);
+            dressing.AddBox(centre + Vector3.up * (h - 0.15f), new Vector3(half * 2f + 0.5f, 0.3f, 0.25f), Mat.Steel);
+            Art.LiftHatch.Build(lights, centre + Vector3.up * h, half);
+        }
+
         private static void BuildRoom(DungeonLayout.Room room, MeshKit.Batcher structure, MeshKit.Batcher dressing, Transform lights)
         {
             var c = room.Center;
@@ -95,7 +136,8 @@ namespace Deepbound.World
             else if (room.Feature == RoomFeature.Cistern) BuildLowFloor(room, DungeonLayout.CisternDepth, 1.8f, structure, dressing, Mat.Rubble);
             else if (room.Feature == RoomFeature.Undercroft) BuildLowFloor(room, DungeonLayout.UndercroftDepth, 0f, structure, dressing, Mat.Rubble, edgeRamps: false);
             else structure.AddBox(c + Vector3.down * FloorThickness / 2f, new Vector3(w + WallThickness * 2f, FloorThickness, d + WallThickness * 2f), floorMat);
-            structure.AddBox(c + Vector3.up * (h + FloorThickness / 2f), new Vector3(w + WallThickness * 2f, FloorThickness, d + WallThickness * 2f), Mat.StoneWall);
+            if (room == liftRoom) BuildLiftShaft(room, structure, dressing, lights);
+            else structure.AddBox(c + Vector3.up * (h + FloorThickness / 2f), new Vector3(w + WallThickness * 2f, FloorThickness, d + WallThickness * 2f), Mat.StoneWall);
 
             foreach (var (rr, top) in room.Raised)
             {
@@ -120,6 +162,7 @@ namespace Deepbound.World
             for (float t = -span / 2f + 3f; t < span / 2f - 1f; t += 4f)
             {
                 var pos = c + Vector3.up * (h - 0.3f) + (beamsAlongX ? new Vector3(0f, 0f, t) : new Vector3(t, 0f, 0f));
+                if (room == liftRoom && Mathf.Abs(beamsAlongX ? pos.z - liftHole.z : pos.x - liftHole.x) < LiftHoleHalf + 0.4f) continue;
                 dressing.AddBox(pos, beamsAlongX ? new Vector3(w, 0.5f, 0.4f) : new Vector3(0.4f, 0.5f, d), Mat.Wood);
             }
 

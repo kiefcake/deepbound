@@ -299,6 +299,10 @@ namespace Deepbound.Combat
         private static bool tickNext;
         public static bool InTick { get; private set; }
 
+        public Health Unavoidable() { unavoidableNext = true; return this; }
+        private static bool unavoidableNext;
+        public static bool InUnavoidable { get; private set; }
+
         public string LastZeroedBy { get; private set; } = "none";
         public float LastLanded { get; private set; }
 
@@ -308,6 +312,8 @@ namespace Deepbound.Combat
             DamageTag = null;
             InTick = tickNext;
             tickNext = false;
+            InUnavoidable = unavoidableNext;
+            unavoidableNext = false;
             if (!IsServer || !IsSpawned || !IsAlive || amount <= 0f) return 0f;
 
             bool overwhelming = amount >= 1e5f;

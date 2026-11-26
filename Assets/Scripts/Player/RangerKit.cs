@@ -144,6 +144,7 @@ namespace Deepbound.Player
                 back.y = 0f;
                 motor.AddImpulse(back.normalized * 17f + Vector3.up * 6f);
                 DisengageFxRpc();
+                DisengageShotRpc(player.AimOrigin + player.AimForward * 0.6f, player.AimForward);
             }
 
             bool freeNet = Time.time < freeNetUntil;
@@ -163,7 +164,7 @@ namespace Deepbound.Player
             if (UI.Binds.Down(UI.Bind.AbilityE) && Time.time >= volleyReadyAt && TryAimFloor(30f, out var volleyAt))
             {
                 volleyReadyAt = Time.time + VolleyCooldown * progress.CooldownFor(AbilitySlot.E);
-                player.ViewModelCast(true);
+                player.Gesture(RigAction.Draw, 0.5f);
                 VolleyRpc(volleyAt);
             }
         }
@@ -172,6 +173,28 @@ namespace Deepbound.Player
 
         [Rpc(SendTo.Server)]
         private void ShootRpc(Vector3 origin, Vector3 direction, float charge, bool deadeye) => ServerShoot(origin, direction, charge, deadeye);
+
+        public const float DisengageArrowDamage = 18f, DisengageChill = 3f;
+
+        [Rpc(SendTo.Server)]
+        private void DisengageShotRpc(Vector3 origin, Vector3 direction)
+        {
+            if (!life.CanAct || Time.time - lastDisengageShot < DisengageCooldown * 0.5f) return;
+            lastDisengageShot = Time.time;
+            if (Vector3.Distance(origin, transform.position + Vector3.up * 1.6f) > 2.5f) origin = transform.position + Vector3.up * 1.6f;
+            float dmg = DisengageArrowDamage * progress.AttackMultiplier;
+            ulong me = NetworkObjectId;
+            var from = transform.position;
+            var kit = this;
+            Arrows.ServerFire(origin, direction, 0f, Team.Enemies, me, ArrowSpeed, h =>
+            {
+                h.Tag("Disengage").ServerDamage(dmg * (kit != null ? kit.Snared(h) : 1f), from, me);
+                if (h.Team == Team.Enemies && h.IsAlive) h.ServerChill(DisengageChill);
+            }, false, ArrowRange(0.6f, RangeMul), ArrowGravity(0.6f));
+            ShotFxRpc(origin, direction, 0.6f);
+        }
+
+        private float lastDisengageShot = -99f;
 
         public void ServerShoot(Vector3 origin, Vector3 direction, float charge, bool deadeye = false)
         {
@@ -449,7 +472,7 @@ namespace Deepbound.Player
         [Rpc(SendTo.ClientsAndHost)]
         private void DisengageFxRpc()
         {
-            if (!IsOwner) player.Rig?.Play(RigAction.Leap, 0.45f);
+            player.Act(RigAction.Leap, 0.45f);
             Sfx.Play(Sound.Dodge, transform.position + Vector3.up, 0.8f, 0.9f);
             SmokePuff.Spawn(transform.position, 0.5f);
 
@@ -459,7 +482,7 @@ namespace Deepbound.Player
         [Rpc(SendTo.ClientsAndHost)]
         private void MarkFxRpc(Vector3 at)
         {
-            if (!IsOwner) player.Rig?.Play(RigAction.Point, 0.5f);
+            player.Act(RigAction.Point, 0.5f);
             Sfx.Play(Sound.Relic, at, 0.6f, 1.6f);
             var red = new Color(1f, 0.3f, 0.25f);
             Vfx.Ring(Vfx.Ground(at), 1.2f, red, 0.35f);
@@ -472,7 +495,7 @@ namespace Deepbound.Player
         private void VolleyWarnRpc(Vector3 at)
         {
             Telegraph.Show(at, VolleyRadius, VolleyDelay, null, Telegraph.Friendly);
-            if (!IsOwner) player.Rig?.Play(RigAction.Draw, 0.5f);
+            player.Act(RigAction.Draw, 0.5f);
 
             ClassFx.FallingStreak(transform.position + Vector3.up * 1.6f, transform.position + Vector3.up * 12f);
             ClassFx.VolleyRing(at, VolleyRadius, VolleyDelay + 2.2f);

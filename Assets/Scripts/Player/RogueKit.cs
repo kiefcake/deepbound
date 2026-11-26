@@ -231,7 +231,7 @@ namespace Deepbound.Player
             {
                 Energy -= FanEnergy;
                 fanReadyAt = Time.time + FanCooldown;
-                player.ViewModelCast(false);
+                player.Gesture(RigAction.Fan, 0.35f);
                 FanRpc(player.AimOrigin + player.AimForward * 0.6f, player.AimForward);
             }
 
@@ -523,13 +523,13 @@ namespace Deepbound.Player
         {
             for (int i = -spread; i <= spread; i++) Arrows.SpawnVisual(origin, Quaternion.Euler(0f, i * 7f, 0f) * direction, ProjectileKind.Knife, FanSpeed, FanRange * RangeMul, FanGravity);
             Sfx.Play(Sound.Bow, origin, 0.6f, 1.6f);
-            if (!IsOwner) player.Rig?.Play(RigAction.Fan, 0.35f);
+            player.Act(RigAction.Fan, 0.35f);
         }
 
         [Rpc(SendTo.ClientsAndHost)]
         private void StepFxRpc(Vector3 from, Vector3 to)
         {
-            if (!IsOwner) player.Rig?.Play(RigAction.Vanish, 0.35f);
+            player.Act(RigAction.Vanish, 0.35f);
             Sfx.Play(Sound.Whisper, from + Vector3.up, 0.7f, 2f);
             Sfx.Play(Sound.Dodge, to + Vector3.up, 0.8f, 0.8f);
             SmokePuff.Spawn(from, 0.8f);
@@ -544,7 +544,7 @@ namespace Deepbound.Player
         [Rpc(SendTo.ClientsAndHost)]
         private void SmokeFxRpc(Vector3 at, float seconds)
         {
-            if (!IsOwner) player.Rig?.Play(RigAction.Vanish, 0.55f);
+            player.Act(RigAction.Vanish, 0.55f);
 
             Sfx.Play(Sound.Slam, at, 0.6f, 1.9f);
             Sfx.Play(Sound.Whisper, at + Vector3.up, 0.8f, 0.7f);

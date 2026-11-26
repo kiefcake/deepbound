@@ -18,7 +18,7 @@ namespace Deepbound.UI
         public static readonly (Bind bind, string label, Key key)[] Defaults =
         {
             (Bind.MoveForward, "Move forward", Key.W), (Bind.MoveBack, "Move back", Key.S), (Bind.MoveLeft, "Move left", Key.A), (Bind.MoveRight, "Move right", Key.D),
-            (Bind.Jump, "Jump", Key.Space), (Bind.Sprint, "Sprint", Key.LeftShift), (Bind.Dodge, "Dodge", Key.LeftCtrl), (Bind.Slide, "Slide", Key.C),
+            (Bind.Jump, "Jump", Key.Space), (Bind.Sprint, "Sprint", Key.LeftShift), (Bind.Dodge, "Dodge", Key.LeftCtrl), (Bind.Slide, "Crouch (hold) / slide while sprinting", Key.C),
             (Bind.AbilityQ, "Ability 1", Key.Q), (Bind.AbilityE, "Ability 2", Key.E), (Bind.Ultimate, "Ultimate", Key.R), (Bind.Kick, "Kick", Key.V),
             (Bind.Use, "Use / pick up", Key.F), (Bind.Interact, "Talk / trade / drag", Key.F), (Bind.Emote, "Wave / emote wheel (hold)", Key.H),
             (Bind.Inventory, "Inventory", Key.I), (Bind.Map, "Map", Key.M), (Bind.Ping, "Give to an ally (hold)", Key.G), (Bind.Scrap, "Scrap", Key.X),

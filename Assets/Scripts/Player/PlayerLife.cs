@@ -42,6 +42,10 @@ namespace Deepbound.Player
 
         public readonly NetworkVariable<bool> Hidden = new NetworkVariable<bool>();
 
+        public readonly NetworkVariable<bool> Crouched = new NetworkVariable<bool>(false, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+
+        public const float CrouchSightScale = 0.5f, CrouchStepVolume = 0.3f;
+
         public bool Targetable => !Downed.Value && !Hidden.Value && Health.IsAlive && Time.time >= VeiledUntil;
 
         public float VeiledUntil { get; set; }
@@ -114,14 +118,14 @@ namespace Deepbound.Player
 
                 Health.IncomingModifiers.Insert(0, (dmg, from) =>
                 {
-                    if (Time.time >= invulnerableUntil) return dmg;
+                    if (Time.time >= invulnerableUntil || Health.InUnavoidable) return dmg;
                     if (dodgeFrames && !perfectThisDodge && dmg > 0f) { perfectThisDodge = true; ServerPerfectDodge(); }
                     return 0f;
                 });
 
                 Health.IncomingModifiers.Insert(1, (dmg, from) =>
                 {
-                    if (progress == null || !progress.CatWhisker.Value || dmg <= 0f || Random.value >= PlayerProgress.WhiskerEvade) return dmg;
+                    if (progress == null || !progress.CatWhisker.Value || dmg <= 0f || Health.InUnavoidable || Random.value >= PlayerProgress.WhiskerEvade) return dmg;
                     EvadedRpc();
                     return 0f;
                 });
@@ -489,7 +493,7 @@ namespace Deepbound.Player
         {
             var keyboard = Keyboard.current;
             if (Downed.Value || motor == null || !motor.HasControl || Time.time < DodgeReadyAt) return;
-            if (!UI.Binds.Down(UI.Bind.Dodge) && !UI.Binds.Down(UI.Bind.Slide)) return;
+            if (!UI.Binds.Down(UI.Bind.Dodge) && !(UI.Binds.Down(UI.Bind.Slide) && motor.IsSprinting)) return;
 
             var input = motor.MoveInput;
 
