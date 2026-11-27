@@ -307,7 +307,7 @@ namespace Deepbound.Player
         [Rpc(SendTo.Server)]
         private void CastRpc(Vector3 aim, ulong targetId)
         {
-            Progression.RunLog.Note("action", "Cast" + " " + targetId, this);
+            Progression.RunLog.Note("action", targetId == ulong.MaxValue ? "Ultimate" : "Ultimate on " + targetId, this);
             if (!Ready || !life.CanAct) return;
             if (Vector3.Distance(aim, transform.position) > 34f) aim = transform.position + transform.forward * 4f;
             Charge.Value = 0f;

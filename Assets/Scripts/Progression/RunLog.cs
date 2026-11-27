@@ -38,7 +38,7 @@ namespace Deepbound.Progression
         private readonly Dictionary<string, int> spawned = new Dictionary<string, int>();
         private StreamWriter file;
         private bool clientFile;
-        private double runKey = -1;
+        private double runKey = -1, closedKey = -1;
         private int depth = -1, floorsLogged, partySeen, frames;
         private float floorStartedAt, guardianStartedAt = -1f, guardianSeconds = -1f, nextPoll, nextTick, runStartedAt, censusAt = -1f, lastPollAt;
         private float frameTime, worstFrame;
@@ -146,7 +146,9 @@ namespace Deepbound.Progression
 
             var dd = DungeonDirector.Instance;
             var phase = dd.Phase.Value;
-            if (dd.RunInProgress && dd.RunStartedAt.Value != runKey)
+            double started = dd.RunStartedAt.Value;
+            bool runLive = dd.RunInProgress || (!DungeonDirector.InLobby && phase == RunPhase.Exploring);
+            if (runLive && started > 0 && started != runKey && started != closedKey)
             {
                 if (file != null) EndRun("abandoned");
                 BeginRun(dd);
@@ -211,6 +213,7 @@ namespace Deepbound.Progression
             catch (Exception e) { Debug.LogWarning("[RunLog] " + e.Message); }
             file = null;
             clientFile = false;
+            if (runKey > 0) closedKey = runKey;
             runKey = -1;
             depth = -1;
         }
