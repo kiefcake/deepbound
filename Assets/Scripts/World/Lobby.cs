@@ -20,6 +20,7 @@ namespace Deepbound.World
         public static readonly Vector3 MerchantSpot = Origin + S(-7.4f, 0f, -5f);
         public static readonly Vector3 AnvilSpot = Origin + S(-5.6f, 0f, 1.4f);
         public static readonly Vector3 AnvilFacing = Vector3.right;
+        public const float GateBarrierHeight = 30f;
         public static readonly Vector3 TentCenter = Origin + new Vector3(12.6f, 0f, -19f);
         public static readonly Vector3 DiceSpot = TentCenter + new Vector3(-1.4f, 0f, -1.2f);
         public static readonly Vector3 CofferSpot = TentCenter + new Vector3(-1.6f, 0f, 1.6f);
@@ -437,8 +438,8 @@ namespace Deepbound.World
 
             var bar = new GameObject("GateBarrier");
             bar.transform.SetParent(root, false);
-            bar.transform.position = o + new Vector3(0f, 2f, Radius + 2.3f);
-            bar.AddComponent<BoxCollider>().size = new Vector3(5f, 4f, 0.4f);
+            bar.transform.position = o + new Vector3(0f, GateBarrierHeight / 2f, Radius + 2.3f);
+            bar.AddComponent<BoxCollider>().size = new Vector3(8f, GateBarrierHeight, 0.6f);
         }
 
         private static void BuildPlaza(Vector3 o, MeshKit.Batcher d, Transform lights)

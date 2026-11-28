@@ -179,6 +179,7 @@ namespace Deepbound.Player
             gameObject.AddComponent<ToolBelt>().Init(this);
             gameObject.AddComponent<CampSeat>().Init(this);
             gameObject.AddComponent<UI.Dialogue>().Init(this);
+            gameObject.AddComponent<Breath>().Init(this);
             WeaponGlowCos.OnValueChanged += (_, __) => RefreshWeaponGlow();
             progress.WeaponLevel.OnValueChanged += (_, __) => RefreshWeaponGlow();
             progress.Socket0.OnValueChanged += (_, __) => RefreshWeaponGlow();

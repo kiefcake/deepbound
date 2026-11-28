@@ -32,6 +32,17 @@ namespace Deepbound.Player
             h.Tag("fall").ServerDamage(h.Max.Value * share + h.Defense * Health.DefenseWeight, transform.position + Vector3.up * 2f);
         }
 
+        public const float DrownShare = 0.12f;
+        private float nextDrownAt;
+
+        [Rpc(SendTo.Server)]
+        public void DrownRpc()
+        {
+            if (Downed.Value || !Health.IsAlive || Time.time < nextDrownAt || !Breath.HeadUnder(transform.position, Breath.EyeHeight * 0.6f)) return;
+            nextDrownAt = Time.time + Breath.DrownEvery * 0.9f;
+            Health.Unavoidable().Tag("drowning").ServerDamage(Health.Max.Value * DrownShare + Health.Defense * Health.DefenseWeight, transform.position + Vector3.up);
+        }
+
         public const float BleedOutSeconds = 40f;
 
         public readonly NetworkVariable<float> Bleed = new NetworkVariable<float>();

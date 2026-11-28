@@ -12,7 +12,7 @@ namespace Deepbound.UI
     {
         public static readonly string[] Keys =
         {
-            "rift", "shieldcharge", "blink", "repulse", "breach", "bargain", "cellar", "jam", "choke",
+            "breath", "rift", "shieldcharge", "blink", "repulse", "breach", "bargain", "cellar", "jam", "choke",
             "flamevents", "expedition", "edges", "relictray", "hone", "purse", "falloff", "entling", "rare", "necro", "hiddenplates", "gravewarden", "silenced",
             "camp", "quests", "tavern", "emotewheel", "potions", "gamble2", "levers", "voice", "phases", "mourner", "pingwheel", "reliquary", "inventory", "bleed", "soul", "shield", "weak", "afflicted", "gargoyle", "pendulum", "ritual", "cistern", "hoarder", "bones", "tide", "lantern", "bell", "altar", "pyre", "gauntlet", "treasury", "beggar", "proving", "armoury", "mirror", "orbweaver", "piper", "graze", "tallyman", "oath", "acolyte", "abysseye", "lightless", "shelter", "cantor", "magus", "lamprey", "hag", "bellringer", "blinded", "accursed", "dazed", "decree", "stagger", "brand", "eclipse", "teamwork", "soulbound", "casino3", "poker", "questfloor", "oil", "chandelier", "pillar", "vigil", "prisoner", "watchers", "chimes", "fishing", "knives", "bells", "wrestle", "mirrors", "scales", "counter", "draught", "eruption", "spikes",
         };
@@ -28,7 +28,7 @@ namespace Deepbound.UI
 
         public static readonly System.Collections.Generic.HashSet<string> Essential = new System.Collections.Generic.HashSet<string>
         {
-            "camp", "quests", "questfloor", "potions", "inventory", "relictray", "rare", "pingwheel", "emotewheel", "purse", "voice",
+            "camp", "breath", "quests", "questfloor", "potions", "inventory", "relictray", "rare", "pingwheel", "emotewheel", "purse", "voice",
             "bleed", "soul", "reliquary",
             "afflicted", "accursed", "silenced", "blinded", "dazed",
             "tallyman", "mourner", "phases",

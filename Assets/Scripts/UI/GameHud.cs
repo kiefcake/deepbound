@@ -2532,7 +2532,41 @@ namespace Deepbound.UI
 
         private Anvil NearAnvil() => life.Downed.Value ? null : Anvil.Near(player.transform.position);
 
+        private int grindConfirm = -1;
+
+        private Rect GrindConfirmRect(float w, float h) => new Rect(w / 2f - 230f, h / 2f - 85f, 460f, 170f);
+
         private void DrawForge(float w, float h)
+        {
+            if (grindConfirm >= 0 && (!forgeOpen || shopOpen || NearAnvil() == null)) grindConfirm = -1;
+            if (grindConfirm < 0) { DrawForgePanel(w, h); return; }
+
+            var box = GrindConfirmRect(w, h);
+            var yes = new Rect(box.x + 30f, box.yMax - 50f, 180f, 34f);
+            var no = new Rect(box.xMax - 210f, box.yMax - 50f, 180f, 34f);
+            var ev = Event.current;
+            if (ev.type == EventType.MouseDown || ev.type == EventType.MouseUp)
+            {
+                if (ev.type == EventType.MouseDown && yes.Contains(ev.mousePosition)) { progress.RespecEdgeRpc((byte)grindConfirm); grindConfirm = -1; }
+                else if (ev.type == EventType.MouseDown && no.Contains(ev.mousePosition)) grindConfirm = -1;
+                ev.Use();
+            }
+            else if (ev.type == EventType.KeyDown && ev.keyCode == KeyCode.Escape) { grindConfirm = -1; ev.Use(); }
+            DrawForgePanel(w, h);
+            if (grindConfirm < 0) return;
+
+            var ember = LootInfo.EmberColor;
+            Rect(box.x - 3, box.y - 3, box.width + 6, box.height + 6, new Color(ember.r, ember.g, ember.b, 0.8f));
+            Rect(box.x, box.y, box.width, box.height, new Color(0.04f, 0.02f, 0.02f, 0.98f));
+            var edge = progress.EdgeAt(grindConfirm);
+            GUI.Label(new Rect(box.x + 20f, box.y + 16f, box.width - 40f, 26f), "Grind out " + Edges.Name(edge) + "?", UiSkin.Derive(label, ember));
+            GUI.Label(new Rect(box.x + 20f, box.y + 48f, box.width - 40f, 50f), "Hobb grinds the edge off your " + ClassDefinition.WeaponName(progress.ClassId.Value) + " for " + progress.RespecCost + " gold. You can do this once a run.",
+                UiSkin.Derive(small, new Color(0.9f, 0.88f, 0.85f), wrap: true));
+            GUI.Button(yes, "Grind it out");
+            GUI.Button(no, "Keep it");
+        }
+
+        private void DrawForgePanel(float w, float h)
         {
             if (NearAnvil() == null || shopOpen) return;
             if (!forgeOpen)
@@ -2679,7 +2713,7 @@ namespace Deepbound.UI
                         string why = progress.CannotRespecReason(i);
                         GUI.enabled = why == null;
                         if (GUI.Button(new Rect(ecx + 8, ecy + ech - 28, ecw - 16, 22), new GUIContent(why == null ? "Grind out  (" + progress.RespecCost + "g)" : "Grind out: " + why, "Hobb grinds this edge out so you can choose that slot again. Once a run.")))
-                            progress.RespecEdgeRpc((byte)i);
+                            grindConfirm = i;
                         GUI.enabled = true;
                     }
                 }

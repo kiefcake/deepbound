@@ -23,14 +23,14 @@ namespace Deepbound.Progression
 
         public static readonly Recipe[] Recipes =
         {
-            new Recipe { Name = "Health Potion", Description = "Bone ash and boiled linen: the old field remedy.", Bone = 4, Cloth = 2, Kind = CraftKind.Potion, Arg = 0 },
-            new Recipe { Name = "Frost Flask", Description = "Iron flask packed with grave-cold marrow.", Bone = 2, Iron = 3, Kind = CraftKind.Potion, Arg = 2 },
-            new Recipe { Name = "Holy Water", Description = "A bone-stoppered vial, blessed by habit.", Bone = 2, Cloth = 2, Iron = 2, Kind = CraftKind.Potion, Arg = 3 },
-            new Recipe { Name = "Padded Lining", Description = "+2 DEF for the run (up to 3).", Cloth = 6, Iron = 2, Kind = CraftKind.Lining },
-            new Recipe { Name = "Whetted Edge", Description = "+3% damage for the run (up to 3).", Bone = 2, Iron = 6, Kind = CraftKind.Edge },
-            new Recipe { Name = "Hobnailed Boots", Description = "+3% speed for the run (up to 3).", Cloth = 4, Iron = 4, Kind = CraftKind.Boots },
-            new Recipe { Name = "Caltrops", Description = "Throw (Z): a patch of spikes for 8 s that chills and cuts what walks it.", Iron = 3, Kind = CraftKind.Caltrops },
-            new Recipe { Name = "Bone Rattle", Description = "Throw (Z): the dead nearby turn to the noise for 4 s and forget you.", Bone = 3, Cloth = 1, Kind = CraftKind.Rattle },
+            new Recipe { Name = "Health Potion", Description = "Bone ash and boiled linen: the old field remedy.", Bone = 40, Cloth = 20, Kind = CraftKind.Potion, Arg = 0 },
+            new Recipe { Name = "Frost Flask", Description = "Iron flask packed with grave-cold marrow.", Bone = 20, Iron = 30, Kind = CraftKind.Potion, Arg = 2 },
+            new Recipe { Name = "Holy Water", Description = "A bone-stoppered vial, blessed by habit.", Bone = 20, Cloth = 20, Iron = 20, Kind = CraftKind.Potion, Arg = 3 },
+            new Recipe { Name = "Padded Lining", Description = "+2 DEF for the run (up to 3).", Cloth = 60, Iron = 20, Kind = CraftKind.Lining },
+            new Recipe { Name = "Whetted Edge", Description = "+3% damage for the run (up to 3).", Bone = 20, Iron = 60, Kind = CraftKind.Edge },
+            new Recipe { Name = "Hobnailed Boots", Description = "+3% speed for the run (up to 3).", Cloth = 40, Iron = 40, Kind = CraftKind.Boots },
+            new Recipe { Name = "Caltrops", Description = "Throw (Z): a patch of spikes for 8 s that chills and cuts what walks it.", Iron = 30, Kind = CraftKind.Caltrops },
+            new Recipe { Name = "Bone Rattle", Description = "Throw (Z): the dead nearby turn to the noise for 4 s and forget you.", Bone = 30, Cloth = 10, Kind = CraftKind.Rattle },
         };
 
         public static string PartName(Part p) => p == Part.Bone ? "bone" : p == Part.Cloth ? "cloth" : "iron";

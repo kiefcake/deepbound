@@ -3095,7 +3095,7 @@ namespace Deepbound.Networking
                                 var fh = toolFoe.GetComponent<Health>();
                                 toolFoe.ServerStun(3f);
                                 tp.Parts.Value = 0;
-                                tp.ServerAddPart(Part.Iron, 3); tp.ServerAddPart(Part.Bone, 3); tp.ServerAddPart(Part.Cloth, 1);
+                                tp.ServerAddPart(Part.Iron, 30); tp.ServerAddPart(Part.Bone, 30); tp.ServerAddPart(Part.Cloth, 10);
                                 tp.CraftRpc((byte)System.Array.FindIndex(Crafting.Recipes, r => r.Kind == CraftKind.Caltrops));
                                 tp.CraftRpc((byte)System.Array.FindIndex(Crafting.Recipes, r => r.Kind == CraftKind.Rattle));
                                 yield return new WaitForSeconds(0.2f);
@@ -3836,8 +3836,10 @@ namespace Deepbound.Networking
                         float rgDealt = rgLife.Health.ServerDamage(10f, local.transform.position + Vector3.forward);
                         rgLife.ServerDebugInvulnerable(0f);
                         bool rgRoof = Physics.Raycast(Lobby.TentCenter + Vector3.up * 9f, Vector3.down, out var rgHit, 9f) && rgHit.point.y > Lobby.TentCenter.y + 3f;
-                        Log("revive grace and tent roof", "hit after a revive dealt " + rgDealt.ToString("F1") + ", tent roof solid " + rgRoof + (rgRoof ? " at " + (rgHit.point.y - Lobby.TentCenter.y).ToString("F1") + " m" : ""),
-                            rgDealt <= 0.01f && rgRoof);
+                        var rgGate = Lobby.Origin + new Vector3(0f, 9f, Lobby.Radius - 1f);
+                        bool rgWall = Physics.Raycast(rgGate, Vector3.forward, out var rgGateHit, 8f) && rgGateHit.collider.name == "GateBarrier";
+                        Log("revive grace and tent roof", "hit after a revive dealt " + rgDealt.ToString("F1") + ", tent roof solid " + rgRoof + (rgRoof ? " at " + (rgHit.point.y - Lobby.TentCenter.y).ToString("F1") + " m" : "") + ", gate wall at 9 m " + rgWall,
+                            rgDealt <= 0.01f && rgRoof && rgWall);
                     }
 
                     {
@@ -3978,7 +3980,7 @@ namespace Deepbound.Networking
                         progress.Parts.Value = 0;
                         string refused = progress.CannotCraftReason(hpPot);
                         while (flasksC.ServerTakeOne(Flasks.Kind.Health)) { }
-                        progress.ServerAddPart(Part.Bone, 20); progress.ServerAddPart(Part.Cloth, 20); progress.ServerAddPart(Part.Iron, 20);
+                        progress.ServerAddPart(Part.Bone, 200); progress.ServerAddPart(Part.Cloth, 200); progress.ServerAddPart(Part.Iron, 200);
                         int potsBefore = flasksC.Count(Flasks.Kind.Health);
                         float craftAtt0 = progress.AttackMultiplier;
                         progress.CraftRpc((byte)hpPot);
@@ -3986,7 +3988,7 @@ namespace Deepbound.Networking
                         progress.CraftRpc((byte)calt);
                         yield return new WaitForSeconds(0.3f);
                         var r0 = Crafting.Recipes[hpPot]; var r1 = Crafting.Recipes[edge]; var r2 = Crafting.Recipes[calt];
-                        bool spent = progress.PartCount(Part.Bone) == 20 - r0.Bone - r1.Bone - r2.Bone && progress.PartCount(Part.Iron) == 20 - r0.Iron - r1.Iron - r2.Iron;
+                        bool spent = progress.PartCount(Part.Bone) == 200 - r0.Bone - r1.Bone - r2.Bone && progress.PartCount(Part.Iron) == 200 - r0.Iron - r1.Iron - r2.Iron;
                         Log("crafting", "refused with no parts: '" + refused + "', potion " + potsBefore + " -> " + flasksC.Count(Flasks.Kind.Health) + ", attack x" + craftAtt0.ToString("F3") + " -> x" + progress.AttackMultiplier.ToString("F3")
                             + ", caltrops " + progress.ToolCount(CraftKind.Caltrops) + " readied " + progress.ReadiedTool + ", parts spent " + spent,
                             refused != null && flasksC.Count(Flasks.Kind.Health) == potsBefore + 1 && progress.AttackMultiplier > craftAtt0 * 1.02f && progress.ToolCount(CraftKind.Caltrops) == 1
@@ -4005,7 +4007,7 @@ namespace Deepbound.Networking
                         float radiusKeen = PetCompanion.FetchRadiusOf(lnp);
                         int capTinker = Crafting.ToolCap(progress);
                         progress.Parts.Value = 0;
-                        progress.ServerAddPart(Part.Iron, 60);
+                        progress.ServerAddPart(Part.Iron, 600);
                         for (int n = 0; n < 9; n++) progress.CraftRpc((byte)caltL);
                         yield return new WaitForSeconds(0.4f);
                         int caltrops = progress.ToolCount(CraftKind.Caltrops);
