@@ -911,6 +911,7 @@ namespace Deepbound.World
                 new Vector2(4.6f, 0f), new Vector2(2.2f, 1.4f), new Vector2(0f, 2.6f),
             }, 16), Mat.Cloth, c + Vector3.up * 2.6f);
             ArtLibrary.Tint(roof.GetComponent<Renderer>(), red);
+            roof.AddComponent<MeshCollider>().sharedMesh = roof.GetComponent<MeshFilter>().sharedMesh;
 
             var roofIn = MeshKit.Part(lights, "TentRoofInside", MeshKit.Lathe("tentRoofIn", new[]
             {
@@ -1331,7 +1332,9 @@ namespace Deepbound.World
             d.AddBox(line + new Vector3(0f, 2.2f, -3.4f), new Vector3(0.08f, 0.5f, 1f), Mat.Wood);
 
             for (int i = 0; i < 5; i++)
-                d.AddBox(Origin + S(21.2f, 0.45f + (i % 2) * 0.9f, 7.5f + i * 1.6f), new Vector3(1f, 0.9f, 1.5f), Mat.Wood, Quaternion.Euler(0f, 12f * (i % 3), 0f));
+                d.AddBox(Origin + S(21.2f, 0.45f, 7.5f + i * 1.6f), new Vector3(1f, 0.9f, 1.5f), Mat.Wood, Quaternion.Euler(0f, 12f * (i % 3), 0f));
+            foreach (int i in new[] { 1, 3 })
+                d.AddBox(Origin + S(21.2f, 1.35f, 7.5f + i * 1.6f), new Vector3(0.9f, 0.9f, 1.3f), Mat.Wood, Quaternion.Euler(0f, 12f * (i % 3) + 6f, 0f));
             Props.Brazier(lights, line + new Vector3(-0.8f, 0f, 3.6f), Fire, false);
         }
 

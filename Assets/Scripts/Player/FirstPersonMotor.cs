@@ -299,7 +299,7 @@ namespace Deepbound.Player
                 if (drop > SafeDrop && fallSpeed >= Mathf.Sqrt(2f * -gravity * drop) * 0.6f)
                 {
                     if (fallLife == null) fallLife = GetComponent<PlayerLife>();
-                    if (fallLife != null) fallLife.FallRpc(drop);
+                    if (fallLife != null && !World.DungeonDirector.LandsInWater(transform.position)) fallLife.FallRpc(drop);
                 }
             }
             if (grounded || Pinned || airStale) airTop = transform.position.y; else airTop = Mathf.Max(airTop, transform.position.y);

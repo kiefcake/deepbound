@@ -8,7 +8,7 @@ namespace Deepbound.World
 {
     public partial class DungeonDirector
     {
-        public const float TripBlastRadius = 3.6f, TripBlastShare = 0.35f, TripClearance = 0.12f;
+        public const float TripBlastRadius = 3.6f, TripBlastShare = 0.5f, TripClearance = 0.12f;
 
         public readonly NetworkVariable<ulong> TripSprung = new NetworkVariable<ulong>();
 

@@ -306,7 +306,7 @@ namespace Deepbound.UI
 
         private void LateUpdate()
         {
-            PauseMenu.OtherMenuOpenLastFrame = shopOpen || forgeOpen || invOpen || runeOpen || pageShown >= 0 || CharacterSelect.Open || Wardrobe.Open || Dialogue.Open || PokerDiceTable.LocalSeated || BellFrame.LocalOpen || ArmWrestle.LocalOpen;
+            PauseMenu.OtherMenuOpenLastFrame = shopOpen || forgeOpen || invOpen || runeOpen || pageShown >= 0 || CharacterSelect.Open || Wardrobe.Open || Dialogue.Open || PokerDiceTable.LocalSeated || BellFrame.LocalOpen || ArmWrestle.LocalOpen || BlackjackTable.LocalOpen;
         }
 
         private void OnDestroy()
@@ -3180,7 +3180,7 @@ namespace Deepbound.UI
             party.Sort((a, b) => a == progress ? -1 : b == progress ? 1 : b.Kills.Value.CompareTo(a.Kills.Value));
             int cols = Mathf.Min(party.Count, 4);
             const float nameW = 120f, colW = 70f, rowH = 21f;
-            float w = 24f + nameW + cols * colW, ph = 62f + RunStatNames.Length * rowH + 30f;
+            float w = 24f + nameW + cols * colW, ph = 62f + (RunStatNames.Length + 1) * rowH + 30f;
             if (y + ph > h - 160f) return;
             Rect(x, y, w, ph, Panel);
             GUI.Label(new Rect(x + 12, y + 10, w - 24, 20), "THIS RUN", UiSkin.Derive(label, Gold));
@@ -3193,6 +3193,15 @@ namespace Deepbound.UI
             {
                 string who = party[c] == progress ? "You" : party[c].name;
                 GUI.Label(new Rect(x + 12 + nameW + c * colW, ry, colW - 6, 20), UiSkin.Fit(who, head, colW - 6), head);
+            }
+            ry += rowH;
+            GUI.Label(new Rect(x + 12, ry, nameW, 20), "Class", UiSkin.Derive(small, new Color(1f, 1f, 1f, 0.6f), wrap: false));
+            for (int c = 0; c < cols; c++)
+            {
+                var cls = party[c].ClassId.Value;
+                var tag = UiSkin.Derive(small, UiSkin.Readable(Ultimates.UltColor(cls)), align: TextAnchor.UpperRight, wrap: false);
+                string cname = ClassDefinition.For(cls).Name;
+                GUI.Label(new Rect(x + 12 + nameW + c * colW, ry, colW - 6, 20), UiSkin.Fit(cname, tag, colW - 6), tag);
             }
             ry += rowH + 2;
             var nameStyle = UiSkin.Derive(small, new Color(1f, 1f, 1f, 0.6f), wrap: false);

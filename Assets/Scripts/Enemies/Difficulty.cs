@@ -18,7 +18,7 @@ namespace Deepbound.Enemies
             new Setting { Name = "Torment", Blurb = "For those who brought the Last Morning. The Tallyman comes early.", Health = 2.5f, Damage = 2f, SpawnMultiplier = 1.45f, EliteBonus = 0.25f, Gold = 2.6f, Embers = 2f },
         };
 
-        public const float EconomyGold = 0.62f, EconomyEmbers = 0.62f;
+        public const float EconomyGold = 0.54f, EconomyEmbers = 0.72f;
 
         public static float GoldIncome => EconomyGold * Level.Gold;
 

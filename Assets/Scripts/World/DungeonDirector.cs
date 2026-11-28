@@ -1566,6 +1566,7 @@ namespace Deepbound.World
                     }
                     TickTutorialPending();
                     if (Phase.Value != RunPhase.Lobby) break;
+                    TickCampFalls();
 
                     TellWhoHoldsTheCarriage();
                     if (EveryoneAboard())

@@ -20,7 +20,7 @@ namespace Deepbound.Enemies
 
         private void TickDoom()
         {
-            if (World.DungeonDirector.TestMode || target == null || scaledDepth < 1 || Dormant || Immune || CurrentStance == Stance.Transition || StandingParty < 2) return;
+            if (!Dooms || World.DungeonDirector.TestMode || target == null || scaledDepth < 1 || Dormant || Immune || CurrentStance == Stance.Transition || StandingParty < 2) return;
             if (nextDoom < 0f) { nextDoom = Time.time + 20f; return; }
             if (Time.time < nextDoom) return;
             nextDoom = Time.time + Mathf.Lerp(30f, 20f, Difficulty.Lead(scaledDepth));
@@ -32,7 +32,7 @@ namespace Deepbound.Enemies
             if (on == null)
             {
                 var pool = new List<PlayerLife>();
-                foreach (var p in PlayerLife.All) if (p != null && p.Targetable) pool.Add(p);
+                foreach (var p in PlayerLife.All) if (p != null && p.Targetable && Reaches(p)) pool.Add(p);
                 if (pool.Count == 0) return;
                 if (pool.Count > 1) pool.RemoveAll(p => p.NetworkObjectId == lastDoomed);
                 on = pool[Random.Range(0, pool.Count)];

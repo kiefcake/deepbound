@@ -1074,6 +1074,7 @@ namespace Deepbound.World
 
         private static void PlaceFlameTraps(DungeonLayout layout, System.Random rng)
         {
+            if (DungeonTheme.ForDepth(layout.Depth).WaterDepth > 0f) return;
             int n = 0;
             foreach (var link in layout.Links)
             {

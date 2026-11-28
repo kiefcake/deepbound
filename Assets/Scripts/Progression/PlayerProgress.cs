@@ -1305,7 +1305,9 @@ namespace Deepbound.Progression
         {
             var relic = (Relic)r;
             Art.Sfx.Play(Art.Sound.Relic, transform.position + Vector3.up, 0.9f);
-            UI.GameHud.Feed(name + " found " + Relics.Name(relic) + ": " + Relics.Describe(relic), Relics.GemColor(relic));
+            string line = name + " found " + Relics.Name(relic) + ": " + Relics.Describe(relic);
+            UI.GameHud.Feed(line, Relics.GemColor(relic));
+            UI.ChatBox.Add("Relic", Relics.GemColor(relic), line);
         }
 
         [Rpc(SendTo.ClientsAndHost)]

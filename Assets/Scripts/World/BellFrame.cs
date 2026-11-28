@@ -14,6 +14,7 @@ namespace Deepbound.World
         public const int Bells = 4, Strikes = 16, CleanPeal = 13, PealGold = 25;
         public const float Beat = 0.9f, Lead = 2.7f, Window = 0.3f, Spacing = 1.0f, BellHeight = 2.9f;
         public static readonly float[] Pitch = { 1.3f, 1.1f, 0.94f, 0.78f };
+        private readonly float[] localRungAt = { -9f, -9f, -9f, -9f };
         public static readonly string[] Names = { "TREBLE", "SECOND", "THIRD", "TENOR" };
         private static readonly Color Brass = new Color(0.8f, 0.62f, 0.3f);
 
@@ -155,8 +156,9 @@ namespace Deepbound.World
         private void SwingRpc(int bell)
         {
             if (bell < 0 || bell >= Bells) return;
+            if (Time.time - localRungAt[bell] < 0.6f) return;
             swingAt[bell] = Time.time;
-            Sfx.Play(Sound.Toll, BellPos(bell), 0.75f, Pitch[bell]);
+            Sfx.Play(Sound.Toll, BellPos(bell), 1f, Pitch[bell]);
         }
 
         [Rpc(SendTo.ClientsAndHost)]
@@ -194,7 +196,13 @@ namespace Deepbound.World
             if (kb.escapeKey.wasPressedThisFrame || (UI.Binds.Down(UI.Bind.Use) && Time.time - openedAt > 0.3f)) { CloseLocal(); return; }
             if (kb.spaceKey.wasPressedThisFrame && !Ringing) BeginRpc(me.NetworkObject);
             for (int b = 0; b < Bells; b++)
-                if (kb[(Key)((int)Key.Digit1 + b)].wasPressedThisFrame) RingRpc(me.NetworkObject, b, Now);
+            {
+                if (!kb[(Key)((int)Key.Digit1 + b)].wasPressedThisFrame) continue;
+                localRungAt[b] = Time.time;
+                swingAt[b] = Time.time;
+                Sfx.Play(Sound.Toll, BellPos(b), 1f, Pitch[b]);
+                RingRpc(me.NetworkObject, b, Now);
+            }
         }
 
         private void OnGUI()

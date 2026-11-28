@@ -65,8 +65,8 @@ namespace Deepbound.World
             source.playOnAwake = false;
             source.spatialBlend = 0.85f;
             source.rolloffMode = AudioRolloffMode.Linear;
-            source.minDistance = 7f;
-            source.maxDistance = 42f;
+            source.minDistance = 4f;
+            source.maxDistance = 24f;
             source.dopplerLevel = 0f;
 
             var face = transform.position + transform.forward * 4f;
@@ -98,7 +98,7 @@ namespace Deepbound.World
         {
             if (Instance == null || Instance.source == null || !Instance.source.isPlaying) return 0f;
             float d = Vector3.Distance(listener, Instance.transform.position);
-            return Mathf.Clamp01(1f - (d - 8f) / 22f);
+            return Mathf.Clamp01(1f - (d - 5f) / 14f);
         }
 
         private void Update()

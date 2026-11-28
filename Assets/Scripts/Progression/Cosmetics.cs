@@ -153,6 +153,7 @@ namespace Deepbound.Progression
             new Item { Name = "Drowned and Returned", Cost = 170, NeedsBoss = 1 },
             new Item { Name = "Crownless", Cost = 220, NeedsBoss = 2 },
             new Item { Name = "Last of the Choir", Cost = 270, NeedsBoss = 3 },
+            new Item { Name = "the Maidenless", Cost = 40, NeedsBoss = -1 },
         };
 
         public static readonly Item[] Pets =

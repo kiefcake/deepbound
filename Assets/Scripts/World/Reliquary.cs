@@ -104,7 +104,9 @@ namespace Deepbound.World
         {
             Sfx.Play2D(Sound.Relic, 1f);
             Sfx.Play2D(Sound.Coins, 0.8f);
-            UI.GameHud.ShowTitleCard("THE RELIQUARY IS SAFE", "Intact " + integrity + "%:  +" + gold + " gold, +" + embers + " embers" + (sigil ? ", a Sigil" : "") + (relic ? ", a relic" : "") + " each.  The fallen rise, and this floor's guardian is HALLOWED (weakened)");
+            string reward = "Intact " + integrity + "%:  +" + gold + " gold, +" + embers + " embers" + (sigil ? ", a Sigil" : "") + (relic ? ", a relic" : "") + " each.";
+            UI.GameHud.ShowTitleCard("THE RELIQUARY IS SAFE", reward + "  The fallen rise, and this floor's guardian is HALLOWED (weakened)");
+            UI.ChatBox.Add("Reliquary", new Color(1f, 0.85f, 0.45f), reward + " The guardian is weakened.");
         }
 
         protected override void VisualTick(bool carried)

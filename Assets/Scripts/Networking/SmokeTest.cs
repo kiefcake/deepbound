@@ -1215,6 +1215,7 @@ namespace Deepbound.Networking
 
                         {
                             int ll0 = Player.Ultimates.ServerLastLight(tmate.transform.position, 5f);
+                            tmate.ServerDebugInvulnerable(0f);
                             tmate.Health.ServerDamage(1e6f, tmate.transform.position + Vector3.forward);
                             yield return new WaitForSeconds(0.3f);
                             bool llDown = tmate.Downed.Value;
@@ -3830,6 +3831,16 @@ namespace Deepbound.Networking
                     }
 
                     {
+                        var rgLife = local.GetComponent<PlayerLife>();
+                        rgLife.ServerGrantReviveGrace();
+                        float rgDealt = rgLife.Health.ServerDamage(10f, local.transform.position + Vector3.forward);
+                        rgLife.ServerDebugInvulnerable(0f);
+                        bool rgRoof = Physics.Raycast(Lobby.TentCenter + Vector3.up * 9f, Vector3.down, out var rgHit, 9f) && rgHit.point.y > Lobby.TentCenter.y + 3f;
+                        Log("revive grace and tent roof", "hit after a revive dealt " + rgDealt.ToString("F1") + ", tent roof solid " + rgRoof + (rgRoof ? " at " + (rgHit.point.y - Lobby.TentCenter.y).ToString("F1") + " m" : ""),
+                            rgDealt <= 0.01f && rgRoof);
+                    }
+
+                    {
                         World.FolkRounds.StayHome = false;
                         var walkers = new System.Collections.Generic.List<World.FolkId>(World.FolkRounds.Walkers);
                         bool bodiesFollow = true;
@@ -4941,7 +4952,7 @@ namespace Deepbound.Networking
                         Health.ServerAnyDamaged += countBlows;
                         int hits0 = hunter.StrikeHits;
                         hunter.ServerHuntNow();
-                        yield return new WaitForSeconds(1.0f);
+                        yield return new WaitForSeconds(1.45f);
                         Health.ServerAnyDamaged -= countBlows;
                         bool struck = blows > 0 || hh.Current.Value < h0 || hunter.StrikeHits > hits0;
                         Debug.Log("[Smoke] hunt strike hits " + (hunter.StrikeHits - hits0) + ", last dealt " + hunter.LastStrikeDealt + ", blows " + blows);

@@ -18,6 +18,8 @@ namespace Deepbound.Enemies
         protected override Color ShockwaveColor => new Color(1f, 0.82f, 0.4f);
         public static readonly Color CrownGold = new Color(1f, 0.82f, 0.35f);
 
+        public const float TwinChargeEvery = 13f, TwinChargeDamage = 1f;
+
         public readonly NetworkVariable<bool> Crowned = new NetworkVariable<bool>(true);
 
         private float nextPass, nextCharge;
@@ -80,7 +82,7 @@ namespace Deepbound.Enemies
                 }
                 if (movement >= 2 && s != null && Time.time >= nextCharge)
                 {
-                    nextCharge = Time.time + 9f / Cadence;
+                    nextCharge = Time.time + TwinChargeEvery / Cadence;
                     StartCoroutine(TwinCharge(s));
                 }
             }
@@ -115,12 +117,13 @@ namespace Deepbound.Enemies
             castUntil = busyUntil = Time.time + tell + 0.6f;
             PlayActionRpc(RigAction.Charge, tell + 0.5f);
             yield return new WaitForSeconds(tell);
+            var struck = new HashSet<PlayerLife>();
             foreach (var (who, from, to) in lanes)
             {
                 if (who == null || !who.IsSpawned) continue;
                 var end = UnityEngine.AI.NavMesh.Raycast(from, to, out var hit, UnityEngine.AI.NavMesh.AllAreas) ? hit.position : to;
                 who.Warp(end);
-                LaneHit(from, end, 0.8f, Signature(damage * 1.3f));
+                LaneHit(from, end, 0.8f, Signature(damage * TwinChargeDamage), struck);
                 ChargeFxRpc(from, end);
             }
         }

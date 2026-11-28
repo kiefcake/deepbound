@@ -896,10 +896,15 @@ namespace Deepbound.Enemies
         protected float Cadence => StandingParty <= 1 ? 0.8f : 1f;
 
         protected virtual bool Hunts => true;
+        protected virtual bool Dooms => true;
+        protected virtual float HuntDamageScale => 1f;
+        protected virtual bool Reaches(PlayerLife p) => p != null;
 
         public const float StrikeRadius = 2.2f, LanceLength = 24f, LanceWidth = 1.7f;
 
-        private struct PendingStrike { public Vector3 At, Dir; public float When, Radius, Damage; public bool Line; }
+        private struct PendingStrike { public Vector3 At, Dir; public float When, Radius, Damage, Length; public bool Line; }
+
+        public static readonly Color StrikeUnderYou = new Color(1f, 0.22f, 0.08f, 0.55f);
         private readonly List<PendingStrike> strikes = new List<PendingStrike>();
         private float nextHunt = -1f;
         private int huntKind;
@@ -930,18 +935,18 @@ namespace Deepbound.Enemies
         private System.Collections.IEnumerator HuntingStrikes()
         {
             int count = scaledDepth >= 6 ? 4 : 3;
-            float tell = Tell(0.85f);
+            float tell = Tell(1.15f);
             GatherRpc(tell, 0.7f);
             PlayActionRpc(RigAction.Hurl, 0.6f);
             for (int k = 0; k < count && !IsDead; k++)
             {
                 foreach (var p in PlayerLife.All)
                 {
-                    if (p == null || !p.Targetable) continue;
+                    if (p == null || !p.Targetable || !Reaches(p)) continue;
                     var at = PredictedFeet(p, tell + 0.1f);
                     LastStrikeAt = at;
-                    strikes.Add(new PendingStrike { At = at, When = Time.time + tell, Radius = StrikeRadius, Damage = damage * 0.55f });
-                    TintedCircleRpc(at, StrikeRadius, tell, Telegraph.Harm);
+                    strikes.Add(new PendingStrike { At = at, When = Time.time + tell, Radius = StrikeRadius, Damage = damage * 0.55f * HuntDamageScale });
+                    StrikeCircleRpc(at, StrikeRadius, tell);
                 }
                 yield return new WaitForSeconds(0.42f);
             }
@@ -956,7 +961,7 @@ namespace Deepbound.Enemies
             var from = transform.position + Vector3.up * 0.05f;
             foreach (var p in PlayerLife.All)
             {
-                if (p == null || !p.Targetable) continue;
+                if (p == null || !p.Targetable || !Reaches(p)) continue;
                 var to = PredictedFeet(p, tell) - from;
                 to.y = 0f;
                 if (to.sqrMagnitude < 0.5f) to = transform.forward;
@@ -964,8 +969,9 @@ namespace Deepbound.Enemies
                 for (int i = 0; i < lines; i++)
                 {
                     var dir = Quaternion.Euler(0f, (i - (lines - 1) / 2f) * spread, 0f) * to;
-                    strikes.Add(new PendingStrike { At = from, Dir = dir, When = Time.time + tell, Damage = damage * 0.65f, Line = true });
-                    FreeLineTelegraphRpc(from, dir, LanceLength, LanceWidth, tell);
+                    float length = LanceReach(from, dir);
+                    strikes.Add(new PendingStrike { At = from, Dir = dir, When = Time.time + tell, Damage = damage * 0.65f * HuntDamageScale, Length = length, Line = true });
+                    FreeLineTelegraphRpc(from, dir, length, LanceWidth, tell);
                 }
             }
         }
@@ -979,14 +985,14 @@ namespace Deepbound.Enemies
                 strikes.RemoveAt(i);
                 foreach (var p in PlayerLife.All)
                 {
-                    if (p == null || !p.Targetable) continue;
+                    if (p == null || !p.Targetable || !Reaches(p)) continue;
                     var to = p.transform.position - s.At;
                     to.y = 0f;
                     bool hit;
                     if (s.Line)
                     {
                         float along = Vector3.Dot(to, s.Dir);
-                        hit = along >= 0f && along <= LanceLength && (to - s.Dir * along).magnitude <= LanceWidth * 0.5f + 0.3f;
+                        hit = along >= 0f && along <= s.Length && (to - s.Dir * along).magnitude <= LanceWidth * 0.5f + 0.3f;
                     }
                     else hit = to.magnitude <= s.Radius + 0.3f;
                     if (!hit) continue;
@@ -994,7 +1000,7 @@ namespace Deepbound.Enemies
                     LastStrikeDealt = p.Health.ServerDamage(s.Damage, s.At + Vector3.up, NetworkObjectId);
                     KnockPlayer(p.Health, (s.Line ? s.Dir * 3f : to.normalized * 4f) + Vector3.up * 4f);
                 }
-                StrikeFxRpc(s.At, s.Line ? s.Dir : Vector3.zero, s.Line);
+                StrikeFxRpc(s.At, s.Line ? s.Dir * s.Length : Vector3.zero, s.Line);
             }
         }
 
@@ -1004,7 +1010,9 @@ namespace Deepbound.Enemies
             var c = Rig != null ? Rig.GlowColor : new Color(1f, 0.4f, 0.2f);
             if (line)
             {
-                for (float d = 1.5f; d < LanceLength; d += 2.5f)
+                float length = dir.magnitude;
+                dir /= Mathf.Max(0.01f, length);
+                for (float d = 1.5f; d < length; d += 2.5f)
                 {
                     var p = at + dir * d;
                     Vfx.Embers(p + Vector3.up * 0.2f, 3, c, 3f, 0.05f, 0.4f);
@@ -1020,6 +1028,24 @@ namespace Deepbound.Enemies
             }
             var local = NetworkPlayer.Local;
             if (local != null && Vector3.Distance(local.transform.position, at) < 7f) local.AddShake(0.2f);
+        }
+
+        private static float LanceReach(Vector3 from, Vector3 dir)
+        {
+            var to = from + dir * LanceLength;
+            return UnityEngine.AI.NavMesh.Raycast(from, to, out var hit, UnityEngine.AI.NavMesh.AllAreas) ? Mathf.Max(2f, hit.distance) : LanceLength;
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void StrikeCircleRpc(Vector3 center, float radius, float duration)
+        {
+            var me = NetworkPlayer.Local;
+            var gap = me != null ? me.transform.position - center : Vector3.one * 99f;
+            gap.y = 0f;
+            bool mine = gap.magnitude <= radius + 1.5f;
+            Telegraph.Show(center, radius, duration, null, mine ? StrikeUnderYou : Telegraph.Harm);
+            if (mine) Sfx.Play2D(Sound.Creak, 0.8f);
+            Gather(duration, 0.8f);
         }
 
         [Rpc(SendTo.ClientsAndHost)]

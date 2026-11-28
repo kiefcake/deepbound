@@ -15,6 +15,13 @@ namespace Deepbound.Enemies
         public bool IsEcho => Role.Value != 0;
 
         protected override bool ClaimsActiveOnSpawn => false;
+        protected override bool Hunts => !IsEcho;
+        protected override bool Dooms => !IsEcho;
+        protected override float HuntDamageScale => 0.5f;
+        protected override bool Reaches(PlayerLife p) => p != null && InRoom(p.transform.position, 1.5f);
+
+        public bool InRoom(Vector3 at, float slack) =>
+            Mathf.Abs(at.x - RoomCenter.x) <= RoomSize.x / 2f + slack && Mathf.Abs(at.z - RoomCenter.z) <= RoomSize.y / 2f + slack;
         public override Progression.Deeds.Deed Deed => Progression.Deeds.Deed.LairCleared;
 
         public Vector3 RoomCenter { get; set; }
@@ -130,13 +137,16 @@ namespace Deepbound.Enemies
             return UnityEngine.AI.NavMesh.SamplePosition(p, out var h, 3f, UnityEngine.AI.NavMesh.AllAreas) ? h.position : RoomCenter;
         }
 
-        protected int LaneHit(Vector3 from, Vector3 to, float width, float dmg)
+        protected int LaneHit(Vector3 from, Vector3 to, float width, float dmg, HashSet<PlayerLife> struck = null)
         {
             int n = 0;
             foreach (var p in PlayerLife.All)
             {
-                if (p == null || !p.Targetable) continue;
-                if (p.Health.SegmentTouchesBody(from, to, width)) { p.Health.ServerDamage(dmg, from, NetworkObjectId); n++; }
+                if (p == null || !p.Targetable || !Reaches(p) || (struck != null && struck.Contains(p))) continue;
+                if (!p.Health.SegmentTouchesBody(from, to, width)) continue;
+                p.Health.ServerDamage(dmg, from, NetworkObjectId);
+                struck?.Add(p);
+                n++;
             }
             return n;
         }

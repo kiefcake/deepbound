@@ -696,6 +696,20 @@ namespace Deepbound.World
             }
         }
 
+        public const float CampFloorLimit = 6f;
+
+        private void TickCampFalls()
+        {
+            if (!InLobby) return;
+            foreach (var p in PlayerLife.All)
+            {
+                if (p == null || p.transform.position.y > Lobby.Origin.y - CampFloorLimit) continue;
+                if (rescuedAt.TryGetValue(p, out var t) && Time.time - t < 2f) continue;
+                rescuedAt[p] = Time.time;
+                p.GetComponent<NetworkPlayer>().RescueRpc(Lobby.SpawnFor(p.OwnerClientId) + Vector3.up * 0.1f);
+            }
+        }
+
         public const float UnderGate = 1.7f;
         private int ShoveUnderGates(List<Portcullis> gates, DungeonLayout.Room room)
         {
@@ -1011,6 +1025,12 @@ namespace Deepbound.World
         }
 
         public static bool InWater(Vector3 at) => WaterSlow(at) < 1f;
+
+        public static bool LandsInWater(Vector3 at)
+        {
+            var surface = WaterSurface(at);
+            return surface.HasValue && at.y <= surface.Value + 0.25f;
+        }
 
         public static float? WaterSurface(Vector3 at)
         {

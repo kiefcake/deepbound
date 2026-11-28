@@ -56,7 +56,8 @@ namespace Deepbound.Player
         private PlayerLife helper;
         private float lastHelperPing = -10f;
 
-        public const float TwoHandsRate = 1.5f;
+        public const float TwoHandsRate = 2f;
+        public const float ReviveGrace = 1.5f;
 
         public bool TwoHands { get; private set; }
 
@@ -482,6 +483,7 @@ namespace Deepbound.Player
 
                 var saviour = Teamwork.InLastStand(reviver) ? reviver : null;
                 ServerRevive(ReviveHealthFraction);
+                ServerGrantReviveGrace();
                 if (saviour != null) Teamwork.ServerClutch(saviour, this);
                 return;
             }
@@ -627,6 +629,12 @@ namespace Deepbound.Player
         {
             foreach (var p in All) if (p != null && p != this && !p.Downed.Value) return true;
             return false;
+        }
+
+        public void ServerGrantReviveGrace()
+        {
+            invulnerableUntil = Mathf.Max(invulnerableUntil, Time.time + ReviveGrace);
+            dodgeFrames = false;
         }
 
         public void ServerRevive(float healthFraction)
